@@ -42,11 +42,13 @@ except Exception as e:
     engine = None
 
 
-# Import and include API routers
+# Import routers
 from app.api.portfolio import router as portfolio_router
 from app.api.market import router as market_router
+from app.api.auth import router as auth_router
 app.include_router(portfolio_router)
 app.include_router(market_router)
+app.include_router(auth_router)
 
 
 @app.on_event("startup")

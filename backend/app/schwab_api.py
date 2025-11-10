@@ -35,19 +35,22 @@ class SchwabAPIService:
         # Get credentials from environment
         self.app_key = os.getenv('APP_KEY')
         self.app_secret = os.getenv('APP_SECRET')
-        self.callback_url = os.getenv('CALLBACK_URL', 'https://127.0.0.1')
+        self.callback_url = os.getenv('CALLBACK_URL', 'https://localhost:8000/api/auth/schwab/callback')
         
-        if not self.app_key or not self.app_secret:
-            raise ValueError(
-                "Missing Schwab API credentials. Please set APP_KEY and APP_SECRET in your .env file.\n"
-                "Get these from https://beta-developer.schwab.com/"
-            )
+        if not self.app_key or not self.app_secret or self.app_key.startswith('your_') or self.app_secret.startswith('your_'):
+            logger.warning("⚠️ Schwab API credentials not configured. Set APP_KEY and APP_SECRET in .env file to enable market data features.")
+            self.client = None
+            self.streamer = None
+            return
         
-        if len(self.app_key) not in (32, 48) or len(self.app_secret) not in (16, 64):
-            raise ValueError(
-                f"Invalid credential lengths. APP_KEY should be 32 chars, APP_SECRET should be 16 chars.\n"
-                f"Current lengths: APP_KEY={len(self.app_key)}, APP_SECRET={len(self.app_secret)}"
-            )
+        # Only validate lengths if credentials are provided and not placeholder values
+        if (self.app_key and not self.app_key.startswith('your_') and 
+            self.app_secret and not self.app_secret.startswith('your_')):
+            if len(self.app_key) not in (32, 48) or len(self.app_secret) not in (16, 64):
+                raise ValueError(
+                    f"Invalid credential lengths. APP_KEY should be 32 chars, APP_SECRET should be 16 chars.\n"
+                    f"Current lengths: APP_KEY={len(self.app_key)}, APP_SECRET={len(self.app_secret)}"
+                )
         
         # Initialize client with automatic callback capture
         self.client = None
@@ -236,10 +239,128 @@ class SchwabAPIService:
             logger.error(f"Error saving market data to database: {e}")
         finally:
             db.close()
+    
+    def is_configured(self) -> bool:
+        """Check if Schwab API credentials are configured"""
+        return (self.app_key and self.app_secret and 
+                not self.app_key.startswith('your_') and 
+                not self.app_secret.startswith('your_'))
+    
+    def get_authorization_url(self) -> Optional[str]:
+        """Generate Schwab OAuth authorization URL"""
+        try:
+            if not self.is_configured():
+                return None
+                
+            # Use schwabdev to generate auth URL
+            auth_url = schwabdev.auth_url(
+                app_key=self.app_key,
+                redirect_uri=self.callback_url
+            )
+            
+            logger.info("Generated Schwab authorization URL")
+            return auth_url
+            
+        except Exception as e:
+            logger.error(f"Error generating auth URL: {e}")
+            return None
+    
+    async def exchange_code_for_tokens(self, auth_code: str) -> Optional[Dict[str, Any]]:
+        """Exchange authorization code for access tokens"""
+        try:
+            if not self.is_configured():
+                return None
+            
+            # Initialize client with auth code to get tokens
+            self.client = schwabdev.Client(
+                app_key=self.app_key,
+                app_secret=self.app_secret,
+                callback_url=self.callback_url,
+                tokens_file="schwab_tokens.json",
+                update_tokens_auto=True
+            )
+            
+            # The schwabdev library handles token exchange automatically
+            # when initializing with tokens_file
+            logger.info("✅ Successfully exchanged authorization code for tokens")
+            
+            # Initialize streamer as well
+            try:
+                self.streamer = schwabdev.Stream(self.client)
+                logger.info("🔄 Streamer initialized successfully")
+            except Exception as e:
+                logger.warning(f"Failed to initialize streamer: {e}")
+                self.streamer = None
+            
+            return {"success": True, "message": "Tokens obtained successfully"}
+            
+        except Exception as e:
+            logger.error(f"Error exchanging code for tokens: {e}")
+            return None
+    
+    async def is_authenticated(self) -> bool:
+        """Check if user is currently authenticated with Schwab API"""
+        try:
+            if not self.client:
+                return False
+                
+            # Try a simple API call to check if tokens are valid
+            response = self.client.account_numbers()
+            return response.ok
+            
+        except Exception as e:
+            logger.debug(f"Authentication check failed: {e}")
+            return False
+    
+    async def logout(self) -> bool:
+        """Logout from Schwab API (clear stored tokens)"""
+        try:
+            # Clear the client
+            self.client = None
+            self.streamer = None
+            
+            # Remove tokens file if it exists
+            import os
+            tokens_file = "schwab_tokens.json"
+            if os.path.exists(tokens_file):
+                os.remove(tokens_file)
+                logger.info("🗑️ Removed stored tokens")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error during logout: {e}")
+            return False
+    
+    async def refresh_token(self) -> bool:
+        """Manually refresh the access token"""
+        try:
+            if not self.client:
+                return False
+            
+            # The schwabdev library handles token refresh automatically
+            # We just need to make sure update_tokens_auto is True
+            # Try an API call to trigger refresh if needed
+            response = self.client.account_numbers()
+            return response.ok
+            
+        except Exception as e:
+            logger.error(f"Error refreshing token: {e}")
+            return False
+
+    # ...existing methods...
 
 
-# Global service instance
-schwab_service = SchwabAPIService()
+# Global service instance - will be None if credentials not configured
+try:
+    schwab_service = SchwabAPIService()
+    if not schwab_service.client:
+        logger.info("🔧 Schwab API service created but not initialized (missing credentials)")
+    else:
+        logger.info("✅ Schwab API service initialized successfully")
+except Exception as e:
+    logger.warning(f"⚠️ Could not initialize Schwab API service: {e}")
+    schwab_service = None
 
 
 def test_schwab_connection():

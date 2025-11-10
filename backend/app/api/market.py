@@ -18,6 +18,13 @@ router = APIRouter(prefix="/api/market", tags=["market"])
 async def test_schwab_connection():
     """Test the Schwab API connection"""
     try:
+        if not schwab_service:
+            return {
+                "status": "unavailable",
+                "message": "Schwab API service not initialized. Please configure APP_KEY and APP_SECRET in .env file.",
+                "connection_time": datetime.utcnow().isoformat()
+            }
+        
         if not schwab_service.initialize_client():
             raise HTTPException(status_code=503, detail="Failed to initialize Schwab API client")
         

@@ -4,6 +4,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 
 const MarketDataDashboard = () => {
   const [connectionStatus, setConnectionStatus] = useState('testing');
+  const [authStatus, setAuthStatus] = useState({ authenticated: false, configured: false });
   const [quotes, setQuotes] = useState([]);
   const [symbols, setSymbols] = useState('AAPL,MSFT,TSLA,GOOGL,AMZN');
   const [accounts, setAccounts] = useState([]);
@@ -11,12 +12,70 @@ const MarketDataDashboard = () => {
   const [error, setError] = useState(null);
   const [recentData, setRecentData] = useState([]);
 
-  const API_BASE = 'http://localhost:8000/api/market';
+  const API_BASE = 'https://cfe93c0c3f7d.ngrok-free.app/api/market';
+  const AUTH_BASE = 'https://cfe93c0c3f7d.ngrok-free.app/api/auth';
 
-  // Test Schwab connection on component mount
+  // Test Schwab connection and check auth status on component mount
   useEffect(() => {
     testConnection();
+    checkAuthStatus();
   }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      const response = await axios.get(`${AUTH_BASE}/schwab/status`);
+      setAuthStatus(response.data);
+      console.log('Auth status:', response.data);
+    } catch (err) {
+      console.error('Error checking auth status:', err);
+      setAuthStatus({ authenticated: false, configured: false });
+    }
+  };
+
+  const handleLogin = () => {
+    // Open Schwab login in new window
+    const popup = window.open(
+      `${AUTH_BASE}/schwab/login`,
+      'schwab-login',
+      'width=600,height=700,scrollbars=yes,resizable=yes'
+    );
+
+    // Listen for successful authentication
+    const messageListener = (event) => {
+      if (event.data === 'schwab-auth-success') {
+        popup.close();
+        window.removeEventListener('message', messageListener);
+        checkAuthStatus();
+        setError(null);
+      }
+    };
+
+    window.addEventListener('message', messageListener);
+
+    // Check if popup was closed manually
+    const popupCheck = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(popupCheck);
+        window.removeEventListener('message', messageListener);
+        // Check auth status after popup closes
+        setTimeout(checkAuthStatus, 1000);
+      }
+    }, 1000);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await axios.post(`${AUTH_BASE}/schwab/logout`);
+      setAuthStatus({ authenticated: false, configured: false });
+      setQuotes([]);
+      setAccounts([]);
+      setError(null);
+      console.log('Logged out successfully');
+    } catch (err) {
+      console.error('Logout error:', err);
+      setError('Failed to logout');
+    }
+  };
 
   const testConnection = async () => {
     try {
@@ -146,6 +205,63 @@ const MarketDataDashboard = () => {
     );
   };
 
+  const AuthStatus = () => {
+    if (!authStatus.configured) {
+      return (
+        <div className="p-4 rounded-lg bg-yellow-100 mb-6">
+          <div className="flex items-center text-yellow-600 mb-2">
+            <span className="text-xl mr-2">⚙️</span>
+            <span className="font-semibold">Schwab API Setup Required</span>
+          </div>
+          <div className="text-sm text-yellow-700 mb-3">
+            <p>To use market data features, you need to:</p>
+            <ol className="list-decimal list-inside mt-2 space-y-1">
+              <li>Register at <a href="https://developer.schwab.com/" target="_blank" rel="noopener noreferrer" className="underline">Charles Schwab Developer Portal</a></li>
+              <li>Create an app and get your API credentials</li>
+              <li>Add your APP_KEY and APP_SECRET to the backend .env file</li>
+              <li>Restart the backend server</li>
+            </ol>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className={`p-4 rounded-lg mb-6 ${authStatus.authenticated ? 'bg-green-100' : 'bg-blue-100'}`}>
+        <div className={`flex items-center justify-between ${authStatus.authenticated ? 'text-green-600' : 'text-blue-600'}`}>
+          <div className="flex items-center">
+            <span className="text-xl mr-2">{authStatus.authenticated ? '🔐' : '🔑'}</span>
+            <span className="font-semibold">
+              {authStatus.authenticated ? 'Authenticated with Schwab' : 'Schwab Authentication Required'}
+            </span>
+          </div>
+          <div className="space-x-2">
+            {!authStatus.authenticated ? (
+              <button 
+                onClick={handleLogin}
+                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+              >
+                Login to Schwab
+              </button>
+            ) : (
+              <button 
+                onClick={handleLogout}
+                className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+              >
+                Logout
+              </button>
+            )}
+          </div>
+        </div>
+        {!authStatus.authenticated && authStatus.configured && (
+          <div className="text-sm text-blue-700 mt-2">
+            Click "Login to Schwab" to authenticate and access real-time market data.
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-8">
@@ -158,8 +274,9 @@ const MarketDataDashboard = () => {
       </div>
 
       <ConnectionStatus />
+      <AuthStatus />
 
-      {connectionStatus === 'connected' && (
+      {connectionStatus === 'connected' && authStatus.configured && (
         <>
           {/* Market Quotes Section */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
