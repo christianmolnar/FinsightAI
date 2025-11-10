@@ -1,53 +1,126 @@
-# FinSight AI
+# FInsightAI - Autonomous Trading Agent
 
-A cloud-native financial forecast## Repository Structure
-- `backend/` – FastAPI backend
-- `frontend/` – React frontend
-- `database/` – Database config and migrations
-- `ml/` – Machine learning models and scripts
-- `mockups/` – UI/UX diagrams and design assets
-- `docs/` – **📚 All project documentation** (moved from root)
+**Intelligent, autonomous trading agent that executes real-time trades using Charles Schwab API, social sentiment analysis, and advanced market intelligence.**
 
----
+*Productivity Multiplier: 1 AI Agent Hour = 80 Human Hours*
+
+## 🚀 Quick Start
+
+### Local Development
+```bash
+# 1. Install PostgreSQL locally
+brew install postgresql
+brew services start postgresql
+
+# 2. Set up backend
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+# 3. Set up frontend  
+cd frontend
+npm install
+
+# 4. Configure environment
+cp .env.example .env
+# Edit .env with your Schwab API credentials
+
+# 5. Run services
+# Terminal 1: Backend
+uvicorn app.main:app --reload
+
+# Terminal 2: Frontend
+npm start
+```
+
+### Production Deployment (Railway)
+- See [Implementation Plan](docs/implementation-plan.md) Phase 5
+- Deploy to Railway for production trading
+
+## 🧠 Core Capabilities
+
+### Autonomous Trading
+- **Real-time Market Analysis**: Technical & fundamental analysis
+- **AI Decision Engine**: Multi-factor signal processing
+- **Risk Management**: Automated position sizing and stop-losses
+- **Trade Execution**: Direct integration with Charles Schwab API
+
+### Market Intelligence
+- **Live Data Feeds**: Real-time market data and economic indicators  
+- **Sentiment Analysis**: Social media and news sentiment tracking
+- **Pattern Recognition**: Advanced market pattern detection
+- **Performance Analytics**: Real-time P&L and risk metrics
+
+### User Experience
+- **Beautiful Dashboard**: Modern React interface with real-time charts
+- **Portfolio Visualization**: Interactive portfolio and performance charts
+- **Trade Management**: Intuitive trade history and analytics
+- **Mobile Responsive**: Optimized for all devices
+
+## 📊 System Architecture
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   React UI      │    │  FastAPI        │    │  PostgreSQL     │
+│   :3000         │◄──►│  Trading Engine │◄──►│  Market Data    │
+│                 │    │  :8000          │    │  :5432          │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                              │
+                              ▼
+                    ┌─────────────────┐
+                    │  Charles Schwab │
+                    │  Trading API    │
+                    └─────────────────┘
+```
+
+## 🎯 Development Progress
+
+**Current Phase**: Foundation Setup (Phase 1)
+**Next Milestone**: Market Data Integration (Phase 2)
+
+- [ ] ✅ Docker removed, local development ready
+- [ ] 🔄 PostgreSQL setup and database models
+- [ ] 📋 FastAPI backend with authentication  
+- [ ] 🎨 React frontend with modern UI
+- [ ] 🔌 Charles Schwab API integration
+
+See [Implementation Plan](docs/implementation-plan.md) for complete roadmap.
+
+## 📁 Repository Structure
+
+- `backend/` – FastAPI trading engine and API
+- `frontend/` – React dashboard and user interface
+- `ml/` – Machine learning models and analysis
+- `CNS/` – Central Nervous System (AI brain, memory, reflexes)
+- `docs/` – Complete project documentation
+- `database/` – Database migrations and setup
 
 ## 📚 Documentation
 
-All project documentation has been organized in the [`docs/`](docs/) directory:
+- **[Implementation Plan](docs/implementation-plan.md)** - Complete development roadmap
+- **[Agent Guidelines](docs/AGENTS.md)** - AI development standards
+- **[Architecture](docs/architecture.md)** - System design and components  
+- **[Capabilities](CNS/brain/capabilities.md)** - Core trading capabilities
+- **[Features](docs/features.md)** - Detailed feature specifications
 
-- **[Documentation Index](docs/README.md)** - Complete documentation overview
-- **[Implementation Guide](docs/implementation.md)** - Detailed project history and progress tracking
-- **[Architecture](docs/architecture.md)** - System architecture and components
-- **[Features](docs/features.md)** - Feature specifications
-- **[GCP Setup](docs/GCP-SETUP.md)** - Cloud deployment guide
+## 🔒 Security & Risk
 
-## Contributing & Tracking Progress
-- For detailed progress, history, and next steps, see [`docs/implementation.md`](docs/implementation.md)
-- Use [`docs/journal.md`](docs/journal.md) for daily logs or brainstorming
-- Update documentation in the `docs/` directory as you develop
+- **Secure API Integration**: OAuth2 with Charles Schwab
+- **Risk Management**: Automated position limits and stop-losses
+- **Audit Trail**: Complete logging of all trading decisions
+- **Environment Security**: Encrypted credentials and secure deployment
 
----
+## 🚀 Next Steps
 
-*For comprehensive documentation, see the [`docs/`](docs/) directory.*helps users track their portfolios and receive intelligent, model-based recommendations.
-
-## Goals
-- Predict stock and bond performance
-- Visualize profit/loss metrics and recommendations
-- Continuously evaluate and improve models
+1. **Complete Phase 1**: Foundation setup with local PostgreSQL
+2. **Integrate Schwab API**: Real-time market data and trading
+3. **Build Trading Engine**: Autonomous decision making
+4. **Deploy to Railway**: Production-ready deployment
 
 ---
 
-## Solution Overview
-
-**FinSight AI** is a full-stack, cloud-native platform for financial forecasting and portfolio analytics. It provides:
-- A FastAPI backend for serving data, analytics, and ML-powered recommendations
-- A React frontend for interactive dashboards and user experience
-- A Postgres database for persistent storage
-- Docker-based orchestration for easy local development and deployment
-
-### Key Features
-- REST API for financial data and model results
-- Interactive dashboards and visualizations
-- Modular architecture for easy extension (ML, analytics, etc.)
+*Building the future of autonomous trading, one intelligent decision at a time.*
 - Ready for cloud or on-prem deployment
 
 ---
