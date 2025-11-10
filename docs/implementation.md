@@ -3,7 +3,18 @@
 ## Setup
 
 1. Open VS Code
-2. Create a new project folder `finsight-ai`
+2. Create a new project folder `### Progress Log (as of November 9, 2025)
+
+**What's Done:**
+- [x] Project structure set up (backend, frontend, database, ML, mockups, etc.)
+- [x] Docker Compose configured for backend (FastAPI), frontend (React), and Postgres database
+- [x] Backend FastAPI app runs locally and in Docker
+- [x] Frontend React app runs in Docker and is accessible at http://localhost:3000
+- [x] Database container is running
+- [x] **Documentation organized** - All documentation moved to `docs/` directory with comprehensive index
+- [x] **Frontend/Backend running** - Both services successfully running in development mode
+
+**What's Next:**i`
 3. Clone repo or create files from scratch
 
 ## File Layout
@@ -117,8 +128,17 @@
    - Prepare production Docker builds
    - Document deployment steps
 5. **Documentation**
-   - Update this file as you progress
-   - Add API usage examples and setup instructions
+   - [x] Organize all documentation into `docs/` directory
+   - [x] Create comprehensive documentation index
+   - [ ] Add API usage examples and setup instructions
+   - [ ] Update component documentation with current implementation details
+
+**Recent Updates (November 9, 2025):**
+- Created `docs/` directory and organized all documentation files
+- Created comprehensive documentation index (`docs/README.md`)
+- Successfully resolved npm dev server issue (was running from wrong directory)
+- Both frontend and backend are now running in development mode
+- Updated progress tracking with current status
 
 **How to Track Progress:**
 - Update the "Progress Log" section above after each work session.

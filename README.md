@@ -1,6 +1,33 @@
 # FinSight AI
 
-A cloud-native financial forecasting platform that helps users track their portfolios and receive intelligent, model-based recommendations.
+A cloud-native financial forecast## Repository Structure
+- `backend/` – FastAPI backend
+- `frontend/` – React frontend
+- `database/` – Database config and migrations
+- `ml/` – Machine learning models and scripts
+- `mockups/` – UI/UX diagrams and design assets
+- `docs/` – **📚 All project documentation** (moved from root)
+
+---
+
+## 📚 Documentation
+
+All project documentation has been organized in the [`docs/`](docs/) directory:
+
+- **[Documentation Index](docs/README.md)** - Complete documentation overview
+- **[Implementation Guide](docs/implementation.md)** - Detailed project history and progress tracking
+- **[Architecture](docs/architecture.md)** - System architecture and components
+- **[Features](docs/features.md)** - Feature specifications
+- **[GCP Setup](docs/GCP-SETUP.md)** - Cloud deployment guide
+
+## Contributing & Tracking Progress
+- For detailed progress, history, and next steps, see [`docs/implementation.md`](docs/implementation.md)
+- Use [`docs/journal.md`](docs/journal.md) for daily logs or brainstorming
+- Update documentation in the `docs/` directory as you develop
+
+---
+
+*For comprehensive documentation, see the [`docs/`](docs/) directory.*helps users track their portfolios and receive intelligent, model-based recommendations.
 
 ## Goals
 - Predict stock and bond performance
