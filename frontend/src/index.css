@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for the trading dashboard */
+.card {
+  @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
+}
+
+.card-header {
+  @apply mb-4 pb-2 border-b border-gray-100;
+}
+
+.card-title {
+  @apply text-lg font-semibold text-gray-900;
+}
+
+.metric-card {
+  @apply bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100;
+}
+
+.metric-value {
+  @apply text-2xl font-bold text-gray-900;
+}
+
+.metric-label {
+  @apply text-sm font-medium text-gray-600;
+}
+
+.positive {
+  @apply text-green-600;
+}
+
+.negative {
+  @apply text-red-600;
+}
+
+.neutral {
+  @apply text-gray-600;
+}
+
+/* Loading states */
+.loading-skeleton {
+  @apply animate-pulse bg-gray-200 rounded;
+}
