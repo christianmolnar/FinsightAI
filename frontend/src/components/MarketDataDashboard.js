@@ -12,8 +12,8 @@ const MarketDataDashboard = () => {
   const [error, setError] = useState(null);
   const [recentData, setRecentData] = useState([]);
 
-  const API_BASE = 'https://cfe93c0c3f7d.ngrok-free.app/api/market';
-  const AUTH_BASE = 'https://cfe93c0c3f7d.ngrok-free.app/api/auth';
+  const API_BASE = 'http://localhost:8000/api/market';
+  const AUTH_BASE = 'http://localhost:8000/api/auth';
 
   // Test Schwab connection and check auth status on component mount
   useEffect(() => {

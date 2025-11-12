@@ -1,0 +1,15 @@
+{
+  "default": {
+    "id": "default",
+    "name": "Paper Portfolio",
+    "cash_balance": 9122.5,
+    "positions": {
+      "AAPL": {
+        "quantity": 5.0,
+        "avg_price": 175.5,
+        "total_cost": 877.5
+      }
+    },
+    "realized_pnl": 0.0
+  }
+}

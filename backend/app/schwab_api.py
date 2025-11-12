@@ -252,13 +252,12 @@ class SchwabAPIService:
             if not self.is_configured():
                 return None
                 
-            # Use schwabdev to generate auth URL
-            auth_url = schwabdev.auth_url(
-                app_key=self.app_key,
-                redirect_uri=self.callback_url
-            )
+            # Manually construct the correct OAuth URL
+            # The schwabdev.auth_url() sometimes generates incorrect URLs
+            base_url = "https://api.schwabapi.com/v1/oauth/authorize"
+            auth_url = f"{base_url}?client_id={self.app_key}&redirect_uri={self.callback_url}&response_type=code"
             
-            logger.info("Generated Schwab authorization URL")
+            logger.info(f"Generated Schwab authorization URL: {auth_url}")
             return auth_url
             
         except Exception as e:

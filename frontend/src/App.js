@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Dashboard from './components/Dashboard';
 import MarketDataDashboard from './components/MarketDataDashboard';
+import StrategyConfig from './components/StrategyConfig';
+import PaperPortfolio from './components/PaperPortfolio';
+import RealPortfolio from './RealPortfolio';
 import Navbar from './components/Navbar';
 import './index.css';
 
@@ -12,7 +15,7 @@ function App() {
   const [trades, setTrades] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('portfolio');
+  const [activeTab, setActiveTab] = useState('schwab');
 
   useEffect(() => {
     fetchData();
@@ -91,14 +94,24 @@ function App() {
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8">
               <button
-                onClick={() => setActiveTab('portfolio')}
+                onClick={() => setActiveTab('schwab')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'portfolio'
+                  activeTab === 'schwab'
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                Portfolio Dashboard
+                Schwab Portfolio
+              </button>
+              <button
+                onClick={() => setActiveTab('paper')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'paper'
+                    ? 'border-green-500 text-green-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Paper Portfolio
               </button>
               <button
                 onClick={() => setActiveTab('market')}
@@ -108,24 +121,37 @@ function App() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                Market Data (Schwab API)
+                Market Data
+              </button>
+              <button
+                onClick={() => setActiveTab('config')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'config'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Strategy Config
               </button>
             </nav>
           </div>
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'portfolio' && (
-          <Dashboard 
-            portfolioData={portfolioData} 
-            trades={trades}
-            loading={loading}
-            onRefresh={refreshData}
-          />
+        {activeTab === 'schwab' && (
+          <RealPortfolio />
+        )}
+        
+        {activeTab === 'paper' && (
+          <PaperPortfolio />
         )}
         
         {activeTab === 'market' && (
           <MarketDataDashboard />
+        )}
+        
+        {activeTab === 'config' && (
+          <StrategyConfig />
         )}
       </main>
     </div>

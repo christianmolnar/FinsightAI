@@ -46,9 +46,13 @@ except Exception as e:
 from app.api.portfolio import router as portfolio_router
 from app.api.market import router as market_router
 from app.api.auth import router as auth_router
+from api.ai_optimizer import router as ai_optimizer_router
+from api.paper_trading_simple import router as paper_trading_router
 app.include_router(portfolio_router)
 app.include_router(market_router)
 app.include_router(auth_router)
+app.include_router(ai_optimizer_router, prefix="/api/v1/ai", tags=["AI Optimization"])
+app.include_router(paper_trading_router, prefix="/api/v1", tags=["Paper Trading"])
 
 
 @app.on_event("startup")
