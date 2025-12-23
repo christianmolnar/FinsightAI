@@ -47,7 +47,7 @@ const PaperPortfolio = () => {
   const fetchPortfolio = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8000/api/v1/paper/portfolio');
+      const response = await fetch(`${API_BASE_URL}/api/v1/paper/portfolio`);
       if (response.ok) {
         const data = await response.json();
         setPortfolio(data);
@@ -128,7 +128,13 @@ const PaperPortfolio = () => {
     return true;
   });
 
-  const currentPositions = portfolio?.positions?.filter(p => p.quantity > 0) || [];
+  // Convert positions object to array
+  const currentPositions = portfolio?.positions 
+    ? Object.entries(portfolio.positions).map(([symbol, data]) => ({
+        symbol,
+        ...data
+      })).filter(p => p.quantity > 0)
+    : [];
   const hasPositions = currentPositions.length > 0;
 
   if (loading && !portfolio) {

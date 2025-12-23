@@ -154,9 +154,19 @@ async def get_market_data(symbol: str):
 
 # Helper function to get real stock price
 def get_real_stock_price(symbol: str) -> float:
-    """Fetch real-time stock price from Yahoo Finance"""
+    """Fetch real-time stock price from Yahoo Finance with timeout"""
     try:
         import yfinance as yf
+        from datetime import datetime
+        import pytz
+        
+        # Check if market is open (basic check)
+        now = datetime.now(pytz.timezone('US/Eastern'))
+        if now.weekday() >= 5:  # Weekend
+            return None
+        if now.hour < 9 or (now.hour == 9 and now.minute < 30) or now.hour >= 16:  # Outside market hours
+            return None
+            
         ticker = yf.Ticker(symbol)
         data = ticker.history(period="1d", interval="1m")
         if not data.empty:
