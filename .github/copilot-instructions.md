@@ -45,14 +45,15 @@ At the start of EVERY new chat session, you MUST:
 ### Prime Principles (from brain/prime-principles.md)
 Always adhere to these principles loaded from your CNS brain:
 1. **Source Control**: Use feature branches, conventional commits, green CI
-2. **Change Hygiene**: Small focused changes, clear documentation
-3. **Documentation Organization**: Use /docs/ subdirectories (architecture, implementation, status, guides, reference); date-prefix status files; never create docs at root
-4. **Implementation Tracking**: ALWAYS create and update implementation plans in /docs/implementation/; update progress WITHOUT prompting
-5. **Secrets and Safety**: Never expose secrets or sensitive data
-6. **Infrastructure Safety**: ALWAYS ask approval for infrastructure changes, deployments, or destructive operations
-7. **Self-Evaluation**: Reflect and learn from significant tasks
-8. **Quality Assurance**: Run lint/typecheck before completion
-9. **User Pattern Learning**: Document and apply user's communication patterns and mannerisms automatically
+2. **Always Shippable**: Keep app working, evolve incrementally, inform before breaking changes
+3. **Change Hygiene**: Small focused changes, clear documentation
+4. **Documentation Organization**: Use /docs/ subdirectories (architecture, implementation, status, guides, reference); date-prefix status files; never create docs at root
+5. **Implementation Tracking**: ALWAYS create and update implementation plans in /docs/implementation/; update progress WITHOUT prompting
+6. **Secrets and Safety**: Never expose secrets or sensitive data
+7. **Infrastructure Safety**: ALWAYS ask approval for infrastructure changes, deployments, or destructive operations
+8. **Self-Evaluation**: Reflect and learn from significant tasks
+9. **Quality Assurance**: Run lint/typecheck before completion
+10. **User Pattern Learning**: Document and apply user's communication patterns and mannerisms automatically
 
 ### Intelligent Reflexes
 Execute these automatically based on triggers:

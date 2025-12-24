@@ -21,26 +21,14 @@ docs/
 ### Naming Conventions
 
 **❌ BAD (Generic, no context):**
-- `DESIGN-SESSION-SUMMARY.md` (no date)
-- `USER-EXPERIENCE-SPEC.md` (in root, no date)
-- `IMPLEMENTATION-TRACKING-PLAN.md` (in root, no date)
-- `QUICK-START.md` (no date or phase context)
+- `DESIGN-SESSION-SUMMARY.md`
+- `QUICK-START.md`
+- `ARCHITECTURE.md`
 
 **✅ GOOD (Specific, with context):**
-- `status/2024-12-23-DESIGN-SESSION.md` (status doc with date)
-- `specifications/2025-12-23-USER-EXPERIENCE-SPEC.md` (active spec with date)
-- `planning/2025-12-23-IMPLEMENTATION-TRACKING-PLAN.md` (active plan with date)
-- `guides/PHASE-1-QUICK-START.md` (guide with phase context)
-
-### Date Prefix Rules
-
-**ALL documents need dates in filename:**
-- Status documents: `YYYY-MM-DD-` prefix (e.g., `2024-12-23-SESSION-SUMMARY.md`)
-- Planning documents: `YYYY-MM-DD-` prefix (e.g., `2024-12-23-implementation-plan.md`)
-- Specifications: `YYYY-MM-DD-` prefix (e.g., `2025-12-23-TRADING-STRATEGY-SPEC.md`)
-- Historical documents: Use creation/last-modified date (usually 2024-12-23)
-- Active/living documents: Use current date (2025-12-23) and update when major revisions happen
-- Guides: Only need dates if time-sensitive, otherwise descriptive names OK
+- `status/2024-12-23-DESIGN-SESSION.md` (includes date!)
+- `guides/PHASE-1-QUICK-START.md` (includes phase context)
+- `architecture/AI-AGENT-ARCHITECTURE.md` (describes what it is)
 
 ### Key Principles
 
@@ -180,10 +168,9 @@ It depends on work schedule:
 - **Root Cause:** Confused real-time hours with calendar time
 
 ### 2. Document Organization
-- **Error:** Created docs in root with generic names, no dates
-- **Fix:** Use existing folder structure with YYYY-MM-DD- prefixes
+- **Error:** Created docs in root with generic names
+- **Fix:** Use existing folder structure with dates and specificity
 - **Root Cause:** Didn't check existing structure before creating docs
-- **Solution Applied:** Complete reorganization - all docs now in proper folders with dates
 
 ### 3. UI Enhancement vs. Replacement
 - **Error:** Didn't clarify we're enhancing, not replacing existing UI
@@ -194,12 +181,6 @@ It depends on work schedule:
 - **Error:** Only designed for exits (SELL), forgot BUY_MORE
 - **Fix:** Full position management: HOLD / BUY_MORE / SELL / WATCH
 - **Root Cause:** Incomplete understanding of feature requirements
-
-### 5. Specification Timeline References
-- **Error:** USER-EXPERIENCE-SPEC.md had "Week 1-2, Week 3-4" instead of actual timeline
-- **Fix:** Changed to "Phase 1 (Day 1, 4h), Phase 2 (Day 2, 3h)" etc.
-- **Root Cause:** Document created before timeline corrections were made
-- **Solution Applied:** Updated spec to show 35 total hours across 6 phases
 
 ---
 
