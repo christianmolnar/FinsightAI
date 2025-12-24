@@ -5,7 +5,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 const MarketDataDashboard = () => {
   const [connectionStatus, setConnectionStatus] = useState('connected');
   const [quotes, setQuotes] = useState([]);
-  const [symbols, setSymbols] = useState('AAPL,MSFT,TSLA,GOOGL,AMZN');
+  const [symbols, setSymbols] = useState('AAPL,MSFT,TSLA,GOOGL,AMZN,TEAM');
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -87,12 +87,25 @@ const MarketDataDashboard = () => {
     }
   };
 
+  const getCompanyName = (symbol) => {
+    const companyNames = {
+      'AAPL': 'Apple Inc.',
+      'MSFT': 'Microsoft Corporation',
+      'TSLA': 'Tesla, Inc.',
+      'GOOGL': 'Alphabet Inc.',
+      'AMZN': 'Amazon.com, Inc.',
+      'TEAM': 'Atlassian Corporation'
+    };
+    return companyNames[symbol] || '';
+  };
+
   const formatQuoteData = (quotes) => {
     return Object.entries(quotes).map(([symbol, data]) => {
       // Handle different possible data structures from Schwab API
       const quote = data.quote || data;
       return {
         symbol,
+        companyName: getCompanyName(symbol),
         price: quote.lastPrice || quote.last || quote.regularMarketPrice || 'N/A',
         change: quote.netChange || quote.change || 'N/A',
         changePercent: quote.netPercentChange || quote.changePercent || 'N/A',
@@ -182,6 +195,9 @@ const MarketDataDashboard = () => {
                 {formatQuoteData(quotes).map((quote) => (
                   <div key={quote.symbol} className="border rounded-lg p-4 bg-gray-50">
                     <div className="text-lg font-bold text-gray-900">{quote.symbol}</div>
+                    {quote.companyName && (
+                      <div className="text-xs text-gray-600 mb-2">{quote.companyName}</div>
+                    )}
                     <div className="text-2xl font-semibold text-gray-800">${quote.price}</div>
                     <div className={`text-sm ${parseFloat(quote.change) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {quote.change} ({quote.changePercent}%)
