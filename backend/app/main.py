@@ -158,7 +158,7 @@ async def get_market_data(symbol: str):
 
 
 # Helper function to get real stock price
-def get_real_stock_price(symbol: str) -> float:
+def get_real_stock_price(symbol: str) -> float | None:
     """Fetch real-time stock price from Yahoo Finance with timeout"""
     try:
         import yfinance as yf
@@ -186,8 +186,12 @@ def get_real_stock_price(symbol: str) -> float:
 @app.get("/api/v1/paper/portfolio")
 async def get_paper_portfolio():
     """Get paper trading portfolio from Railway PostgreSQL with real-time prices"""
-    import psycopg2
-    from psycopg2.extras import RealDictCursor
+    try:
+        import psycopg2  # type: ignore
+        from psycopg2.extras import RealDictCursor  # type: ignore
+    except ImportError:
+        return {"error": "psycopg2 not installed"}
+    
     from decimal import Decimal
     
     db_url = os.getenv('DATABASE_URL', 'postgresql://postgres:QokDSjvhKDiUbMUhyeQOXuhONnJjpZxG@yamanote.proxy.rlwy.net:46033/railway')
@@ -209,25 +213,28 @@ async def get_paper_portfolio():
         if not portfolio:
             return {"error": "Portfolio not found"}
         
+        # Type-safe dictionary access with RealDictCursor
+        portfolio_id: int = portfolio['id']  # type: ignore
+        
         # Get positions
         cur.execute("""
             SELECT symbol, quantity, average_cost as avg_price,
                    current_price, market_value, unrealized_pnl
             FROM positions
             WHERE portfolio_id = %s
-        """, (portfolio['id'],))
+        """, (portfolio_id,))
         
         positions = {}
         total_market_value = Decimal('0')
         
         for pos in cur.fetchall():
-            symbol = pos['symbol']
-            quantity = float(pos['quantity'])
-            avg_price = float(pos['avg_price'])
+            symbol: str = pos['symbol']  # type: ignore
+            quantity = float(pos['quantity'])  # type: ignore
+            avg_price = float(pos['avg_price'])  # type: ignore
             
             # Get real-time price
             real_price = get_real_stock_price(symbol)
-            current_price = real_price if real_price else float(pos['current_price'])
+            current_price = real_price if real_price else float(pos['current_price'])  # type: ignore
             
             # Calculate values with real price
             market_value = quantity * current_price
@@ -243,7 +250,7 @@ async def get_paper_portfolio():
             
             total_market_value += Decimal(str(market_value))
         
-        cash_balance = float(portfolio['current_cash'])
+        cash_balance = float(portfolio['current_cash'])  # type: ignore
         total_value = cash_balance + float(total_market_value)
         
         cur.close()
@@ -262,9 +269,13 @@ async def get_paper_portfolio():
 
 
 @app.post("/api/v1/paper/trade/buy")
-async def paper_buy(symbol: str, quantity: float, price: float = None):
+async def paper_buy(symbol: str, quantity: float, price: float | None = None):
     """Execute paper buy trade with optional real-time pricing"""
-    import psycopg2
+    try:
+        import psycopg2  # type: ignore
+    except ImportError:
+        return {"status": "error", "message": "psycopg2 not installed"}
+    
     from decimal import Decimal
     
     db_url = os.getenv('DATABASE_URL', 'postgresql://postgres:QokDSjvhKDiUbMUhyeQOXuhONnJjpZxG@yamanote.proxy.rlwy.net:46033/railway')
@@ -288,6 +299,10 @@ async def paper_buy(symbol: str, quantity: float, price: float = None):
             WHERE u.email = 'default@finsight.ai' AND p.portfolio_type = 'paper'
         """)
         result = cur.fetchone()
+        
+        if result is None:
+            return {"status": "error", "message": "Portfolio not found"}
+        
         portfolio_id, cash = result[0], Decimal(str(result[1]))
         
         cost = Decimal(str(quantity)) * Decimal(str(price))
@@ -335,7 +350,10 @@ async def paper_buy(symbol: str, quantity: float, price: float = None):
 @app.post("/api/v1/paper/reset")
 async def paper_reset():
     """Reset paper portfolio to $10,000"""
-    import psycopg2
+    try:
+        import psycopg2  # type: ignore
+    except ImportError:
+        return {"status": "error", "message": "psycopg2 not installed"}
     
     db_url = os.getenv('DATABASE_URL', 'postgresql://postgres:QokDSjvhKDiUbMUhyeQOXuhONnJjpZxG@yamanote.proxy.rlwy.net:46033/railway')
     
@@ -348,7 +366,12 @@ async def paper_reset():
             JOIN users u ON p.user_id = u.id
             WHERE u.email = 'default@finsight.ai' AND p.portfolio_type = 'paper'
         """)
-        portfolio_id = cur.fetchone()[0]
+        result = cur.fetchone()
+        
+        if result is None:
+            return {"status": "error", "message": "Portfolio not found"}
+        
+        portfolio_id = result[0]
         
         cur.execute("DELETE FROM positions WHERE portfolio_id = %s", (portfolio_id,))
         cur.execute("DELETE FROM transactions WHERE portfolio_id = %s", (portfolio_id,))
