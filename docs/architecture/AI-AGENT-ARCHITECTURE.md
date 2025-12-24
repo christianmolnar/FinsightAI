@@ -1,7 +1,8 @@
 # FInsightAI - AI Trading Agent Architecture
 **Date:** December 23, 2025  
-**Version:** 1.0  
-**Status:** Design Phase
+**Version:** 1.1  
+**Status:** Design Phase  
+**Last Updated:** December 23, 2025 (Added UI integration clarification)
 
 ---
 
@@ -12,9 +13,38 @@
 2. **Validates user decisions** when user says "I want to sell Y"
 3. **Autonomously finds opportunities** by scanning the market 24/7
 4. **Proposes trades** with full transparency (reasons, timing, amounts)
-5. **Learns from history** to improve recommendations over time
+5. **Monitors existing positions** - recommends HOLD / BUY_MORE / SELL
+6. **Learns from history** to improve recommendations over time
 
 **Key Principle:** AI acts as a **collaborative partner**, not a black box. User always has final say.
+
+---
+
+## 🎨 UI Integration Strategy
+
+**IMPORTANT:** We are **ENHANCING** the existing beautiful React/Tailwind UI, **NOT** rebuilding from scratch.
+
+### What Stays The Same ✅
+- ✅ Existing Dashboard layout and design
+- ✅ Portfolio tab with current positions
+- ✅ Market Data tab (live quotes)
+- ✅ Navigation structure
+- ✅ Tailwind CSS theme and styling
+- ✅ All existing components
+
+### What We're Adding 🆕
+- 🆕 **Research Tab** - New tab for AI stock analysis
+- 🆕 **Queue Tab** - New tab for pending transactions
+- 🆕 **Dashboard Widget** - "Pending Actions" widget on existing dashboard
+- 🆕 **Portfolio Enhancements** - Add AI status indicators (✅🎯⚠️) to existing position cards
+- 🆕 **History Tab** - New tab for trade history with AI insights
+
+### Integration Approach
+- New components match existing design language
+- Use existing Tailwind theme (colors, spacing, typography)
+- Follow existing component patterns
+- Add tabs to existing navigation (don't replace)
+- Enhance existing screens, don't rebuild them
 
 ---
 
