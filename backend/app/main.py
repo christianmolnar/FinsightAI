@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 import os
 from dotenv import load_dotenv
 import logging
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 import time
 
@@ -14,6 +14,9 @@ load_dotenv()
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Import database components from app.database
+from app.database import engine, get_db, check_connection
 
 # Create FastAPI app
 app = FastAPI(
@@ -31,21 +34,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Database connection
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://christian@localhost:5432/finsight")
-
-try:
-    engine = create_engine(DATABASE_URL)
-    logger.info("Database engine created successfully")
-except Exception as e:
-    logger.error(f"Failed to create database engine: {e}")
-    engine = None
-
 
 # Import routers
 from app.api.portfolio import router as portfolio_router
 from app.api.market import router as market_router
 from app.api.auth import router as auth_router
+from app.api.strategy_parameters import router as strategy_parameters_router
 # Commented out optional routers that may not exist in deployment
 # from api.ai_optimizer import router as ai_optimizer_router
 # from api.paper_trading_db import router as paper_trading_router
@@ -53,6 +47,7 @@ from app.api.auth import router as auth_router
 app.include_router(portfolio_router)
 app.include_router(market_router)
 app.include_router(auth_router)
+app.include_router(strategy_parameters_router)
 # app.include_router(ai_optimizer_router, prefix="/api/v1/ai", tags=["AI Optimization"])
 # app.include_router(paper_trading_router, prefix="/api/v1", tags=["Paper Trading"])
 
@@ -62,12 +57,20 @@ app.include_router(auth_router)
 @app.on_event("startup")
 async def startup_event():
     """Initialize database on startup"""
+    logger.info("Starting FInsightAI Trading Agent...")
+    
+    # Check database connection
+    if check_connection():
+        logger.info("✓ Database connection successful")
+    else:
+        logger.warning("⚠ Database connection failed - some features may not work")
+    
+    # Import models to register them with SQLAlchemy
     try:
-        from app.database import create_tables
-        create_tables()
-        logger.info("Database tables created successfully")
+        from app import models
+        logger.info("✓ Models loaded successfully")
     except Exception as e:
-        logger.error(f"Failed to create database tables: {e}")
+        logger.error(f"✗ Failed to load models: {e}")
 
 
 @app.get("/")

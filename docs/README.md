@@ -1,172 +1,131 @@
-# 📚 FInsightAI Documentation
+# FInsightAI Documentation Index
 
-**Last Updated:** November 12, 2025
-
----
-
-## 🚀 START HERE
-
-**New to the project?** Read these three documents in order:
-
-1. **[QUICK-START.md](QUICK-START.md)** - 2 min read - What to read when
-2. **[START-HERE.md](START-HERE.md)** - 5 min read - Complete navigation guide  
-3. **[PROJECT-STATUS.md](PROJECT-STATUS.md)** ⭐ - Live status dashboard
+**Last Updated:** December 22, 2025
 
 ---
 
-## 📋 Documentation Structure
+## 📁 Documentation Structure
 
-### 🎯 Essential Documents (Read These First)
-- **[QUICK-START.md](QUICK-START.md)** - Reading guide by task type
-- **[START-HERE.md](START-HERE.md)** - Complete documentation navigation
-- **[PROJECT-STATUS.md](PROJECT-STATUS.md)** ⭐ - **LIVE STATUS - CHECK DAILY**
+### 📋 Specifications (`/specifications`)
+Core system specifications and requirements
 
-### 📂 Organized by Purpose
+- **[TRADING-STRATEGY-SPECIFICATION.md](specifications/TRADING-STRATEGY-SPECIFICATION.md)** ⭐ **NEW**
+  - Complete trading strategy documentation
+  - All 4 strategies with detailed parameters
+  - AI optimization specifications  
+  - Entry/exit logic
+  - Risk management rules
+  - API & UI specifications
 
-#### `/planning` - What We're Building
-- **[current-app-state.md](planning/current-app-state.md)** - Feature status & gaps
-- **[implementation-roadmap.md](planning/implementation-roadmap.md)** - 14-day dev plan
-- [features.md](planning/features.md) - Complete feature specs
-- [evaluation.md](planning/evaluation.md) - Testing criteria
+- [configuration-interface-spec.md](specifications/configuration-interface-spec.md)
+- [dashboard-design-spec.md](specifications/dashboard-design-spec.md)
 
-#### `/architecture` - How It's Built
-- [architecture.md](architecture/architecture.md) - System overview
-- [backend.md](architecture/backend.md) - API design
-- [frontend.md](architecture/frontend.md) - UI components
-- [database.md](architecture/database.md) - Schema & models
-- [ml.md](architecture/ml.md) - AI/ML architecture
-- [models.md](architecture/models.md) - Data structures
+### 🏗️ Architecture (`/architecture`)
+System design and technical architecture
 
-#### `/guides` - How To Do It
-- [GCP-SETUP.md](guides/GCP-SETUP.md) - Deployment guide
-- [implementation.md](guides/implementation.md) - Best practices
-- [mockups.md](guides/mockups.md) - UI designs
+- [trading-strategy-framework.md](architecture/trading-strategy-framework.md)
+- [architecture.md](architecture/architecture.md)
+- [backend.md](architecture/backend.md)
+- [frontend.md](architecture/frontend.md)
+- [database.md](architecture/database.md)
+- [models.md](architecture/models.md)
+- [ml.md](architecture/ml.md)
 
----
+### 📊 Planning (`/planning`)
+Project planning and roadmaps
 
-## 🎯 Current Status (Nov 12, 2025)
+- **[IMPLEMENTATION-TRACKING-PLAN.md](planning/IMPLEMENTATION-TRACKING-PLAN.md)** ⭐ **MASTER PLAN**
+  - Complete 8-week implementation roadmap
+  - All phases, tasks, and milestones
+  - Progress tracking and success metrics
+  - Sprint planning and daily tracking
 
-### ✅ What's Working
-- Paper Trading System (85% complete)
-- Strategy Configuration (100% complete)
-- Backend APIs running
-- Frontend on localhost:3000
+- [configuration-interface-spec.md](planning/configuration-interface-spec.md)
+- [dashboard-design-spec.md](planning/dashboard-design-spec.md)
+- [strategic-direction-update.md](planning/strategic-direction-update.md)
 
-### 🔄 In Progress
-- Paper trading end-to-end testing
-- Database deployment to Supabase
-- Real market data integration
+### 🚀 Deployment (`/deployment`)
+Deployment guides and status
 
-### ⏳ Coming Next
-- Transaction history
-- Schwab API integration
-- Advanced trading features
+- [AUTH-STATUS-DEC-22-2025.md](deployment/AUTH-STATUS-DEC-22-2025.md)
+- [DEPLOYMENT-SUCCESS.md](deployment/DEPLOYMENT-SUCCESS.md)
+- [RAILWAY-DEPLOYMENT-STATUS.md](deployment/RAILWAY-DEPLOYMENT-STATUS.md)
+- [RAILWAY-DEPLOYMENT-FIX.md](deployment/RAILWAY-DEPLOYMENT-FIX.md)
+- [RAILWAY-DATABASE-STATUS.md](deployment/RAILWAY-DATABASE-STATUS.md)
+- [RAILWAY-POSTGRES-SETUP.md](deployment/RAILWAY-POSTGRES-SETUP.md)
 
-**Full details:** [PROJECT-STATUS.md](PROJECT-STATUS.md)
+### 📈 Status (`/status`)
+Project status and progress tracking
 
----
+- **[TRADING-INTELLIGENCE-STATUS.md](status/TRADING-INTELLIGENCE-STATUS.md)** ⭐ **NEW**
+  - Complete intelligence implementation status
+  - What's built vs what's missing
+  - Current capabilities & roadmap
 
-## 💡 Quick Tips
+- [REAL-PRICES-ENABLED.md](status/REAL-PRICES-ENABLED.md)
+- [PROJECT-STATUS.md](status/PROJECT-STATUS.md)
+- [SYSTEM-STATUS.md](status/SYSTEM-STATUS.md)
+- [WHERE-WE-ARE.md](status/WHERE-WE-ARE.md)
+- [PHASE-1-COMPLETE.md](status/PHASE-1-COMPLETE.md)
 
-1. **Lost?** → Read [QUICK-START.md](QUICK-START.md)
-2. **What's working?** → Check [PROJECT-STATUS.md](PROJECT-STATUS.md)
-3. **What's next?** → See [planning/implementation-roadmap.md](planning/implementation-roadmap.md)
-4. **Building a feature?** → Reference `/architecture` docs
+### 📖 Reference (`/reference`)
+Quick reference and guides
 
----
+- **[TACO-TRADE-RESEARCH.md](reference/TACO-TRADE-RESEARCH.md)** 🔬 **NEW**
+  - Analysis of "Trump Always Chickens Out" trade
+  - Research findings and viability assessment
+  - Recommendation: NOT suitable for implementation
 
-## 🔗 Quick Links
+- [SCHWAB-OAUTH-URL-FOR-SUPPORT.md](reference/SCHWAB-OAUTH-URL-FOR-SUPPORT.md)
+- [QUICK-START.md](reference/QUICK-START.md)
+- [START-HERE.md](reference/START-HERE.md)
+- [journal.md](reference/journal.md)
 
-- **Frontend:** http://localhost:3000
-- **Backend:** http://localhost:8000
-- **API Docs:** http://localhost:8000/docs
+### 📚 Guides (`/guides`)
+How-to guides and tutorials
 
----
-
-**Remember:** Always start with [PROJECT-STATUS.md](PROJECT-STATUS.md) for the latest! 🎯
-
-# FInsightAI Documentation
-
-Welcome to the FinSight AI documentation hub. This directory contains all project documentation organized by topic and component.
-
-## 📚 Core Documentation
-
-### Project Overview
-- **[Main README](../README.md)** - Project overview and quick start guide
-- **[Architecture](architecture.md)** - System architecture and infrastructure components
-- **[Features](features.md)** - Feature specifications and requirements
-- **[Models](models.md)** - ML models and algorithms documentation
-
-### Implementation & Development  
-- **[Implementation Guide](implementation.md)** - Detailed implementation guide and project history
-- **[Development Journal](journal.md)** - Development progress and notes
-- **[Evaluation Criteria](evaluation.md)** - Model evaluation and testing criteria
-
-### Deployment & Operations
-- **[GCP Setup](GCP-SETUP.md)** - Google Cloud Platform deployment guide
-
-## 🏗️ Component Documentation
-
-### Backend (FastAPI)
-- **[Backend Guide](backend.md)** - Backend setup, API endpoints, and development
-- **[Database Guide](database.md)** - Database schema, migrations, and setup
-
-### Frontend (React)
-- **[Frontend Guide](frontend.md)** - Frontend setup, components, and development
-
-### Machine Learning
-- **[ML Components](ml.md)** - Machine learning models, training, and deployment
-
-### Design & Mockups
-- **[Mockups](mockups.md)** - UI/UX designs and wireframes
-
-## � AI Agent Configuration (CNS)
-
-The **CNS (Cognitive Neural System)** directory contains AI agent configuration files that define the behavior, capabilities, and learning systems for the FInsightAI agent. These are **not user documentation** but rather **AI system configuration**:
-
-- **[`../CNS/brain/`](../CNS/brain/)** - AI persona, capabilities, and behavioral definitions
-- **[`../CNS/memory/`](../CNS/memory/)** - Memory architecture and private system links  
-- **[`../CNS/reflexes/`](../CNS/reflexes/)** - Learning triggers and automated improvements
-
-*Note: CNS files configure AI behavior and are separate from project documentation.*
-
-## 📖 Documentation Guidelines
-
-### For Developers
-1. **Update documentation** as you implement new features
-2. **Keep implementation.md** updated with progress logs
-3. **Document API changes** in the backend guide
-4. **Update architecture.md** when adding new components
-
-### File Organization
-```
-docs/
-├── README.md              # This index file
-├── architecture.md        # System architecture
-├── features.md           # Feature specifications  
-├── models.md            # ML model documentation
-├── implementation.md     # Implementation guide & history
-├── journal.md           # Development journal
-├── evaluation.md        # Evaluation criteria
-├── GCP-SETUP.md         # Cloud deployment guide
-├── backend.md           # Backend documentation
-├── frontend.md          # Frontend documentation
-├── database.md          # Database documentation
-├── ml.md               # ML documentation
-└── mockups.md          # Design documentation
-
-CNS/                      # AI Agent Configuration (separate)
-├── brain/               # AI capabilities & persona
-├── memory/              # Memory management
-└── reflexes/            # Learning & checks
-```
-
-## 🔗 Quick Links
-
-- **API Documentation**: http://localhost:8000/docs (when backend is running)
-- **Frontend App**: http://localhost:3000 (when frontend is running)
-- **GitHub Repository**: [FinsightAI](https://github.com/christianmolnar/FinsightAI)
+- [AGENTS.md](guides/AGENTS.md)
+- [GCP-SETUP.md](guides/GCP-SETUP.md)
+- [mockups.md](guides/mockups.md)
 
 ---
 
-*Last updated: November 9, 2025*
+## 🎯 Key Documents for Current Work
+
+### **Starting Development?**
+→ Read [IMPLEMENTATION-TRACKING-PLAN.md](planning/IMPLEMENTATION-TRACKING-PLAN.md) ⭐ **START HERE**
+
+### **Implementing Trading Strategies?**
+→ Read [TRADING-STRATEGY-SPECIFICATION.md](specifications/TRADING-STRATEGY-SPECIFICATION.md)
+
+### **Understanding Current Status?**
+→ Read [TRADING-INTELLIGENCE-STATUS.md](status/TRADING-INTELLIGENCE-STATUS.md)
+
+### **Deploying to Production?**
+→ Read [DEPLOYMENT-SUCCESS.md](deployment/DEPLOYMENT-SUCCESS.md)
+
+### **Researching New Strategies?**
+→ Check [reference/](reference/) folder for research docs
+
+---
+
+## 🚀 Getting Started
+
+**New to the project?** Start here:
+1. Read [../README.md](../README.md) in root
+2. Check [QUICK-START.md](reference/QUICK-START.md)
+3. Review [TRADING-INTELLIGENCE-STATUS.md](status/TRADING-INTELLIGENCE-STATUS.md)
+4. Read [TRADING-STRATEGY-SPECIFICATION.md](specifications/TRADING-STRATEGY-SPECIFICATION.md)
+
+---
+
+## 📞 Quick Links
+
+- **Live Backend:** https://finsightai-production-442e.up.railway.app
+- **Local Frontend:** http://localhost:3000
+- **API Docs:** https://finsightai-production-442e.up.railway.app/docs
+- **Database:** Railway PostgreSQL
+
+---
+
+**Maintained by:** FInsightAI Development Team
