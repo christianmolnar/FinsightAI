@@ -6,9 +6,10 @@
 **Project Status:** Core Infrastructure Complete → Beginning Phase 1  
 **Current Phase:** Phase 1 - Enhanced Configuration System
 
-**Total Estimated Effort:** 3,360 human dev hours (40 AI hours × 84)  
-**Timeline:** 9 weeks to autonomous trading  
-**Development Approach:** AI-assisted rapid development
+**Total Estimated Effort:** 3,360 human dev hours → 40 real-time hours with AI (3,360 ÷ 84)  
+**Timeline:** 9 weeks to autonomous trading (with focused AI-assisted development)  
+**Development Approach:** AI-assisted rapid development (84× acceleration factor)  
+**AI Strategy:** Dual model approach (OpenAI for recommendations, Claude for verification)
 
 ---
 
@@ -36,6 +37,244 @@
 
 ---
 
+## 🤖 AI Strategy & Configuration Approach
+
+### Dual AI Model Verification System
+**Strategy:** Use two leading AI models to verify and improve each other's recommendations
+
+**Implementation:**
+1. **Primary Model (OpenAI GPT-4):**
+   - Generates initial trade recommendations
+   - Analyzes market conditions
+   - Suggests parameter values
+   - Provides reasoning and confidence scores
+
+2. **Verification Model (Claude 3.5):**
+   - Reviews OpenAI's recommendations
+   - Identifies potential risks or flaws
+   - Suggests improvements or alternatives
+   - Confirms or challenges the analysis
+
+3. **Consensus Output:**
+   - If models agree: Present consensus with high confidence
+   - If models disagree: Present both perspectives for user decision
+   - Always include reasoning from both models
+   - Show confidence scores and risk assessments
+
+**API Keys Required:**
+```bash
+# Add to backend/.env
+OPENAI_API_KEY=sk-proj-your-key-here
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+```
+
+**Benefits:**
+- Reduces AI hallucination risk
+- Catches errors through cross-validation
+- Provides multiple perspectives on trades
+- Increases confidence in recommendations
+- Better risk assessment
+
+---
+
+## 🧪 Beta Mode Specification
+
+### Purpose
+Allow users to test trading strategies with small capital while simulating larger positions
+
+### How It Works
+**Example Configuration:**
+- **Transaction Amount:** $10 (actual money spent)
+- **Multiplier:** 1000× (simulates $10,000 position)
+- **Result:** Your $10 trade behaves like a $10,000 position for tracking purposes
+
+**Use Cases:**
+1. **Strategy Testing:** Test strategies with minimal risk
+2. **Learning:** Understand trading without large capital requirements
+3. **Proof of Concept:** Validate strategies before scaling up
+4. **Risk Mitigation:** Practice with real money but tiny amounts
+
+**Configuration Options:**
+- **Transaction Amount:** $5, $10, $25, $50 (user choice)
+- **Multiplier:** 100×, 500×, 1000×, 2000× (AI recommends based on account size)
+- **Beta Mode Toggle:** Enable/disable in settings
+
+**AI Recommendation Logic:**
+```
+If account_size < $1,000:
+    Recommended: $10 × 1000× (simulate $10,000)
+If account_size < $10,000:
+    Recommended: $25 × 500× (simulate $12,500)
+If account_size > $10,000:
+    Recommended: Use normal mode (no multiplier)
+```
+
+**Display Example:**
+```
+Beta Mode Active
+Transaction: $10
+Multiplier: 1000×
+Simulated Position: $10,000
+Your $10 will track as if you invested $10,000
+```
+
+**Benefits:**
+- Test with real money but minimal risk
+- Learn trading psychology with actual stakes
+- Validate strategy profitability before scaling
+- Build confidence gradually
+
+**Limitations:**
+- Not recommended long-term (moves to normal mode after proven success)
+- Multiplier doesn't affect actual profits (only tracking/simulation)
+- Used for learning and validation only
+
+---
+
+## 🔐 Authentication Strategy
+
+### Why Authentication Is Critical
+**Problem:** Current app only works on localhost (your computer only)  
+**Solution:** Add user authentication to access from anywhere (phone, work computer, etc.)
+
+### Authentication Features
+1. **User Registration:** Email + password signup with verification
+2. **Secure Login:** JWT tokens with refresh token rotation
+3. **Multi-Device:** Access from any device simultaneously
+4. **Session Management:** View and revoke active sessions
+5. **Password Reset:** Email-based password recovery
+6. **Per-User Schwab Credentials:** Each user stores their own Schwab API keys securely
+
+### Security Measures
+- Passwords hashed with bcrypt
+- JWT tokens with short expiration (15 min access, 7 day refresh)
+- HTTPS everywhere (force SSL)
+- Rate limiting per user (prevent abuse)
+- Input validation and sanitization
+- SQL injection protection (parameterized queries)
+- XSS protection (sanitized output)
+
+### User Flow
+1. New user visits app → Redirect to registration
+2. User registers → Email verification sent
+3. User clicks verification link → Account activated
+4. User logs in → JWT token issued
+5. User accesses app from anywhere → Token validated
+6. User adds Schwab credentials → Stored encrypted per user
+7. User can trade from any device → Session managed
+
+---
+
+## ⚙️ Configurable Global Defaults (No Hardcoded Values)
+
+### Philosophy
+**Problem:** Hardcoded default values (e.g., "3% stop loss") don't adapt to market conditions  
+**Solution:** All defaults stored in database, configurable via UI, with AI recommendations
+
+### Configurable Parameters
+All these values are stored in the database and can be changed by the user:
+
+**Risk Management:**
+- Stop Loss % (default: 3%, AI recommends 2-5% based on volatility)
+- Profit Target % (default: 8%, AI recommends 5-15% based on strategy)
+- Position Size % (default: 10% of portfolio, AI recommends 5-20%)
+- Max Portfolio Exposure % (default: 50%, AI recommends 30-70%)
+
+**Trading Behavior:**
+- Min Signal Confidence (default: 70%, AI recommends 60-80%)
+- Max Concurrent Positions (default: 5, AI recommends 3-10)
+- Hold Period Range (default: 1-30 days, AI adjusts per strategy)
+
+**Market Conditions:**
+- VIX Threshold (default: 30, AI adjusts based on market regime)
+- Volume Filter (default: 2× average, AI adjusts)
+- Spread Limit (default: 0.5%, AI adjusts)
+
+### How It Works
+
+1. **Initial Setup:**
+   - System has sensible starting defaults
+   - User can accept or modify on first login
+   - AI analyzes account size and risk tolerance
+   - AI recommends personalized defaults
+
+2. **AI Recommendation Process:**
+   ```
+   User clicks "Get AI Recommendation" for Stop Loss
+   ↓
+   OpenAI analyzes: market volatility, account size, risk tolerance
+   OpenAI suggests: 3.5% stop loss (reason: high volatility environment)
+   ↓
+   Claude reviews: Confirms 3.5% reasonable, notes: consider 4% for safety
+   ↓
+   System shows user:
+     • OpenAI: 3.5% (confidence: 85%)
+     • Claude: 3.5-4% (confidence: 90%)
+     • Consensus: 3.5% stop loss recommended
+   ↓
+   User accepts or enters custom value
+   ↓
+   Value saved to database
+   ```
+
+3. **Per-Transaction Override:**
+   - Global defaults apply to all trades
+   - AI can recommend different values per trade
+   - Example: "This volatile stock needs 5% stop loss (vs your 3% default)"
+   - User can accept AI suggestion or use global default
+
+4. **Adaptive Recommendations:**
+   - AI updates recommendations based on:
+     - Recent trade performance
+     - Current market conditions (VIX, Fed policy)
+     - Portfolio risk level
+     - Win/loss patterns
+   - User gets notification: "Market volatility increased. Consider adjusting stop loss to 4%."
+
+### Database Schema
+```sql
+CREATE TABLE global_defaults (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    parameter_name VARCHAR(100),
+    parameter_value DECIMAL(10,2),
+    ai_recommended_value DECIMAL(10,2),
+    ai_recommendation_reason TEXT,
+    last_updated TIMESTAMP,
+    last_ai_review TIMESTAMP
+);
+```
+
+### UI Example
+```
+┌─ Global Defaults Configuration ────────────────────┐
+│                                                     │
+│ Stop Loss %                           [  3.0  ] %  │
+│ Last AI Recommendation: 3.5% (2 days ago)          │
+│ [Get AI Recommendation]  [Apply Recommended]       │
+│                                                     │
+│ Profit Target %                       [  8.0  ] %  │
+│ AI agrees with your value ✓                        │
+│ [Get AI Recommendation]                             │
+│                                                     │
+│ Position Size %                       [ 10.0  ] %  │
+│ AI suggests: 12% (you have low exposure)           │
+│ [View Reasoning]  [Apply Recommended]              │
+│                                                     │
+│ [Save All Changes]  [Reset to Defaults]            │
+└─────────────────────────────────────────────────────┘
+```
+
+### Benefits
+✅ Adapts to changing market conditions  
+✅ Personalized to user's risk tolerance  
+✅ No hardcoded values in code  
+✅ AI provides reasoning for recommendations  
+✅ User maintains full control  
+✅ Easy to experiment and optimize  
+
+---
+
 ## 📋 Executive Summary
 
 ### Current State
@@ -58,11 +297,13 @@
 - 🎯 **Conservative risk management** (5% max loss, daily limits) ⭐ **NEW**
 
 ### Key Additions to Plan
-1. **Authentication System (Phase 7):** Full user auth to access from anywhere
-2. **Autonomous Trading (Phase 8):** AI executes small trades independently
-3. **Quick Trade Strategies:** Day-of-week, intraday patterns, breakouts
-4. **Conservative Risk Limits:** Max $500/trade, <$200 daily loss, 3 trade limit
-5. **Development Time Estimates:** 40 AI hours = 3,360 human dev hours
+1. **AI Configuration Strategy:** Dual model approach (OpenAI + Claude) with configurable global defaults
+2. **Beta Mode:** Small transaction amounts with configurable multipliers for testing
+3. **Authentication System (Phase 7):** Full user auth to access from anywhere
+4. **Autonomous Trading (Phase 8):** AI executes small trades independently
+5. **Quick Trade Strategies:** Day-of-week, intraday patterns, breakouts
+6. **Conservative Risk Limits:** Max $500/trade, <$200 daily loss, 3 trade limit
+7. **Time Estimates:** All estimates in real-time hours (human hours ÷ 84)
 
 ---
 
@@ -71,8 +312,9 @@
 ### **Phase 1: Enhanced Configuration System** (Week 1)
 **Goal:** Build sophisticated strategy configuration with AI optimization
 
-**Estimated Dev Hours:** 336 hours (4 AI hours × 84)  
-**Timeline:** 7 days with focused development
+**Estimated Human Dev Hours:** 336 hours  
+**Actual Dev Time with AI (84× acceleration):** 4 real-time hours (336 ÷ 84)  
+**Timeline:** Can be completed in 1 focused day with AI assistance
 
 #### Backend Tasks
 - [ ] **1.1 Parameter Management System**
@@ -85,7 +327,33 @@
     - `backend/api/strategy_config.py`
     - `backend/migrations/003_strategy_parameters.sql`
 
-- [ ] **1.2 AI Optimization Engine**
+- [ ] **1.2 AI Optimization Engine** ⭐ **ENHANCED - DUAL MODEL STRATEGY**
+  - [ ] **Set up dual AI model architecture (OpenAI + Claude)**
+    - [ ] Add API keys to .env (OPENAI_API_KEY, ANTHROPIC_API_KEY)
+    - [ ] Create AI service wrapper for both models
+    - [ ] Implement primary-secondary verification pattern
+    - [ ] OpenAI: Generate initial recommendations
+    - [ ] Claude: Verify, critique, and refine recommendations
+    - [ ] Return consensus with reasoning from both models
+  - [ ] **Global Default Configuration** ⭐ **NO HARDCODED VALUES**
+    - [ ] Create `GlobalDefaults` model (profit_target, stop_loss, position_size, etc.)
+    - [ ] All defaults stored in database (configurable via UI)
+    - [ ] API endpoint to get/set global defaults
+    - [ ] AI recommendation engine for global defaults (dual model consensus)
+    - [ ] **Example:** AI recommends 3% stop loss for current market conditions, user can accept/modify
+  - [ ] **Per-Transaction AI Recommendations** ⭐ **DUAL VERIFICATION**
+    - [ ] OpenAI: Generate initial recommendation with reasoning
+    - [ ] Claude: Verify recommendation, identify risks, suggest improvements
+    - [ ] If models disagree: Present both views to user
+    - [ ] If models agree: Present consensus with confidence score
+    - [ ] Return full analysis: entry price, stop loss, profit target, position size
+  - [ ] **Beta Mode Configuration** ⭐ **NEW**
+    - [ ] Add beta_mode flag to user settings
+    - [ ] Beta mode settings: transaction_amount (default: $10), multiplier (default: 1000×)
+    - [ ] Example: $10 trade simulates $10,000 position (multiplier = 1000)
+    - [ ] AI recommends optimal multiplier based on account size
+    - [ ] UI shows both actual transaction and simulated value
+    - [ ] Allows testing strategies with small capital
   - [ ] Build single-parameter optimization API endpoint
   - [ ] Build strategy-level optimization API endpoint
   - [ ] Build global optimization API endpoint
@@ -93,17 +361,36 @@
   - **Files to create/modify:**
     - `backend/api/ai_optimizer.py` (enhance existing)
     - `backend/services/optimization_engine.py`
+    - `backend/services/ai_models.py` ⭐ **NEW** - Dual model wrapper (OpenAI + Claude)
+    - `backend/models/global_defaults.py` ⭐ **NEW** - Configurable defaults
+    - `backend/models/beta_mode_config.py` ⭐ **NEW** - Beta mode settings
+    - `backend/.env` - Add OPENAI_API_KEY and ANTHROPIC_API_KEY
 
 #### Frontend Tasks
 - [ ] **1.3 Strategy Configuration Tab Enhancement**
   - [ ] Build collapsible accordion for 5 strategies
-  - [ ] Add AI toggle button per parameter
+  - [ ] **Global Defaults Section** ⭐ **NEW**
+    - [ ] UI to view/edit global defaults (profit target, stop loss, position size, etc.)
+    - [ ] "Get AI Recommendation" button for each default parameter
+    - [ ] Show dual AI model consensus with reasoning
+    - [ ] Display confidence scores
+  - [ ] **Beta Mode Settings** ⭐ **NEW**
+    - [ ] Toggle to enable/disable beta mode
+    - [ ] Input for transaction amount (e.g., $10)
+    - [ ] Input for multiplier (e.g., 1000×)
+    - [ ] Display: "Your $10 trades will simulate $10,000 positions"
+    - [ ] AI recommendation for optimal multiplier
+  - [ ] Add AI toggle button per parameter (uses dual model verification)
   - [ ] Create per-stock override modal
-  - [ ] Add "Optimize Strategy" button
+  - [ ] Add "Optimize Strategy" button (shows OpenAI + Claude consensus)
   - [ ] Add "Optimize All" button
   - [ ] Show before/after comparison on optimization
+  - [ ] Display disagreements between AI models when present
   - **Files to create/modify:**
     - `frontend/src/components/StrategyConfiguration.js` (enhance)
+    - `frontend/src/components/GlobalDefaults.js` ⭐ **NEW**
+    - `frontend/src/components/BetaModeSettings.js` ⭐ **NEW**
+    - `frontend/src/components/AIRecommendation.js` ⭐ **NEW** - Shows dual model results
     - `frontend/src/components/ParameterControl.js` (new)
     - `frontend/src/components/StockOverrideModal.js` (new)
 
@@ -115,17 +402,21 @@
 
 **Completion Criteria:**
 ✅ User can configure all 5 strategies  
-✅ AI can optimize parameters independently  
+✅ AI can optimize parameters with dual model verification (OpenAI + Claude)  
+✅ Global defaults are configurable (no hardcoded values)  
+✅ Beta mode allows small transactions with multipliers  
 ✅ Per-stock overrides working  
 ✅ All changes saved to database  
+✅ OpenAI and Claude API keys configured  
 
 ---
 
 ### **Phase 2: Hold Period Intelligence** (Week 2)
 **Goal:** Implement adaptive hold period classification
 
-**Estimated Dev Hours:** 336 hours (4 AI hours × 84)  
-**Timeline:** 7 days with focused development
+**Estimated Human Dev Hours:** 336 hours  
+**Actual Dev Time with AI (84× acceleration):** 4 real-time hours (336 ÷ 84)  
+**Timeline:** Can be completed in 1 focused day with AI assistance
 
 #### Backend Tasks
 - [ ] **2.1 Quality Assessment Engine**
@@ -181,7 +472,8 @@
 ### **Phase 3: Trade Recommendations System** (Week 3)
 **Goal:** Build intelligent trade recommendation engine with all 5 strategies
 
-**Estimated Dev Hours:** 504 hours (6 AI hours × 84)  
+**Estimated Human Dev Hours:** 504 hours  
+**Actual Dev Time with AI (84× acceleration):** 6 real-time hours (504 ÷ 84)  
 **Timeline:** 7 days with focused development
 
 #### Backend Tasks
@@ -262,7 +554,8 @@
 ### **Phase 4: IPO Strategy** (Week 4)
 **Goal:** Implement IPO detection, research, and execution
 
-**Estimated Dev Hours:** 336 hours (4 AI hours × 84)  
+**Estimated Human Dev Hours:** 336 hours  
+**Actual Dev Time with AI (84× acceleration):** 4 real-time hours (336 ÷ 84)  
 **Timeline:** 7 days with focused development
 
 #### Backend Tasks
@@ -334,7 +627,8 @@
 ### **Phase 5: Learning & Analytics Engine** (Weeks 5-6)
 **Goal:** Implement trade logging, analysis, and improvement proposals
 
-**Estimated Dev Hours:** 672 hours (8 AI hours × 84)  
+**Estimated Human Dev Hours:** 672 hours  
+**Actual Dev Time with AI (84× acceleration):** 8 real-time hours (672 ÷ 84)  
 **Timeline:** 14 days with focused development
 
 #### Backend Tasks
@@ -434,7 +728,8 @@
 ### **Phase 6: Advanced Features & Polish** (Week 7)
 **Goal:** Add remaining features and improve UX
 
-**Estimated Dev Hours:** 336 hours (4 AI hours × 84)  
+**Estimated Human Dev Hours:** 336 hours  
+**Actual Dev Time with AI (84× acceleration):** 4 real-time hours (336 ÷ 84)  
 **Timeline:** 7 days with focused development
 
 #### Tasks
@@ -471,29 +766,56 @@
 
 ---
 
-### **Phase 7: Production Deployment & Authentication** (Week 8)
+### **Phase 7: Production Deployment & Authentication** (Week 8) ⭐ **CRITICAL FOR ANYWHERE ACCESS**
 **Goal:** Deploy to production with authentication and go live
 
-**Estimated Dev Hours:** 336 hours (4 AI hours × 84)  
+**Estimated Human Dev Hours:** 336 hours  
+**Actual Dev Time with AI (84× acceleration):** 4 real-time hours (336 ÷ 84)  
 **Timeline:** 7 days with focused development
 
 #### Tasks
-- [ ] **7.1 Authentication & Authorization** ⭐ **NEW**
-  - [ ] Implement user authentication (email/password + OAuth)
-  - [ ] Add JWT token-based session management
-  - [ ] Create user registration and login flows
-  - [ ] Implement password reset functionality
-  - [ ] Add multi-device session support
-  - [ ] Build user profile management
-  - [ ] Secure all API endpoints with auth middleware
+- [ ] **7.1 Authentication & Authorization** ⭐ **REQUIRED FOR ANYWHERE ACCESS**
+  - [ ] **User Authentication System**
+    - [ ] Implement email/password authentication
+    - [ ] Add OAuth providers (Google, GitHub optional)
+    - [ ] Create JWT token-based session management
+    - [ ] Add refresh token rotation for security
+  - [ ] **User Registration & Login**
+    - [ ] Registration form with email verification
+    - [ ] Login form with "remember me" option
+    - [ ] Password reset flow (email link)
+    - [ ] Account activation via email
+  - [ ] **Multi-Device Support**
+    - [ ] Session management across devices
+    - [ ] Active sessions list (view and revoke)
+    - [ ] Device fingerprinting for security
+  - [ ] **User Profile Management**
+    - [ ] Profile settings page
+    - [ ] Change password functionality
+    - [ ] Email preferences
+    - [ ] API key management for Schwab
+  - [ ] **API Security**
+    - [ ] Secure all backend endpoints with auth middleware
+    - [ ] Role-based access control (RBAC)
+    - [ ] Rate limiting per user (prevent abuse)
+    - [ ] CORS configuration for production domain
+  - [ ] **Schwab API Key Management**
+    - [ ] User-specific Schwab credentials storage (encrypted)
+    - [ ] Schwab OAuth flow per user
+    - [ ] Token refresh automation per user
   - **Files to create:**
-    - `backend/models/user.py`
-    - `backend/api/auth.py`
-    - `backend/middleware/auth_middleware.py`
-    - `backend/services/jwt_service.py`
-    - `frontend/src/components/Login.js`
-    - `frontend/src/components/Register.js`
-    - `frontend/src/context/AuthContext.js`
+    - `backend/models/user.py` (enhance existing)
+    - `backend/models/user_session.py` ⭐ **NEW**
+    - `backend/api/auth.py` ⭐ **NEW**
+    - `backend/middleware/auth_middleware.py` ⭐ **NEW**
+    - `backend/services/jwt_service.py` ⭐ **NEW**
+    - `backend/services/email_service.py` ⭐ **NEW**
+    - `frontend/src/components/Login.js` ⭐ **NEW**
+    - `frontend/src/components/Register.js` ⭐ **NEW**
+    - `frontend/src/components/ResetPassword.js` ⭐ **NEW**
+    - `frontend/src/components/Profile.js` ⭐ **NEW**
+    - `frontend/src/context/AuthContext.js` ⭐ **NEW**
+    - `frontend/src/utils/api.js` (add auth interceptors)
 
 - [ ] **7.2 Infrastructure**
   - [ ] Deploy frontend to Railway/Vercel
@@ -533,18 +855,22 @@
 
 **Completion Criteria:**
 ✅ Production environment stable  
-✅ Authentication working (accessible from anywhere)  
-✅ Security measures in place  
-✅ Performance optimized  
-✅ Monitoring operational  
-✅ System live and accessible  
+✅ **User authentication working (email/password registration & login)** ⭐  
+✅ **Application accessible from anywhere (not just localhost)** ⭐  
+✅ **Multi-device support functional** ⭐  
+✅ **Schwab API credentials per user (encrypted storage)** ⭐  
+✅ Security measures in place (rate limiting, CORS, input validation)  
+✅ Performance optimized (database queries, caching)  
+✅ Monitoring operational (Sentry, logs, alerts)  
+✅ System live and accessible from any device  
 
 ---
 
 ### **Phase 8: Autonomous Trading Engine** (Week 9) ⭐ **NEW**
 **Goal:** Implement autonomous trade execution with conservative risk controls
 
-**Estimated Dev Hours:** 504 hours (6 AI hours × 84)  
+**Estimated Human Dev Hours:** 504 hours  
+**Actual Dev Time with AI (84× acceleration):** 6 real-time hours (504 ÷ 84)  
 **Timeline:** 7 days with focused development
 
 **Strategy:** Start with small, quick trades (<$500, <1 week hold) to test autonomous execution
@@ -704,19 +1030,19 @@
 
 ## 📊 Progress Tracking
 
-### Overall Progress: 15%
+### Overall Progress: 20%
 
-| Phase | Status | Completion | Dev Hours | Target Date |
-|-------|--------|-----------|-----------|-------------|
-| Phase 1: Configuration | 🔵 Not Started | 0% | 336h (4 AI hrs) | Week 1 |
-| Phase 2: Hold Periods | 🔵 Not Started | 0% | 336h (4 AI hrs) | Week 2 |
-| Phase 3: Recommendations | 🔵 Not Started | 0% | 504h (6 AI hrs) | Week 3 |
-| Phase 4: IPO Strategy | 🔵 Not Started | 0% | 336h (4 AI hrs) | Week 4 |
-| Phase 5: Learning Engine | 🔵 Not Started | 0% | 672h (8 AI hrs) | Weeks 5-6 |
-| Phase 6: Advanced Features | 🔵 Not Started | 0% | 336h (4 AI hrs) | Week 7 |
-| Phase 7: Production + Auth | 🔵 Not Started | 0% | 336h (4 AI hrs) | Week 8 |
-| Phase 8: Autonomous Trading | 🔵 Not Started | 0% | 504h (6 AI hrs) | Week 9 |
-| **Total** | | | **3,360h (40 AI hrs)** | **9 weeks** |
+| Phase | Status | Completion | Human Dev Hours | Real AI Time | Target Date |
+|-------|--------|-----------|-----------------|--------------|-------------|
+| Phase 1: Configuration | 🔵 Not Started | 0% | 336h | 4h (÷84) | Week 1 |
+| Phase 2: Hold Periods | 🔵 Not Started | 0% | 336h | 4h (÷84) | Week 2 |
+| Phase 3: Recommendations | 🔵 Not Started | 0% | 504h | 6h (÷84) | Week 3 |
+| Phase 4: IPO Strategy | 🔵 Not Started | 0% | 336h | 4h (÷84) | Week 4 |
+| Phase 5: Learning Engine | 🔵 Not Started | 0% | 672h | 8h (÷84) | Weeks 5-6 |
+| Phase 6: Advanced Features | 🔵 Not Started | 0% | 336h | 4h (÷84) | Week 7 |
+| Phase 7: Production + Auth | 🔵 Not Started | 0% | 336h | 4h (÷84) | Week 8 |
+| Phase 8: Autonomous Trading | 🔵 Not Started | 0% | 504h | 6h (÷84) | Week 9 |
+| **Total** | | | **3,360h** | **40h real** | **9 weeks** |
 
 **Legend:**
 - 🔵 Not Started
@@ -724,10 +1050,12 @@
 - 🟢 Complete
 - 🔴 Blocked
 
-**AI Development Hours Conversion:**
-- 1 AI hour = 84 human developer hours
-- Total: 40 AI hours = 3,360 human developer hours
-- Timeline: 9 weeks with AI assistance (vs ~42 weeks traditional development)
+**AI Development Time Conversion:**
+- **84× Acceleration Factor:** 1 real-time hour with AI = 84 human developer hours
+- **Total Human Effort:** 3,360 hours (traditional development)
+- **Total Real Time with AI:** 40 hours (AI-assisted development)
+- **Timeline:** 9 weeks with AI assistance vs ~42 weeks traditional development
+- **Time Savings:** 33 weeks (7.5 months saved) ⚡
 
 ---
 
@@ -1040,15 +1368,17 @@ Quality stocks oversold:
 ---
 
 **Next Steps:**
-1. ✅ Review and approve this implementation plan
-2. ⏳ Begin Phase 1: Enhanced Configuration System
-3. ⏳ Set up project tracking (GitHub Projects / Jira)
-4. ⏳ Schedule daily development sessions
-5. ⏳ Create first sprint backlog
+1. ✅ Review and approve updated implementation plan (incorporates all feedback)
+2. ⏳ Set up AI API keys (OpenAI and Claude/Anthropic)
+3. ⏳ Begin Phase 1: Enhanced Configuration System
+   - Backend: AI dual model service, global defaults, beta mode
+   - Frontend: Configuration UI, AI recommendations display
+4. ⏳ Set up project tracking (GitHub Projects recommended)
+5. ⏳ Schedule focused development sessions (4-hour blocks for AI efficiency)
 
 **Path to Autonomous Trading:**
 - Weeks 1-7: Build core system and strategies
-- Week 8: Deploy with authentication (accessible anywhere)
+- Week 8: Deploy with authentication (accessible anywhere) ⭐
 - Week 9: Start autonomous trading with small quick trades
 - Week 10+: Expand as system proves profitable
 
@@ -1059,26 +1389,36 @@ Quality stocks oversold:
 - Auto-approval enabled after 2 weeks of >60% win rate
 - Kill switch always available
 
-**Last Updated:** December 22, 2025
+**Key Improvements in This Update:**
+✅ **Time estimates corrected:** All now show "X human hours ÷ 84 = Y real-time hours"  
+✅ **Dual AI model strategy:** OpenAI + Claude verification approach documented  
+✅ **No hardcoded defaults:** All values configurable with AI recommendations  
+✅ **Beta Mode specified:** Small transactions with multipliers for testing  
+✅ **Authentication detailed:** Full user auth for anywhere access  
+✅ **API keys documented:** OpenAI and Claude keys required in .env  
+
+**Last Updated:** December 23, 2025 (Updated with all user feedback incorporated)
 
 ---
 
 ## 📈 Development Timeline Summary
 
 ```
-Week 1  ████████ Configuration System (336h / 4 AI hrs)
-Week 2  ████████ Hold Period Intelligence (336h / 4 AI hrs)
-Week 3  ████████ Trade Recommendations (504h / 6 AI hrs)
-Week 4  ████████ IPO Strategy (336h / 4 AI hrs)
-Week 5  ████████ Learning Engine Part 1 (336h / 4 AI hrs)
-Week 6  ████████ Learning Engine Part 2 (336h / 4 AI hrs)
-Week 7  ████████ Advanced Features (336h / 4 AI hrs)
-Week 8  ████████ Production + Auth (336h / 4 AI hrs)
-Week 9  ████████ Autonomous Trading (504h / 6 AI hrs)
-        ──────────────────────────────────────────
-Total:  3,360 human dev hours (40 AI hours × 84)
+Week 1  ████████ Configuration System (336h human / 4h real with AI)
+Week 2  ████████ Hold Period Intelligence (336h human / 4h real with AI)
+Week 3  ████████ Trade Recommendations (504h human / 6h real with AI)
+Week 4  ████████ IPO Strategy (336h human / 4h real with AI)
+Week 5  ████████ Learning Engine Part 1 (336h human / 4h real with AI)
+Week 6  ████████ Learning Engine Part 2 (336h human / 4h real with AI)
+Week 7  ████████ Advanced Features (336h human / 4h real with AI)
+Week 8  ████████ Production + Auth (336h human / 4h real with AI)
+Week 9  ████████ Autonomous Trading (504h human / 6h real with AI)
+        ──────────────────────────────────────────────────────────
+Total:  3,360 human dev hours → 40 real-time hours with AI (÷84)
 ```
 
-**Traditional Development:** 42 weeks (10.5 months)  
-**AI-Assisted Development:** 9 weeks (2.25 months)  
-**Time Savings:** 33 weeks (7.5 months) ⚡
+**Traditional Development:** 42 weeks (10.5 months) without AI  
+**AI-Assisted Development:** 9 weeks (2.25 months) with AI (84× acceleration)  
+**Time Savings:** 33 weeks (7.5 months saved) ⚡
+
+**Note:** Real-time estimates assume focused development with AI assistance. The 84× factor represents the acceleration from using AI pair programming tools like GitHub Copilot.
