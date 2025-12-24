@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import SellValidation from './SellValidation';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -27,22 +28,49 @@ const PaperPortfolio = () => {
   const [tradeForm, setTradeForm] = useState({
     symbol: '',
     action: 'BUY',
-    quantity: 100,
+    quantity: 10,
     strategy_used: 'manual'
   });
+  const [currentPrice, setCurrentPrice] = useState(null);
+  const [loadingPrice, setLoadingPrice] = useState(false);
+  const [watchlist, setWatchlist] = useState([]);
+  const [newWatchSymbol, setNewWatchSymbol] = useState('');
+  const [successMessage, setSuccessMessage] = useState(null);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [showSellValidation, setShowSellValidation] = useState(false);
+  const [selectedPosition, setSelectedPosition] = useState(null);
+  const [marketStatus, setMarketStatus] = useState(null);
 
   useEffect(() => {
     fetchPortfolio();
-    // fetchTransactions(); // Commented out until we implement transactions API
+    loadWatchlist();
+    fetchTransactions();
+    fetchMarketStatus();
     
-    // Refresh data every 30 seconds
-    const interval = setInterval(() => {
-      fetchPortfolio();
-      // fetchTransactions();
-    }, 30000);
+    // Auto-refresh disabled - use manual refresh button instead
+    // Users can refresh manually when needed to avoid constant reloading
     
-    return () => clearInterval(interval);
+    // Optional: Uncomment for auto-refresh every 2 minutes
+    // const interval = setInterval(() => {
+    //   fetchPortfolio();
+    //   refreshWatchlist();
+    //   fetchTransactions();
+    //   fetchMarketStatus();
+    // }, 120000); // 2 minutes
+    // return () => clearInterval(interval);
   }, []);
+
+  // Fetch price when symbol changes in trade modal
+  useEffect(() => {
+    if (showTradeModal && tradeForm.symbol && tradeForm.symbol.length >= 1) {
+      const debounce = setTimeout(() => {
+        fetchStockPrice(tradeForm.symbol);
+      }, 500);
+      return () => clearTimeout(debounce);
+    } else {
+      setCurrentPrice(null);
+    }
+  }, [tradeForm.symbol, showTradeModal]);
 
   const fetchPortfolio = async () => {
     try {
@@ -66,14 +94,122 @@ const PaperPortfolio = () => {
 
   const fetchTransactions = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/v1/paper-portfolio/transactions`);
+      const response = await axios.get(`${API_BASE_URL}/api/v1/paper/transactions`);
       setTransactions(response.data);
     } catch (err) {
       console.error('Error fetching transactions:', err);
     }
   };
 
-    const executeTrade = async () => {
+  const fetchMarketStatus = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/market/status`);
+      if (response.data.success) {
+        setMarketStatus(response.data);
+      }
+    } catch (err) {
+      console.error('Error fetching market status:', err);
+    }
+  };
+
+  const fetchStockPrice = async (symbol) => {
+    if (!symbol) return;
+    
+    setLoadingPrice(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/quotes/${symbol}`);
+      const data = await response.json();
+      
+      if (response.ok && data.price) {
+        setCurrentPrice(data.price);
+      } else {
+        setCurrentPrice(null);
+      }
+    } catch (error) {
+      console.error('Error fetching stock price:', error);
+      setCurrentPrice(null);
+    } finally {
+      setLoadingPrice(false);
+    }
+  };
+
+  const loadWatchlist = () => {
+    const saved = localStorage.getItem('paperWatchlist');
+    if (saved) {
+      setWatchlist(JSON.parse(saved));
+    }
+  };
+
+  const saveWatchlist = (list) => {
+    localStorage.setItem('paperWatchlist', JSON.stringify(list));
+    setWatchlist(list);
+  };
+
+  const addToWatchlist = async () => {
+    const symbol = newWatchSymbol.trim().toUpperCase();
+    if (!symbol || watchlist.some(w => w.symbol === symbol)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/quotes/${symbol}`);
+      const data = await response.json();
+      
+      if (response.ok && data.price) {
+        const newWatch = {
+          symbol,
+          price: data.price,
+          change: data.change || 0,
+          changePercent: data.changePercent || 0,
+          lastUpdated: new Date().toISOString()
+        };
+        
+        const updated = [...watchlist, newWatch];
+        saveWatchlist(updated);
+        setNewWatchSymbol('');
+      } else {
+        alert('Invalid symbol or unable to fetch price');
+      }
+    } catch (error) {
+      console.error('Error adding to watchlist:', error);
+      alert('Error adding symbol to watchlist');
+    }
+  };
+
+  const removeFromWatchlist = (symbol) => {
+    const updated = watchlist.filter(w => w.symbol !== symbol);
+    saveWatchlist(updated);
+  };
+
+  const refreshWatchlist = async () => {
+    if (watchlist.length === 0) return;
+
+    const updated = await Promise.all(
+      watchlist.map(async (item) => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/v1/quotes/${item.symbol}`);
+          const data = await response.json();
+          
+          if (response.ok && data.price) {
+            return {
+              ...item,
+              price: data.price,
+              change: data.change || 0,
+              changePercent: data.changePercent || 0,
+              lastUpdated: new Date().toISOString()
+            };
+          }
+        } catch (error) {
+          console.error(`Error refreshing ${item.symbol}:`, error);
+        }
+        return item;
+      })
+    );
+    
+    saveWatchlist(updated);
+  };
+
+  const executeTrade = async () => {
     if (!tradeForm.symbol || !tradeForm.quantity) {
       alert('Please fill in all fields');
       return;
@@ -95,10 +231,22 @@ const PaperPortfolio = () => {
 
       if (response.ok) {
         const result = await response.json();
-        alert(result.message);
+        
+        // Check if backend returned an error status
+        if (result.status === 'error') {
+          alert(`Trade failed: ${result.message || 'Unknown error'}`);
+          return;
+        }
+        
+        // Show success message in nice dialog
+        setSuccessMessage(result.message || 'Trade executed successfully');
         setShowTradeModal(false);
-        setTradeForm({ symbol: '', action: 'BUY', quantity: 100, strategy_used: 'manual' });
+        setTradeForm({ symbol: '', action: 'BUY', quantity: 10, strategy_used: 'manual' });
         fetchPortfolio(); // Refresh portfolio
+        fetchTransactions(); // Refresh transaction history
+        
+        // Auto-hide success message after 3 seconds
+        setTimeout(() => setSuccessMessage(null), 3000);
       } else {
         const error = await response.json();
         alert(error.detail || 'Trade execution failed');
@@ -114,17 +262,43 @@ const PaperPortfolio = () => {
       try {
         await axios.post(`${API_BASE_URL}/api/v1/paper/reset`);
         await fetchPortfolio();
-        // await fetchTransactions();
+        await fetchTransactions();
       } catch (err) {
         setError('Failed to reset portfolio');
       }
     }
   };
 
+  const handleGetAIAnalysis = (position) => {
+    setSelectedPosition({
+      symbol: position.symbol,
+      quantity: position.quantity,
+      avg_price: position.avg_price,
+      current_price: position.avg_price, // Using avg_price as current for now
+      market_value: position.market_value,
+      unrealized_pnl: position.unrealized_pnl,
+      purchase_date: new Date().toISOString() // Placeholder - should come from first transaction
+    });
+    setShowSellValidation(true);
+  };
+
+  const handleCloseSellValidation = () => {
+    setShowSellValidation(false);
+    setSelectedPosition(null);
+  };
+
+  const handleSellExecuted = () => {
+    // Refresh portfolio after sell
+    fetchPortfolio();
+    fetchTransactions();
+    setShowSellValidation(false);
+    setSelectedPosition(null);
+  };
+
   const filteredTransactions = transactions.filter(t => {
     if (activeFilter === 'all') return true;
-    if (activeFilter === 'buy') return t.transaction_type === 'BUY';
-    if (activeFilter === 'sell') return t.transaction_type === 'SELL';
+    if (activeFilter === 'buy') return t.type === 'buy';
+    if (activeFilter === 'sell') return t.type === 'sell';
     return true;
   });
 
@@ -153,19 +327,33 @@ const PaperPortfolio = () => {
       {/* Header */}
       <div className="bg-gradient-to-r from-green-500 to-blue-600 rounded-lg text-white p-6">
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex-1">
             <h1 className="text-3xl font-bold mb-2">Paper Trading Portfolio</h1>
             <p className="text-green-100">Safe environment to test trading strategies with virtual money</p>
           </div>
-          <div className="text-right">
-            <div className="text-3xl font-bold">${portfolio?.total_value?.toLocaleString() || '10,000'}</div>
-            <div className={`text-lg font-medium ${
-              (portfolio?.total_value || 10000) >= 10000 ? 'text-green-200' : 'text-red-200'
-            }`}>
-              {(portfolio?.total_value || 10000) >= 10000 ? '+' : ''}
-              ${Math.abs((portfolio?.total_value || 10000) - 10000).toLocaleString()}
-              ({(((portfolio?.total_value || 10000) - 10000) / 10000 * 100).toFixed(2)}%)
+          <div className="text-right space-y-2">
+            <div>
+              <div className="text-3xl font-bold">${portfolio?.total_value?.toLocaleString() || '10,000'}</div>
+              <div className={`text-lg font-medium ${
+                (portfolio?.total_value || 10000) >= 10000 ? 'text-green-200' : 'text-red-200'
+              }`}>
+                {(portfolio?.total_value || 10000) >= 10000 ? '+' : ''}
+                ${Math.abs((portfolio?.total_value || 10000) - 10000).toLocaleString()}
+                ({(((portfolio?.total_value || 10000) - 10000) / 10000 * 100).toFixed(2)}%)
+              </div>
             </div>
+            {marketStatus && (
+              <div className={`inline-flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium ${
+                marketStatus.is_open 
+                  ? 'bg-green-500 bg-opacity-30 text-green-100' 
+                  : 'bg-gray-500 bg-opacity-30 text-gray-100'
+              }`}>
+                <div className={`w-2 h-2 rounded-full ${
+                  marketStatus.is_open ? 'bg-green-300 animate-pulse' : 'bg-gray-300'
+                }`}></div>
+                <span>Market {marketStatus.status}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -276,6 +464,8 @@ const PaperPortfolio = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P&L</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days Held</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Strategy</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">AI Analysis</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Close Position</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -317,6 +507,32 @@ const PaperPortfolio = () => {
                           manual
                         </span>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                        <button
+                          onClick={() => handleGetAIAnalysis(position)}
+                          className="inline-flex items-center justify-center px-3 py-1.5 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md font-medium transition-colors"
+                          title="Get AI analysis for this position"
+                        >
+                          <Brain className="w-4 h-4 mr-1.5" />
+                          AI Analysis
+                        </button>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center align-middle">
+                        <button
+                          onClick={() => {
+                            setTradeForm({ 
+                              symbol: position.symbol, 
+                              action: 'SELL', 
+                              quantity: position.quantity,
+                              strategy_used: 'manual'
+                            });
+                            setShowTradeModal(true);
+                          }}
+                          className="inline-flex items-center justify-center px-3 py-1.5 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md font-medium transition-colors leading-tight"
+                        >
+                          Close<br/>Position
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -327,6 +543,86 @@ const PaperPortfolio = () => {
               <Eye className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-500 text-lg">No positions yet</p>
               <p className="text-gray-400">Execute your first trade to get started!</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Watchlist Section */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">Watchlist</h2>
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                value={newWatchSymbol}
+                onChange={(e) => setNewWatchSymbol(e.target.value.toUpperCase())}
+                onKeyPress={(e) => e.key === 'Enter' && addToWatchlist()}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-32"
+                placeholder="AAPL"
+              />
+              <button
+                onClick={addToWatchlist}
+                disabled={!newWatchSymbol}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:opacity-50"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          {watchlist.length > 0 ? (
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Symbol</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Change</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {watchlist.map((item) => (
+                  <tr key={item.symbol} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {item.symbol}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      ${item.price?.toFixed(2) || '0.00'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className={`${(item.changePercent || 0) >= 0 ? 'text-green-600' : 'text-red-600'} font-medium`}>
+                        {(item.changePercent || 0) >= 0 ? '+' : ''}{(item.changePercent || 0).toFixed(2)}%
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm space-x-3">
+                      <button
+                        onClick={() => {
+                          setTradeForm({ ...tradeForm, symbol: item.symbol });
+                          setShowTradeModal(true);
+                        }}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        Trade
+                      </button>
+                      <button
+                        onClick={() => removeFromWatchlist(item.symbol)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="text-center py-12">
+              <Eye className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg">No symbols in watchlist</p>
+              <p className="text-gray-400">Add symbols to monitor their prices</p>
             </div>
           )}
         </div>
@@ -372,31 +668,31 @@ const PaperPortfolio = () => {
                 {filteredTransactions.slice(0, 20).map((transaction) => (
                   <tr key={transaction.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(transaction.executed_at).toLocaleDateString()}
+                      {new Date(transaction.timestamp).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {transaction.symbol}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        transaction.transaction_type === 'BUY' 
+                        transaction.type === 'buy' 
                           ? 'bg-green-100 text-green-800' 
                           : 'bg-red-100 text-red-800'
                       }`}>
-                        {transaction.transaction_type}
+                        {transaction.type.toUpperCase()}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {transaction.quantity}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ${transaction.price.toFixed(2)}
+                      ${transaction.price?.toFixed(2) || '0.00'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ${transaction.total_amount.toLocaleString()}
+                      ${transaction.total?.toLocaleString() || '0'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {transaction.strategy_used || 'manual'}
+                      manual
                     </td>
                   </tr>
                 ))}
@@ -452,6 +748,30 @@ const PaperPortfolio = () => {
                   min="1"
                 />
               </div>
+
+              {/* Price Display */}
+              {tradeForm.symbol && (
+                <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700">Current Price:</span>
+                    {loadingPrice ? (
+                      <span className="text-sm text-gray-500">Loading...</span>
+                    ) : currentPrice ? (
+                      <span className="text-lg font-bold text-gray-900">${currentPrice.toFixed(2)}</span>
+                    ) : (
+                      <span className="text-sm text-red-500">Price unavailable</span>
+                    )}
+                  </div>
+                  {currentPrice && tradeForm.quantity && (
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                      <span className="text-sm font-medium text-gray-700">Estimated Total:</span>
+                      <span className="text-lg font-bold text-blue-600">
+                        ${(currentPrice * parseFloat(tradeForm.quantity || 0)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Strategy</label>
@@ -486,6 +806,44 @@ const PaperPortfolio = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Success Message Dialog */}
+      {successMessage && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4 animate-bounce-in">
+            <div className="flex items-center space-x-4">
+              <div className="flex-shrink-0">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900">Trade Executed!</h3>
+                <p className="text-gray-600 mt-1">{successMessage}</p>
+              </div>
+              <button
+                onClick={() => setSuccessMessage(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sell Validation Modal */}
+      {showSellValidation && selectedPosition && (
+        <SellValidation
+          position={selectedPosition}
+          onClose={handleCloseSellValidation}
+          onConfirmSell={handleSellExecuted}
+        />
       )}
     </div>
   );

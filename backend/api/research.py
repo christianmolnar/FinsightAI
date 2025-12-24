@@ -6,9 +6,11 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Dict, List, Optional
 import logging
+from datetime import datetime
 
 from services.ai_models import get_ai_service, Recommendation
 from services.stock_researcher import get_researcher
+from services.sell_validator import get_sell_validator, SellReason
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +40,46 @@ class ResearchResponse(BaseModel):
     fundamental: Dict
     technical: Dict
     news: List[Dict]
+    timestamp: str
+
+
+class PositionData(BaseModel):
+    """Position data for sell validation"""
+    quantity: float
+    avg_price: float
+    current_price: float
+    purchase_date: str  # ISO format
+
+
+class SellValidationRequest(BaseModel):
+    """Request for sell validation"""
+    position: PositionData
+    reason: str  # SellReason enum value
+    custom_reason: Optional[str] = None
+
+
+class TaxImplications(BaseModel):
+    """Tax implications of selling"""
+    holding_period_days: int
+    is_long_term: bool
+    tax_type: str
+    tax_rate: float
+    estimated_tax: float
+    proceeds_after_tax: float
+    days_until_long_term: int
+
+
+class SellValidationResponse(BaseModel):
+    """Sell validation response"""
+    symbol: str
+    validation: str  # AGREE, WAIT, or DISAGREE
+    reasoning: str
+    confidence: float
+    agreement: bool
+    openai_recommendation: str
+    claude_recommendation: str
+    tax_implications: TaxImplications
+    alternatives: List[str]
     timestamp: str
 
 
@@ -112,6 +154,52 @@ async def research_stock(symbol: str):
         raise HTTPException(
             status_code=500,
             detail=f"Research failed: {str(e)}"
+        )
+
+
+@router.post("/sell-validation/{symbol}", response_model=SellValidationResponse)
+async def validate_sell(symbol: str, request: SellValidationRequest):
+    """Validate a sell decision with AI"""
+    try:
+        validator = get_sell_validator()
+        
+        # Convert position data to dict
+        position_data = {
+            'quantity': request.position.quantity,
+            'avg_price': request.position.avg_price,
+            'current_price': request.position.current_price,
+            'purchase_date': request.position.purchase_date
+        }
+        
+        # Parse reason
+        reason = SellReason(request.reason)
+        
+        # Get validation
+        result = await validator.validate_sell(
+            symbol=symbol,
+            position_data=position_data,
+            user_reason=reason,
+            custom_reason=request.custom_reason
+        )
+        
+        return SellValidationResponse(
+            symbol=result.symbol,
+            validation=result.validation.value,
+            reasoning=result.reasoning,
+            confidence=result.confidence,
+            agreement=result.agreement,
+            openai_recommendation=result.openai_recommendation,
+            claude_recommendation=result.claude_recommendation,
+            tax_implications=TaxImplications(**result.tax_implications),
+            alternatives=result.alternatives,
+            timestamp=datetime.utcnow().isoformat()
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Sell validation failed for {symbol}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Sell validation failed: {str(e)}"
         )
 
 

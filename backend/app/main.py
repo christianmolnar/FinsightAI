@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
 import logging
@@ -41,24 +42,34 @@ from app.api.market import router as market_router
 from app.api.auth import router as auth_router
 from app.api.strategy_parameters import router as strategy_parameters_router
 from api.research import router as research_router
+from api.queue import router as queue_router
+from utils.market_hours import get_market_status
 # Commented out optional routers that may not exist in deployment
 # from api.ai_optimizer import router as ai_optimizer_router
 # from api.paper_trading_db import router as paper_trading_router
+
+# Import Schwab API service
+from app.schwab_api import SchwabAPIService
 
 app.include_router(portfolio_router)
 app.include_router(market_router)
 app.include_router(auth_router)
 app.include_router(strategy_parameters_router)
 app.include_router(research_router)
+app.include_router(queue_router)
 # app.include_router(ai_optimizer_router, prefix="/api/v1/ai", tags=["AI Optimization"])
 # app.include_router(paper_trading_router, prefix="/api/v1", tags=["Paper Trading"])
 
 # Paper trading endpoints are defined directly in this file below
 
+# Initialize Schwab API service
+schwab_service = None
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database on startup"""
+    """Initialize database and Schwab API on startup"""
+    global schwab_service
+    
     logger.info("Starting FInsightAI Trading Agent...")
     
     # Check database connection
@@ -73,6 +84,20 @@ async def startup_event():
         logger.info("✓ Models loaded successfully")
     except Exception as e:
         logger.error(f"✗ Failed to load models: {e}")
+    
+    # Initialize Schwab API
+    try:
+        schwab_service = SchwabAPIService()
+        if schwab_service.is_configured():
+            if schwab_service.initialize_client():
+                logger.info("✓ Schwab API client initialized successfully")
+            else:
+                logger.warning("⚠ Schwab API client initialization failed")
+        else:
+            logger.warning("⚠ Schwab API credentials not configured")
+    except Exception as e:
+        logger.error(f"✗ Failed to initialize Schwab API: {e}")
+        schwab_service = None
 
 
 @app.get("/")
@@ -84,6 +109,25 @@ async def root():
         "version": "1.0.0",
         "timestamp": time.time()
     }
+
+
+@app.get("/api/market/status")
+async def market_status():
+    """Get current market status (open/closed)"""
+    try:
+        status = get_market_status()
+        return {
+            "success": True,
+            **status
+        }
+    except Exception as e:
+        logger.error(f"Error getting market status: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "is_open": False,
+            "status": "Unknown"
+        }
 
 
 @app.get("/health")
@@ -157,27 +201,37 @@ async def get_market_data(symbol: str):
         raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")
 
 
-# Helper function to get real stock price
+# Helper function to get real stock price using Schwab API
 def get_real_stock_price(symbol: str) -> float | None:
-    """Fetch real-time stock price from Yahoo Finance with timeout"""
+    """Fetch real-time stock price from Schwab API"""
+    global schwab_service
+    
+    if not schwab_service or not schwab_service.client:
+        logger.warning(f"Schwab API not available for {symbol}")
+        return None
+    
     try:
-        import yfinance as yf
-        from datetime import datetime
-        import pytz
+        # Get quote from Schwab API
+        quotes = schwab_service.get_real_time_quotes([symbol])
         
-        # Check if market is open (basic check)
-        now = datetime.now(pytz.timezone('US/Eastern'))
-        if now.weekday() >= 5:  # Weekend
-            return None
-        if now.hour < 9 or (now.hour == 9 and now.minute < 30) or now.hour >= 16:  # Outside market hours
-            return None
+        if quotes and symbol in quotes:
+            quote_data = quotes[symbol]['quote']
             
-        ticker = yf.Ticker(symbol)
-        data = ticker.history(period="1d", interval="1m")
-        if not data.empty:
-            return float(data['Close'].iloc[-1])
+            # Try to get the last price (various possible field names)
+            price = (quote_data.get('lastPrice') or 
+                    quote_data.get('last') or 
+                    quote_data.get('mark') or
+                    quote_data.get('closePrice'))
+            
+            if price:
+                return float(price)
+        
+        logger.warning(f"No price data available for {symbol}")
+        return None
+        
     except Exception as e:
-        logger.warning(f"Could not fetch real price for {symbol}: {e}")
+        logger.warning(f"Could not fetch Schwab price for {symbol}: {e}")
+        return None
     # Fallback to stored price
     return None
 
@@ -194,7 +248,10 @@ async def get_paper_portfolio():
     
     from decimal import Decimal
     
+    # Get database URL and normalize for psycopg2
     db_url = os.getenv('DATABASE_URL', 'postgresql://postgres:QokDSjvhKDiUbMUhyeQOXuhONnJjpZxG@yamanote.proxy.rlwy.net:46033/railway')
+    # psycopg2 doesn't support postgresql+psycopg:// - convert to postgresql://
+    db_url = db_url.replace('postgresql+psycopg://', 'postgresql://')
     
     try:
         conn = psycopg2.connect(db_url, cursor_factory=RealDictCursor)
@@ -266,6 +323,255 @@ async def get_paper_portfolio():
     except Exception as e:
         logger.error(f"Paper portfolio error: {e}")
         return {"error": str(e)}
+
+
+@app.get("/api/v1/paper/transactions")
+async def get_paper_transactions():
+    """Get paper trading transaction history from Railway PostgreSQL"""
+    try:
+        import psycopg2  # type: ignore
+        from psycopg2.extras import RealDictCursor  # type: ignore
+    except ImportError:
+        return {"error": "psycopg2 not installed"}
+    
+    # Get database URL and normalize for psycopg2
+    db_url = os.getenv('DATABASE_URL', 'postgresql://postgres:QokDSjvhKDiUbMUhyeQOXuhONnJjpZxG@yamanote.proxy.rlwy.net:46033/railway')
+    db_url = db_url.replace('postgresql+psycopg://', 'postgresql://')
+    
+    try:
+        conn = psycopg2.connect(db_url, cursor_factory=RealDictCursor)
+        cur = conn.cursor()
+        
+        # Get transactions for default user's paper portfolio
+        cur.execute("""
+            SELECT t.id, t.transaction_type, t.symbol, t.quantity, t.price, 
+                   t.total_amount, t.created_at
+            FROM transactions t
+            JOIN portfolios p ON t.portfolio_id = p.id
+            JOIN users u ON p.user_id = u.id
+            WHERE u.email = 'default@finsight.ai' AND p.portfolio_type = 'paper'
+            ORDER BY t.created_at DESC
+            LIMIT 50
+        """)
+        
+        transactions = cur.fetchall()
+        cur.close()
+        conn.close()
+        
+        # Format transactions
+        result = []
+        for txn in transactions:
+            result.append({
+                'id': str(txn['id']),
+                'type': txn['transaction_type'],
+                'symbol': txn['symbol'],
+                'quantity': float(txn['quantity']),
+                'price': float(txn['price']),
+                'total': float(txn['total_amount']),
+                'timestamp': txn['created_at'].isoformat() if txn['created_at'] else None
+            })
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Paper transactions error: {e}")
+        return {"error": str(e)}
+
+
+# Pydantic models for request bodies
+class TradeRequest(BaseModel):
+    symbol: str
+    side: str
+    quantity: float
+    order_type: str = "market"
+
+
+@app.post("/api/v1/paper/trade")
+async def paper_trade(trade: TradeRequest):
+    """Execute paper trade (buy or sell)"""
+    try:
+        import psycopg2  # type: ignore
+    except ImportError:
+        return {"status": "error", "message": "psycopg2 not installed"}
+    
+    from decimal import Decimal
+    
+    # Extract values from request
+    symbol = trade.symbol
+    side = trade.side
+    quantity = trade.quantity
+    order_type = trade.order_type
+    
+    # Get real-time price
+    price = get_real_stock_price(symbol)
+    if price is None:
+        return {"status": "error", "message": f"Could not fetch price for {symbol}"}
+    
+    # Get database URL and normalize for psycopg2
+    db_url = os.getenv('DATABASE_URL', 'postgresql://postgres:QokDSjvhKDiUbMUhyeQOXuhONnJjpZxG@yamanote.proxy.rlwy.net:46033/railway')
+    # psycopg2 doesn't support postgresql+psycopg:// - convert to postgresql://
+    db_url = db_url.replace('postgresql+psycopg://', 'postgresql://')
+    
+    try:
+        conn = psycopg2.connect(db_url)
+        cur = conn.cursor()
+        
+        # Get portfolio
+        cur.execute("""
+            SELECT p.id, p.current_cash
+            FROM portfolios p
+            JOIN users u ON p.user_id = u.id
+            WHERE u.email = 'default@finsight.ai' AND p.portfolio_type = 'paper'
+        """)
+        result = cur.fetchone()
+        
+        if result is None:
+            return {"status": "error", "message": "Portfolio not found"}
+        
+        portfolio_id, cash = result[0], Decimal(str(result[1]))
+        total_value = Decimal(str(quantity)) * Decimal(str(price))
+        
+        if side.lower() == "buy":
+            if total_value > cash:
+                return {"status": "error", "message": "Insufficient funds"}
+            
+            # Check if position exists
+            cur.execute("""
+                SELECT quantity, average_cost 
+                FROM positions 
+                WHERE portfolio_id = %s AND symbol = %s
+            """, (portfolio_id, symbol))
+            existing_position = cur.fetchone()
+            
+            if existing_position:
+                # Update existing position
+                existing_qty, existing_avg = Decimal(str(existing_position[0])), Decimal(str(existing_position[1]))
+                new_qty = existing_qty + Decimal(str(quantity))
+                new_avg = ((existing_qty * existing_avg) + (Decimal(str(quantity)) * Decimal(str(price)))) / new_qty
+                
+                cur.execute("""
+                    UPDATE positions 
+                    SET quantity = %s, average_cost = %s, current_price = %s, market_value = %s * %s
+                    WHERE portfolio_id = %s AND symbol = %s
+                """, (float(new_qty), float(new_avg), price, float(new_qty), price, portfolio_id, symbol))
+            else:
+                # Insert new position
+                cur.execute("""
+                    INSERT INTO positions (portfolio_id, symbol, quantity, average_cost, current_price, market_value)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (portfolio_id, symbol, quantity, price, price, float(total_value)))
+            
+            # Update cash (decrease)
+            cur.execute("""
+                UPDATE portfolios SET current_cash = current_cash - %s WHERE id = %s
+            """, (float(total_value), portfolio_id))
+            
+            message = f"Bought {quantity} shares of {symbol} at ${price}"
+            
+        elif side.lower() == "sell":
+            # Check if position exists
+            cur.execute("""
+                SELECT quantity FROM positions 
+                WHERE portfolio_id = %s AND symbol = %s
+            """, (portfolio_id, symbol))
+            position_result = cur.fetchone()
+            
+            if position_result is None or position_result[0] < quantity:
+                return {"status": "error", "message": "Insufficient shares to sell"}
+            
+            # Update position
+            new_quantity = position_result[0] - quantity
+            if new_quantity == 0:
+                cur.execute("""
+                    DELETE FROM positions WHERE portfolio_id = %s AND symbol = %s
+                """, (portfolio_id, symbol))
+            else:
+                cur.execute("""
+                    UPDATE positions 
+                    SET quantity = %s, market_value = %s * current_price
+                    WHERE portfolio_id = %s AND symbol = %s
+                """, (new_quantity, new_quantity, portfolio_id, symbol))
+            
+            # Update cash (increase)
+            cur.execute("""
+                UPDATE portfolios SET current_cash = current_cash + %s WHERE id = %s
+            """, (float(total_value), portfolio_id))
+            
+            message = f"Sold {quantity} shares of {symbol} at ${price}"
+        else:
+            return {"status": "error", "message": "Invalid side. Use 'buy' or 'sell'"}
+        
+        # Record transaction
+        cur.execute("""
+            INSERT INTO transactions (portfolio_id, transaction_type, symbol, quantity, price, total_amount)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (portfolio_id, side.lower(), symbol, quantity, price, float(total_value)))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return {
+            "status": "success",
+            "message": message,
+            "total": float(total_value)
+        }
+        
+    except Exception as e:
+        logger.error(f"Paper trade error: {e}")
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/api/v1/quotes/{symbol}")
+async def get_quote(symbol: str):
+    """Get real-time quote for a symbol using Schwab API"""
+    global schwab_service
+    
+    try:
+        if not schwab_service or not schwab_service.client:
+            raise HTTPException(status_code=503, detail="Schwab API not available")
+        
+        # Get quote from Schwab API
+        quotes = schwab_service.get_real_time_quotes([symbol])
+        
+        if not quotes or symbol not in quotes:
+            raise HTTPException(status_code=404, detail=f"Could not fetch price for {symbol}")
+        
+        quote_data = quotes[symbol]['quote']
+        
+        # Extract price and change data
+        last_price = (quote_data.get('lastPrice') or 
+                     quote_data.get('last') or 
+                     quote_data.get('mark') or
+                     quote_data.get('closePrice'))
+        
+        if not last_price:
+            raise HTTPException(status_code=404, detail=f"No price data available for {symbol}")
+        
+        net_change = quote_data.get('netChange', 0)
+        close_price = quote_data.get('closePrice', last_price)
+        change_percent = (net_change / close_price * 100) if close_price else 0
+        
+        return {
+            "symbol": symbol.upper(),
+            "price": float(last_price),
+            "change": float(net_change),
+            "changePercent": float(change_percent),
+            "timestamp": time.time(),
+            "volume": quote_data.get('totalVolume', 0),
+            "bid": quote_data.get('bidPrice', 0),
+            "ask": quote_data.get('askPrice', 0),
+            "high": quote_data.get('highPrice', 0),
+            "low": quote_data.get('lowPrice', 0),
+            "open": quote_data.get('openPrice', 0),
+            "previousClose": close_price
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching quote for {symbol}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/v1/paper/trade/buy")
