@@ -550,28 +550,42 @@ ELSE:
 
 ## 🚀 Progressive Feature Rollout
 
-### MVP (Week 1-2)
-- ✅ Dashboard with portfolio summary
-- ✅ Research screen (user-initiated)
-- ✅ Transaction queue (manual approval only)
-- ✅ Basic buy/sell execution (paper trading)
+**Timeline:** 35 real-time hours total (4-5 days at 8h/day, or 18 days at 2h/day, or 35 days at 1h/day)
 
-### V1.1 (Week 3-4)
-- ✅ Autonomous opportunity scanner
+### Phase 1: AI Research Engine (Day 1, 4h)
+- ✅ Research screen (user-initiated stock research)
+- ✅ Dual AI analysis (OpenAI + Claude verification)
+- ✅ BUY/WAIT/AVOID recommendations with confidence scores
+- ✅ Entry/stop/target prices with reasoning
+
+### Phase 2: Sell Validation Flow (Day 2, 3h)
+- ✅ Validate user's sell decisions
+- ✅ AI analysis of whether to hold or sell
+- ✅ Alternative timing suggestions
+- ✅ Risk/reward assessment
+
+### Phase 3: Transaction Queue System (Day 3, 4h)
+- ✅ Centralized proposal management
+- ✅ Manual approval/reject/modify workflow
 - ✅ Auto-execute logic (with user override)
-- ✅ Sell validation flow
-- ✅ Enhanced AI reasoning display
+- ✅ Scheduled execution
 
-### V1.2 (Week 5-6)
-- ✅ Learning engine (post-trade analysis)
-- ✅ History screen with insights
+### Phase 4: Opportunity Scanner (Day 4-5, 5h)
+- ✅ Autonomous market scanning (every 15 min)
+- ✅ AI finds opportunities across watchlists
+- ✅ Creates proposals automatically
 - ✅ Notification system
-- ✅ Mobile optimizations
 
-### V2.0 (Week 7-9)
-- ✅ Multi-user authentication
-- ✅ Live trading (Schwab integration)
-- ✅ Advanced strategies
+### Phase 5: Position Monitor & Rebalancing (Day 6-7, 5h)
+- ✅ AI evaluates existing positions daily
+- ✅ HOLD/BUY_MORE/SELL/WATCH recommendations
+- ✅ Rebalancing suggestions
+- ✅ Risk monitoring
+
+### Phase 6: Learning Engine (Day 8-9, 4h)
+- ✅ Post-trade analysis
+- ✅ Pattern recognition
+- ✅ Improvement proposals
 - ✅ Performance analytics
 
 ---
