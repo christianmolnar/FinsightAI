@@ -1,15 +1,26 @@
 # FInsightAI Implementation & Tracking Plan
-**Comprehensive Development Roadmap**
+**AI Trading Agent Development Roadmap**
 
 **Date Created:** December 22, 2025  
-**Last Updated:** December 23, 2025  
-**Project Status:** Core Infrastructure Complete → Beginning Phase 1  
-**Current Phase:** Phase 1 - Enhanced Configuration System
+**Last Updated:** December 23, 2025 (MAJOR REVISION)  
+**Project Status:** Core Infrastructure Complete → Building AI Agent System  
+**Current Phase:** Phase 1 - AI Research Engine (User-Initiated Stock Analysis)
 
-**Total Estimated Effort:** 3,360 human dev hours → 40 real-time hours with AI (3,360 ÷ 84)  
-**Timeline:** 9 weeks to autonomous trading (with focused AI-assisted development)  
-**Development Approach:** AI-assisted rapid development (84× acceleration factor)  
+**Total Estimated Effort:** 2,016 human dev hours → 24 real-time hours with AI (2,016 ÷ 84)  
+**Timeline:** 6 weeks to autonomous trading agent (with focused AI-assisted development)  
+**Development Approach:** Incremental delivery - working software at each phase  
 **AI Strategy:** Dual model approach (OpenAI for recommendations, Claude for verification)
+
+**🎯 REVISED VISION:** Build an AI trading agent that researches stocks on demand, autonomously finds opportunities, proposes trades with full transparency, and learns from every trade. User always has final approval.
+
+---
+
+## 📚 Architecture Documents
+
+**Core Design Documents:**
+- **[AI Agent Architecture](../architecture/AI-AGENT-ARCHITECTURE.md)** - System design, workflows, database schema
+- **[User Experience Specification](../specifications/USER-EXPERIENCE-SPEC.md)** - Screen-by-screen user flows, UI mockups
+- **This Document** - Implementation phases, time estimates, completion criteria
 
 ---
 
@@ -33,13 +44,589 @@
 
 ### Overall Progress Update
 **Previous:** 15% complete (basic infrastructure)  
-**Current:** 20% complete (core infrastructure stable + Schwab integration working)
+**Current:** 20% complete (core infrastructure stable + Schwab integration working)  
+**Next:** Phase 1 - AI Research Engine (user asks "Should I buy X?" → AI researches and recommends)
 
 ---
 
-## 🤖 AI Strategy & Configuration Approach
+## � Core Product Vision
 
-### Dual AI Model Verification System
+### Three Primary Workflows
+
+**1. User-Initiated Research (Phase 1)**
+```
+User: "Should I buy NVDA?"
+↓
+AI Agent researches (fundamentals, news, sentiment, technicals)
+↓
+Dual AI recommendation (OpenAI + Claude verification)
+↓
+User sees: BUY/WAIT/AVOID with full reasoning
+↓
+User creates trade proposal if interested
+```
+
+**2. User-Initiated Sell Validation (Phase 2)**
+```
+User: "I want to sell TSLA because..."
+↓
+AI Agent validates reasoning with fresh research
+↓
+Dual AI analysis (agree/wait/disagree)
+↓
+User sees: Tax implications, alternatives, timing
+↓
+User decides: Sell now, wait, or keep
+```
+
+**3. Autonomous Agent Operation (Phases 3-6)**
+```
+AI Agent scans market 24/7
+↓
+Finds opportunities + monitors positions
+↓
+Creates trade proposals (BUY/SELL)
+↓
+Proposals in queue with reasoning, timing, amounts
+↓
+User reviews → Approve/Modify/Reject
+↓
+Auto-execute based on confidence + rules
+↓
+AI learns from outcomes
+```
+
+**Key Principle:** Working software at each phase. Test real behavior early and often.
+
+---
+
+## 🎯 Implementation Phases (REVISED)
+
+### **Phase 1: AI Research Engine** (Week 1)
+**Goal:** User can ask AI "Should I buy NVDA?" and get intelligent recommendation
+
+**Estimated Human Dev Hours:** 336 hours  
+**Actual Dev Time with AI (84× acceleration):** 4 real-time hours (336 ÷ 84)  
+**Timeline:** Can be completed in 1 focused day
+
+**Deliverable:** Working research screen where user types symbol → AI researches → User sees BUY/WAIT/AVOID recommendation
+
+**Deliverable:** Working research screen where user types symbol → AI researches → User sees BUY/WAIT/AVOID recommendation
+
+#### Backend Tasks
+- [ ] **1.1 Dual AI Model Service**
+  - [ ] Create `backend/services/ai_models.py`
+    - [ ] OpenAI API wrapper (GPT-4 for initial recommendations)
+    - [ ] Anthropic API wrapper (Claude for verification)
+    - [ ] Consensus logic (when models agree/disagree)
+    - [ ] Response formatting with confidence scores
+  - [ ] Configure API keys in `.env` (already done ✅)
+  - **Files:** `backend/services/ai_models.py`
+  - **Time:** 1 hour
+
+- [ ] **1.2 Stock Research Engine**
+  - [ ] Create `backend/services/stock_researcher.py`
+    - [ ] Fundamental analysis (P/E, EPS growth, revenue, margins)
+    - [ ] Technical analysis (RSI, MACD, support/resistance)
+    - [ ] News scraper (recent headlines, sentiment)
+    - [ ] Calendar events (earnings dates, dividends, splits)
+    - [ ] Integrate with yfinance (free, unlimited)
+  - [ ] Create research data models
+  - [ ] Add research result caching (1 hour expiry)
+  - **Files:** 
+    - `backend/services/stock_researcher.py`
+    - `backend/models/research.py`
+  - **Time:** 1.5 hours
+
+- [ ] **1.3 Research API Endpoints**
+  - [ ] `POST /api/research/stock/{symbol}`
+    - [ ] Fetch stock data via stock_researcher
+    - [ ] Send to dual AI for analysis
+    - [ ] Return recommendation with reasoning
+  - [ ] Add error handling (symbol not found, API timeout)
+  - [ ] Add request rate limiting
+  - **Files:** `backend/api/research.py`
+  - **Time:** 30 minutes
+
+#### Frontend Tasks
+- [ ] **1.4 Research Screen UI**
+  - [ ] Create `Research.js` component
+    - [ ] Symbol search input with autocomplete
+    - [ ] Loading state during research (~3-5 seconds)
+    - [ ] Recommendation display (BUY/WAIT/AVOID badge)
+    - [ ] Confidence score visualization
+    - [ ] OpenAI reasoning panel
+    - [ ] Claude verification panel
+    - [ ] Risk/catalyst lists
+    - [ ] "Create Trade Proposal" button
+  - [ ] Add to main navigation
+  - **Files:** `frontend/src/components/Research.js`
+  - **Time:** 1 hour
+
+#### Testing & Validation
+- [ ] Test with 5 different stocks (NVDA, TSLA, AAPL, GOOGL, META)
+- [ ] Verify AI responses make sense
+- [ ] Check that models sometimes disagree (healthy)
+- [ ] Validate error handling (invalid symbols)
+
+**Completion Criteria:**
+✅ User can type "NVDA" and get AI recommendation  
+✅ Dual AI models provide reasoning (OpenAI + Claude)  
+✅ Confidence scores displayed accurately  
+✅ Recommendations include entry/stop/target prices  
+✅ Research results cached to save API costs  
+✅ UI shows loading state during research  
+
+**Demo Video:** User types "Should I buy NVDA?" → 5 seconds later → Full AI analysis with BUY recommendation
+
+---
+
+### **Phase 2: Sell Validation Flow** (Week 2)
+**Goal:** User can get AI validation when considering selling a position
+
+**Estimated Human Dev Hours:** 252 hours  
+**Actual Dev Time with AI (84× acceleration):** 3 real-time hours (252 ÷ 84)  
+**Timeline:** Can be completed in half a day
+
+**Deliverable:** User clicks "Sell" on position → AI validates decision → Shows agree/wait/disagree with reasoning
+
+#### Backend Tasks
+- [ ] **2.1 Sell Validation Service**
+  - [ ] Create `backend/services/sell_validator.py`
+    - [ ] Analyze current position P&L
+    - [ ] Research current stock conditions
+    - [ ] Calculate tax implications (short vs long-term)
+    - [ ] Compare to user's stated reason
+    - [ ] Dual AI validation (OpenAI + Claude)
+    - [ ] Generate alternative recommendations
+  - **Files:** `backend/services/sell_validator.py`
+  - **Time:** 1 hour
+
+- [ ] **2.2 Validation API Endpoint**
+  - [ ] `POST /api/research/validate-sell/{symbol}`
+    - [ ] Input: user_reason, current_position data
+    - [ ] Run sell validation service
+    - [ ] Return validation result with alternatives
+  - **Files:** `backend/api/research.py` (add endpoint)
+  - **Time:** 30 minutes
+
+#### Frontend Tasks
+- [ ] **2.3 Sell Validation UI**
+  - [ ] Add "Sell" button to portfolio positions
+  - [ ] Create sell validation dialog
+    - [ ] User reason selection (profit target, overvalued, bad news, etc.)
+    - [ ] Custom reason input
+    - [ ] "Get AI Validation" button
+    - [ ] Validation result display (AGREE/WAIT/DISAGREE)
+    - [ ] Tax impact calculator
+    - [ ] Alternative recommendations
+    - [ ] "Sell Now" vs "Wait" vs "Keep" buttons
+  - **Files:** `frontend/src/components/SellValidation.js`
+  - **Time:** 1.5 hours
+
+#### Testing & Validation
+- [ ] Test with winning position (TSLA +15%)
+- [ ] Test with losing position (GOOGL -5%)
+- [ ] Verify tax calculations accurate
+- [ ] Check that AI sometimes recommends waiting
+
+**Completion Criteria:**
+✅ User can request sell validation from any position  
+✅ AI considers tax implications  
+✅ Dual AI models agree/disagree appropriately  
+✅ Alternatives presented when waiting is better  
+✅ User can proceed with sell or cancel  
+
+---
+
+### **Phase 3: Transaction Queue System** (Week 3)
+**Goal:** Centralized queue for all pending trades (foundation for autonomous agent)
+
+**Estimated Human Dev Hours:** 336 hours  
+**Actual Dev Time with AI (84× acceleration):** 4 real-time hours (336 ÷ 84)  
+**Timeline:** 1 focused day
+
+**Deliverable:** Transaction Queue screen showing pending buy/sell proposals with approve/reject/modify actions
+
+#### Backend Tasks
+- [ ] **3.1 Database Schema**
+  - [ ] Create `pending_transactions` table
+    - [ ] transaction_type, symbol, quantity, proposed_price
+    - [ ] stop_loss, profit_target, confidence
+    - [ ] ai_reasoning (JSONB), risks, catalysts
+    - [ ] scheduled_time, status, auto_execute flag
+    - [ ] created_by (user/agent), timestamps
+  - [ ] Add indexes for performance
+  - **Files:** `database/migrations/004_pending_transactions.sql`
+  - **Time:** 30 minutes
+
+- [ ] **3.2 Transaction Queue Service**
+  - [ ] Create `backend/services/transaction_queue.py`
+    - [ ] Create pending transaction
+    - [ ] List pending transactions (with filters)
+    - [ ] Approve transaction → Execute trade
+    - [ ] Reject transaction → Remove from queue
+    - [ ] Modify transaction → Update details
+    - [ ] Auto-execute logic (confidence-based)
+  - **Files:** `backend/services/transaction_queue.py`
+  - **Time:** 1.5 hours
+
+- [ ] **3.3 Queue API Endpoints**
+  - [ ] `GET /api/transactions/pending` - List all pending
+  - [ ] `POST /api/transactions/pending` - Create proposal
+  - [ ] `PUT /api/transactions/{id}/approve` - Approve & execute
+  - [ ] `PUT /api/transactions/{id}/reject` - Reject
+  - [ ] `PUT /api/transactions/{id}/modify` - Modify details
+  - **Files:** `backend/api/transactions.py`
+  - **Time:** 1 hour
+
+#### Frontend Tasks
+- [ ] **3.4 Transaction Queue UI**
+  - [ ] Create `TransactionQueue.js` component
+    - [ ] List pending transactions (cards)
+    - [ ] Filter by type (BUY/SELL), status
+    - [ ] Sort by confidence, amount, scheduled time
+    - [ ] Expand/collapse cards for details
+    - [ ] Approve/Reject/Modify buttons
+    - [ ] Auto-execute countdown timer
+    - [ ] "Research More" button → Re-analyze
+  - [ ] Add to main navigation (with badge count)
+  - [ ] Create modify transaction dialog
+  - **Files:** 
+    - `frontend/src/components/TransactionQueue.js`
+    - `frontend/src/components/ModifyTransaction.js`
+  - **Time:** 1 hour
+
+#### Integration
+- [ ] **3.5 Connect Research → Queue**
+  - [ ] "Create Trade Proposal" button in Research screen
+  - [ ] Creates pending transaction in queue
+  - [ ] Redirects to Transaction Queue
+  - **Time:** 15 minutes
+
+#### Testing & Validation
+- [ ] Manually create 3 buy proposals
+- [ ] Manually create 2 sell proposals
+- [ ] Test approve → Execute trade (paper trading)
+- [ ] Test reject → Remove from queue
+- [ ] Test modify → Change amount/price
+- [ ] Verify auto-execute countdown works
+
+**Completion Criteria:**
+✅ Pending transactions stored in database  
+✅ Transaction Queue screen displays proposals  
+✅ User can approve → Execute immediately  
+✅ User can reject → Remove from queue  
+✅ User can modify → Change details  
+✅ Auto-execute countdown visible  
+✅ Research screen can create proposals  
+
+---
+
+### **Phase 4: Opportunity Scanner (Autonomous Agent)** (Week 4)
+**Goal:** AI agent autonomously finds buy opportunities and proposes trades
+
+**Estimated Human Dev Hours:** 420 hours  
+**Actual Dev Time with AI (84× acceleration):** 5 real-time hours (336 ÷ 84)  
+**Timeline:** 1-1.5 days
+
+**Deliverable:** Background process that scans market every 15 minutes → Finds opportunities → Creates proposals in queue
+
+#### Backend Tasks
+- [ ] **4.1 Market Scanner Service**
+  - [ ] Create `backend/services/market_scanner.py`
+    - [ ] Strategy 1: Earnings plays (7 days before earnings)
+    - [ ] Strategy 2: Technical breakouts (price > resistance)
+    - [ ] Strategy 3: Seasonality patterns (historical winners)
+    - [ ] Screen for candidates (scan S&P 500)
+    - [ ] Filter by volume, liquidity, spread
+  - **Files:** `backend/services/market_scanner.py`
+  - **Time:** 2 hours
+
+- [ ] **4.2 Opportunity Analyzer**
+  - [ ] For each candidate from scanner:
+    - [ ] Run stock research (reuse Phase 1 service)
+    - [ ] Dual AI analysis (OpenAI + Claude)
+    - [ ] Calculate risk/reward ratio
+    - [ ] If confidence > 75% → Create proposal
+  - [ ] Add to market_scanner.py
+  - **Time:** 1 hour
+
+- [ ] **4.3 Background Job Scheduler**
+  - [ ] Create `backend/jobs/scan_opportunities.py`
+    - [ ] Run every 15 minutes (cron schedule)
+    - [ ] Call market_scanner service
+    - [ ] Create pending transactions for good opportunities
+    - [ ] Log scan results
+  - [ ] Configure Railway cron job
+  - **Files:** `backend/jobs/scan_opportunities.py`
+  - **Time:** 1 hour
+
+- [ ] **4.4 Agent Configuration**
+  - [ ] User preferences for autonomous agent:
+    - [ ] Max concurrent positions
+    - [ ] Max position size
+    - [ ] Allowed strategies (earnings, breakouts, etc.)
+    - [ ] Auto-execute threshold (confidence level)
+  - [ ] Store in strategy_configs table
+  - **Files:** `backend/models/agent_config.py`
+  - **Time:** 30 minutes
+
+#### Frontend Tasks
+- [ ] **4.5 Agent Status Dashboard**
+  - [ ] Add "AI Agent Status" widget to Dashboard
+    - [ ] Active/paused toggle
+    - [ ] Last scan time
+    - [ ] Opportunities found today
+    - [ ] Proposals created
+  - [ ] Agent settings page
+    - [ ] Enable/disable agent
+    - [ ] Configure strategies
+    - [ ] Set risk limits
+  - **Files:** `frontend/src/components/AgentStatus.js`
+  - **Time:** 30 minutes
+
+#### Testing & Validation
+- [ ] Run scanner manually (test mode)
+- [ ] Verify it finds 3-5 opportunities
+- [ ] Check proposals appear in queue
+- [ ] Validate AI reasoning makes sense
+- [ ] Test enable/disable agent toggle
+
+**Completion Criteria:**
+✅ Scanner runs every 15 minutes automatically  
+✅ Finds 3-5 opportunities per day  
+✅ Creates proposals in transaction queue  
+✅ User sees "Proposed by: 🤖 AI Agent"  
+✅ Agent can be enabled/disabled  
+✅ Agent respects risk limits  
+
+---
+
+### **Phase 5: Position Monitor (Autonomous Exits)** (Week 5)
+**Goal:** AI monitors open positions and proposes sells when appropriate
+
+**Estimated Human Dev Hours:** 336 hours  
+**Actual Dev Time with AI (84× acceleration):** 4 real-time hours (336 ÷ 84)  
+**Timeline:** 1 focused day
+
+**Deliverable:** Background process monitors positions → Creates sell proposals when stop loss hit, profit target reached, or bad news detected
+
+#### Backend Tasks
+- [ ] **5.1 Position Monitor Service**
+  - [ ] Create `backend/services/position_monitor.py`
+    - [ ] Check all open positions every 5 minutes
+    - [ ] For each position:
+      - [ ] Check if stop loss hit → Create sell proposal
+      - [ ] Check if profit target hit → Create sell proposal
+      - [ ] Check for news/events → AI validation → Propose if needed
+      - [ ] Check hold period → Reassess if expired
+  - **Files:** `backend/services/position_monitor.py`
+  - **Time:** 2 hours
+
+- [ ] **5.2 Exit Signal Generator**
+  - [ ] Technical exit signals
+    - [ ] Stop loss breach
+    - [ ] Profit target achieved
+    - [ ] Trailing stop triggered
+    - [ ] Support/resistance broken
+  - [ ] Fundamental exit signals
+    - [ ] Earnings miss
+    - [ ] Bad news (AI analyzes)
+    - [ ] Sector weakness
+  - [ ] Add to position_monitor.py
+  - **Time:** 1 hour
+
+- [ ] **5.3 Background Job**
+  - [ ] Create `backend/jobs/monitor_positions.py`
+    - [ ] Run every 5 minutes
+    - [ ] Call position_monitor service
+    - [ ] Create sell proposals when signals detected
+  - [ ] Configure Railway cron job
+  - **Files:** `backend/jobs/monitor_positions.py`
+  - **Time:** 30 minutes
+
+#### Frontend Tasks
+- [ ] **5.4 Position Alerts**
+  - [ ] Add status indicators to positions
+    - [ ] ✅ Healthy (no issues)
+    - [ ] 🎯 Target hit (sell signal)
+    - [ ] ⚠️ Warning (approaching stop)
+    - [ ] 🔴 Alert (immediate action)
+  - [ ] Show sell proposals linked to positions
+  - **Files:** `frontend/src/components/Portfolio.js` (enhance)
+  - **Time:** 30 minutes
+
+#### Testing & Validation
+- [ ] Create test position with stop loss
+- [ ] Simulate price drop → Verify sell proposal created
+- [ ] Create test position near profit target
+- [ ] Simulate target hit → Verify sell proposal created
+- [ ] Test news detection for held stocks
+
+**Completion Criteria:**
+✅ Monitor runs every 5 minutes automatically  
+✅ Detects stop loss breaches  
+✅ Detects profit target hits  
+✅ Creates sell proposals in queue  
+✅ User sees "Reason: Profit target hit"  
+✅ Proposals include P&L calculation  
+
+---
+
+### **Phase 6: Learning Engine** (Week 6)
+**Goal:** AI learns from past trades to improve future recommendations
+
+**Estimated Human Dev Hours:** 336 hours  
+**Actual Dev Time with AI (84× acceleration):** 4 real-time hours (336 ÷ 84)  
+**Timeline:** 1 focused day
+
+**Deliverable:** Post-trade analysis showing what AI learned + Historical performance tracking
+
+#### Backend Tasks
+- [ ] **6.1 Learning Database Schema**
+  - [ ] Create `learning_history` table
+    - [ ] transaction_id, predicted_outcome, actual_outcome
+    - [ ] confidence_at_entry, actual_pnl, days_held
+    - [ ] strategy_used, what_went_right, what_went_wrong
+    - [ ] lessons_learned (JSONB)
+  - **Files:** `database/migrations/005_learning_history.sql`
+  - **Time:** 30 minutes
+
+- [ ] **6.2 Post-Trade Analysis Service**
+  - [ ] Create `backend/services/learning_engine.py`
+    - [ ] When trade closes:
+      - [ ] Compare prediction to actual outcome
+      - [ ] Analyze what worked / what didn't
+      - [ ] Extract lessons (AI-generated)
+      - [ ] Update strategy performance metrics
+      - [ ] Store in learning_history table
+  - **Files:** `backend/services/learning_engine.py`
+  - **Time:** 2 hours
+
+- [ ] **6.3 Strategy Performance Tracker**
+  - [ ] Track win rate per strategy
+  - [ ] Track average gain/loss per strategy
+  - [ ] Track best/worst trades
+  - [ ] Identify patterns (e.g., "earnings plays work best 7 days before")
+  - [ ] Add to learning_engine.py
+  - **Time:** 1 hour
+
+#### Frontend Tasks
+- [ ] **6.4 Trade History Screen**
+  - [ ] Create `History.js` component
+    - [ ] List all closed trades
+    - [ ] Filter by wins/losses, strategy, date
+    - [ ] Performance summary (win rate, avg gain, etc.)
+    - [ ] Expand trade → Show AI post-analysis
+    - [ ] "What AI Learned" section
+  - [ ] Add to main navigation
+  - **Files:** `frontend/src/components/History.js`
+  - **Time:** 30 minutes
+
+#### Testing & Validation
+- [ ] Close 3 test trades (2 wins, 1 loss)
+- [ ] Verify post-analysis generated
+- [ ] Check lessons learned make sense
+- [ ] Validate performance metrics calculated
+- [ ] Test history screen displays correctly
+
+**Completion Criteria:**
+✅ Every closed trade generates post-analysis  
+✅ AI extracts lessons learned  
+✅ Strategy performance tracked  
+✅ History screen shows past trades  
+✅ User can see "What went wrong" on losses  
+✅ Patterns identified (e.g., "earnings plays work best...")  
+
+---
+
+## 📊 Progress Tracking
+
+| Phase | Description | Status | Human Hours | Real Hours | Completion |
+|-------|-------------|--------|-------------|------------|------------|
+| Infrastructure | Backend + Frontend + DB | ✅ Complete | 840h | 10h | 100% |
+| **Phase 1** | AI Research Engine | 🔲 Not Started | 336h | 4h | 0% |
+| **Phase 2** | Sell Validation Flow | 🔲 Not Started | 252h | 3h | 0% |
+| **Phase 3** | Transaction Queue System | 🔲 Not Started | 336h | 4h | 0% |
+| **Phase 4** | Opportunity Scanner | 🔲 Not Started | 420h | 5h | 0% |
+| **Phase 5** | Position Monitor | 🔲 Not Started | 336h | 4h | 0% |
+| **Phase 6** | Learning Engine | 🔲 Not Started | 336h | 4h | 0% |
+| **TOTAL** | | | **2,856h** | **34h** | **20%** |
+
+**Timeline Summary:**
+- **Week 1:** AI Research Engine (user-initiated stock analysis)
+- **Week 2:** Sell Validation Flow (validate sell decisions)
+- **Week 3:** Transaction Queue System (centralized proposal management)
+- **Week 4:** Opportunity Scanner (autonomous buy signals)
+- **Week 5:** Position Monitor (autonomous sell signals)
+- **Week 6:** Learning Engine (AI improves from outcomes)
+
+**Total Time:** 6 weeks (34 real-time hours with AI assistance)  
+**Result:** Fully autonomous AI trading agent with user oversight
+
+---
+
+## ✅ Completion Criteria Summary
+
+### Phase 1 Complete When:
+- User can type "NVDA" → Get AI recommendation in 5 seconds
+- Dual AI models provide reasoning (sometimes disagree)
+- User can create trade proposal from research
+
+### Phase 2 Complete When:
+- User can validate sell decisions with AI
+- Tax implications shown
+- Alternatives presented when appropriate
+
+### Phase 3 Complete When:
+- Transaction queue displays all pending trades
+- User can approve/reject/modify proposals
+- Auto-execute countdown functional
+
+### Phase 4 Complete When:
+- AI agent scans market every 15 minutes
+- Finds 3-5 opportunities per day
+- Creates proposals automatically
+
+### Phase 5 Complete When:
+- AI monitors positions every 5 minutes
+- Detects stop loss / profit target hits
+- Creates sell proposals automatically
+
+### Phase 6 Complete When:
+- Every trade generates post-analysis
+- AI learns from outcomes
+- History screen shows lessons learned
+
+---
+
+## 🚀 Next Steps
+
+**Immediate Next Action (Week 1):**
+1. Create `backend/services/ai_models.py` (dual AI wrapper)
+2. Create `backend/services/stock_researcher.py` (fundamentals + technicals + news)
+3. Create `backend/api/research.py` (API endpoint)
+4. Create `frontend/src/components/Research.js` (UI)
+5. **TEST:** Ask AI about NVDA, TSLA, AAPL → Verify recommendations make sense
+
+**After Phase 1:**
+- Move to Phase 2 (Sell Validation)
+- Keep Phase 1 working while building Phase 2
+- Continuous testing with real data
+
+**Development Philosophy:**
+- ✅ Working software at each phase
+- ✅ Test with real stocks, real data
+- ✅ User can play with it immediately
+- ✅ Incremental delivery > Big bang launch
+- ✅ Learn from actual usage, adjust course if needed
+
+---
+
+**Document Version:** 2.0 (MAJOR REVISION)  
+**Last Updated:** December 23, 2025  
+**Status:** Design Complete, Ready to Build Phase 1
 **Strategy:** Use two leading AI models to verify and improve each other's recommendations
 
 **Implementation:**
