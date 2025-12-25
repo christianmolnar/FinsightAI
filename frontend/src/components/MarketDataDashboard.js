@@ -102,7 +102,7 @@ const MarketDataDashboard = () => {
 
   const formatQuoteData = (quotes) => {
     return Object.entries(quotes).map(([symbol, data]) => {
-      // Handle different possible data structures from Schwab API
+      // Handle different possible data structures from Alpaca API
       const quote = data.quote || data;
       return {
         symbol,
@@ -120,7 +120,7 @@ const MarketDataDashboard = () => {
   const ConnectionStatus = () => {
     const statusConfig = {
       testing: { color: 'text-yellow-600', bg: 'bg-yellow-100', text: 'Testing Connection...', icon: '🔄' },
-      connected: { color: 'text-green-600', bg: 'bg-green-100', text: 'Connected to Schwab API', icon: '✅' },
+      connected: { color: 'text-green-600', bg: 'bg-green-100', text: 'Connected to Alpaca API', icon: '✅' },
       error: { color: 'text-red-600', bg: 'bg-red-100', text: 'Connection Failed', icon: '❌' }
     };
 
@@ -147,7 +147,7 @@ const MarketDataDashboard = () => {
         <div className="flex items-center text-green-600">
           <span className="text-xl mr-2">🔐</span>
           <span className="font-semibold">
-            Authenticated with Schwab - Ready for Market Data
+            Authenticated with Alpaca - Ready for Market Data
           </span>
         </div>
       </div>
@@ -159,10 +159,10 @@ const MarketDataDashboard = () => {
       <div className="mb-8 flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Charles Schwab Market Data
+            Alpaca Market Data
           </h1>
           <p className="text-gray-600">
-            Real-time market data integration with Charles Schwab API
+            Real-time market data integration with Alpaca API
           </p>
         </div>
         <MarketStatus />

@@ -15,7 +15,7 @@ const RealPortfolio = () => {
   const fetchPortfolioData = async () => {
     try {
       setError(null);
-      const response = await fetch('http://localhost:8000/api/v1/schwab/portfolio/overview');
+      const response = await fetch('http://localhost:8000/api/v1/alpaca/portfolio');
       const data = await response.json();
       
       if (!response.ok) {
@@ -94,7 +94,7 @@ const RealPortfolio = () => {
       <div className="p-6">
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
           <h2 className="text-xl font-semibold text-yellow-800 mb-2">No Accounts Found</h2>
-          <p className="text-yellow-600">Please make sure you're authenticated with Schwab API and have linked accounts.</p>
+          <p className="text-yellow-600">Please make sure you're authenticated with Alpaca API and have linked your account.</p>
         </div>
       </div>
     );
