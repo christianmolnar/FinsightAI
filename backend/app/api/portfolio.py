@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from app.database import get_db
 from app.models import Portfolio, Position, Trade
 from app.schwab_api import schwab_service
@@ -104,6 +105,38 @@ async def get_portfolio(db: Session = Depends(get_db)):
         positions=position_responses,
         performance=performance
     )
+
+
+@router.get("/portfolios")
+async def list_portfolios(db: Session = Depends(get_db)):
+    """List all portfolios"""
+    try:
+        # Use raw SQL since the Portfolio model may not match schema
+        result = db.execute(text("""
+            SELECT 
+                id, 
+                name, 
+                portfolio_type,
+                total_value,
+                current_cash
+            FROM portfolios
+            ORDER BY created_at DESC
+        """))
+        
+        portfolios = []
+        for row in result:
+            portfolios.append({
+                "id": str(row[0]),
+                "name": row[1],
+                "portfolio_type": row[2],
+                "total_value": float(row[3]) if row[3] else 0.0,
+                "cash_balance": float(row[4]) if row[4] else 0.0
+            })
+        
+        return portfolios
+    except Exception as e:
+        logger.error(f"Error listing portfolios: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/trades", response_model=List[TradeResponse])

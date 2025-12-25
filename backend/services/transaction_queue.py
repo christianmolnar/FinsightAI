@@ -34,8 +34,8 @@ class TransactionQueueService:
         proposed_price: float,
         confidence_score: int,
         ai_reasoning: Dict[str, Any],
-        risk_factors: List[str] = None,
-        catalysts: List[str] = None,
+        risk_factors: Optional[List[str]] = None,
+        catalysts: Optional[List[str]] = None,
         stop_loss: Optional[float] = None,
         profit_target: Optional[float] = None,
         reason_for_trade: Optional[str] = None,
@@ -117,7 +117,7 @@ class TransactionQueueService:
     
     def list_pending_transactions(
         self,
-        portfolio_id: str,
+        portfolio_id: str = "",
         status: Optional[str] = None,
         transaction_type: Optional[str] = None,
         symbol: Optional[str] = None,
@@ -127,7 +127,7 @@ class TransactionQueueService:
         List pending transactions with optional filters
         
         Args:
-            portfolio_id: Portfolio UUID
+            portfolio_id: Portfolio UUID (empty string for all portfolios)
             status: Filter by status (pending, approved, rejected, etc.)
             transaction_type: Filter by type ('buy' or 'sell')
             symbol: Filter by stock symbol
@@ -140,11 +140,13 @@ class TransactionQueueService:
             conn = self._get_connection()
             cur = conn.cursor(cursor_factory=RealDictCursor)
             
-            query = """
-                SELECT * FROM pending_transactions
-                WHERE portfolio_id = %s
-            """
-            params = [portfolio_id]
+            query = "SELECT * FROM pending_transactions WHERE 1=1"
+            params = []
+            
+            # Only filter by portfolio_id if provided
+            if portfolio_id:
+                query += " AND portfolio_id = %s"
+                params.append(portfolio_id)
             
             if status:
                 query += " AND status = %s"

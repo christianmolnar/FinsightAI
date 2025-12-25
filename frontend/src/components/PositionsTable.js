@@ -1,6 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
+import SellValidation from './SellValidation';
 
-const PositionsTable = ({ positions, loading }) => {
+const PositionsTable = ({ positions, loading, onSellComplete }) => {
+  const [sellModalPosition, setSellModalPosition] = useState(null);
+
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -12,6 +15,30 @@ const PositionsTable = ({ positions, loading }) => {
     if (value > 0) return 'positive';
     if (value < 0) return 'negative';
     return 'neutral';
+  };
+
+  const handleSellClick = (position) => {
+    setSellModalPosition({
+      symbol: position.symbol,
+      quantity: position.shares,
+      avg_price: position.avg_cost,
+      current_price: position.current_price,
+      purchase_date: position.purchase_date || new Date().toISOString(),
+    });
+  };
+
+  const handleSellConfirm = async (position) => {
+    // Close modal
+    setSellModalPosition(null);
+    
+    // Notify parent component
+    if (onSellComplete) {
+      onSellComplete(position);
+    }
+  };
+
+  const handleSellCancel = () => {
+    setSellModalPosition(null);
   };
 
   if (loading) {
@@ -64,6 +91,9 @@ const PositionsTable = ({ positions, loading }) => {
               <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 P&L
               </th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
@@ -93,11 +123,27 @@ const PositionsTable = ({ positions, loading }) => {
                     {position.unrealized_pnl >= 0 ? '+' : ''}{formatCurrency(position.unrealized_pnl)}
                   </span>
                 </td>
+                <td className="px-4 py-4 whitespace-nowrap text-right text-sm">
+                  <button
+                    onClick={() => handleSellClick(position)}
+                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+                  >
+                    Sell
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {sellModalPosition && (
+        <SellValidation
+          position={sellModalPosition}
+          onClose={handleSellCancel}
+          onConfirmSell={handleSellConfirm}
+        />
+      )}
     </div>
   );
 };

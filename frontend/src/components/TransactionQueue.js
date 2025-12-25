@@ -345,7 +345,7 @@ const TransactionQueue = () => {
 
               {/* Risk Factors & Catalysts */}
               <div className="grid grid-cols-2 gap-4 mb-4">
-                {transaction.risk_factors && transaction.risk_factors.length > 0 && (
+                {transaction.risk_factors && Array.isArray(transaction.risk_factors) && transaction.risk_factors.length > 0 && (
                   <div>
                     <p className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                       <AlertTriangle className="w-4 h-4 mr-1 text-orange-600" />
@@ -353,13 +353,13 @@ const TransactionQueue = () => {
                     </p>
                     <ul className="text-sm text-gray-600 space-y-1">
                       {transaction.risk_factors.slice(0, 3).map((risk, idx) => (
-                        <li key={idx}>• {risk}</li>
+                        <li key={idx}>• {typeof risk === 'string' ? risk : JSON.stringify(risk)}</li>
                       ))}
                     </ul>
                   </div>
                 )}
                 
-                {transaction.catalysts && transaction.catalysts.length > 0 && (
+                {transaction.catalysts && Array.isArray(transaction.catalysts) && transaction.catalysts.length > 0 && (
                   <div>
                     <p className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                       <TrendingUp className="w-4 h-4 mr-1 text-green-600" />
@@ -367,7 +367,7 @@ const TransactionQueue = () => {
                     </p>
                     <ul className="text-sm text-gray-600 space-y-1">
                       {transaction.catalysts.slice(0, 3).map((catalyst, idx) => (
-                        <li key={idx}>• {catalyst}</li>
+                        <li key={idx}>• {typeof catalyst === 'string' ? catalyst : JSON.stringify(catalyst)}</li>
                       ))}
                     </ul>
                   </div>

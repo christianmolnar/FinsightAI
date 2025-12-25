@@ -88,14 +88,14 @@ async def create_pending_transaction(request: CreateTransactionRequest):
     except Exception as e:
         logger.error(f"Error creating pending transaction: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail=f"Failed to create pending transaction: {str(e)}"
         )
 
 
 @router.get("/pending")
 async def list_pending_transactions(
-    portfolio_id: str,
+    portfolio_id: Optional[str] = None,
     status: Optional[str] = None,
     transaction_type: Optional[str] = None,
     symbol: Optional[str] = None,
@@ -105,7 +105,7 @@ async def list_pending_transactions(
     List pending transactions with optional filters
     
     Query params:
-    - portfolio_id: Required - Portfolio UUID
+    - portfolio_id: Optional - Portfolio UUID (if not provided, returns from all portfolios)
     - status: Optional - Filter by status (pending, approved, rejected, executed, expired)
     - transaction_type: Optional - Filter by type (buy, sell)
     - symbol: Optional - Filter by stock symbol
@@ -117,7 +117,7 @@ async def list_pending_transactions(
         queue_service = TransactionQueueService()
         
         transactions = queue_service.list_pending_transactions(
-            portfolio_id=portfolio_id,
+            portfolio_id=portfolio_id or "",  # Empty string means all portfolios
             status=status,
             transaction_type=transaction_type,
             symbol=symbol,
@@ -133,7 +133,7 @@ async def list_pending_transactions(
     except Exception as e:
         logger.error(f"Error listing pending transactions: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail=f"Failed to list pending transactions: {str(e)}"
         )
 
@@ -158,7 +158,7 @@ async def get_transaction_details(transaction_id: str):
         
         if not transaction:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=404,
                 detail=f"Transaction {transaction_id} not found"
             )
         
@@ -172,7 +172,7 @@ async def get_transaction_details(transaction_id: str):
     except Exception as e:
         logger.error(f"Error getting transaction details: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail=f"Failed to get transaction details: {str(e)}"
         )
 
@@ -205,13 +205,13 @@ async def approve_transaction(transaction_id: str, request: ActionRequest):
         
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=400,
             detail=str(e)
         )
     except Exception as e:
         logger.error(f"Error approving transaction: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail=f"Failed to approve transaction: {str(e)}"
         )
 
@@ -244,13 +244,13 @@ async def reject_transaction(transaction_id: str, request: ActionRequest):
         
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=400,
             detail=str(e)
         )
     except Exception as e:
         logger.error(f"Error rejecting transaction: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail=f"Failed to reject transaction: {str(e)}"
         )
 
@@ -290,13 +290,13 @@ async def modify_transaction(transaction_id: str, request: ModifyTransactionRequ
         
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=400,
             detail=str(e)
         )
     except Exception as e:
         logger.error(f"Error modifying transaction: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail=f"Failed to modify transaction: {str(e)}"
         )
 
@@ -327,7 +327,7 @@ async def get_queue_stats(portfolio_id: str):
     except Exception as e:
         logger.error(f"Error getting queue stats: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail=f"Failed to get queue stats: {str(e)}"
         )
 
@@ -358,7 +358,7 @@ async def process_auto_execute():
     except Exception as e:
         logger.error(f"Error processing auto-execute queue: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail=f"Failed to process auto-execute queue: {str(e)}"
         )
 
@@ -389,6 +389,6 @@ async def expire_old_transactions(days_old: int = 7):
     except Exception as e:
         logger.error(f"Error expiring transactions: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail=f"Failed to expire transactions: {str(e)}"
         )
