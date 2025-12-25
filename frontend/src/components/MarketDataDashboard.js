@@ -178,13 +178,9 @@ const MarketDataDashboard = () => {
           </p>
         </div>
         {marketStatus && (
-          <div className={`inline-flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium ${
-            marketStatus.is_open 
-              ? 'bg-green-500 bg-opacity-30 text-green-100' 
-              : 'bg-red-500 bg-opacity-30 text-red-100'
-          }`}>
+          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-700">
             <div className={`w-2 h-2 rounded-full ${
-              marketStatus.is_open ? 'bg-green-400 animate-pulse' : 'bg-red-400'
+              marketStatus.is_open ? 'bg-green-500 animate-pulse' : 'bg-red-500'
             }`}></div>
             <span>Markets {marketStatus.status}</span>
           </div>
