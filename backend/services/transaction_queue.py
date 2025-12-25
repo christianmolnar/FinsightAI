@@ -188,24 +188,60 @@ class TransactionQueueService:
             conn = self._get_connection()
             cur = conn.cursor(cursor_factory=RealDictCursor)
             
-            # Get transaction details
-            cur.execute("SELECT * FROM pending_transactions WHERE id = %s", (transaction_id,))
+            # Get transaction details with portfolio type
+            cur.execute("""
+                SELECT pt.*, p.portfolio_type 
+                FROM pending_transactions pt
+                JOIN portfolios p ON pt.portfolio_id = p.id
+                WHERE pt.id = %s
+            """, (transaction_id,))
             transaction = dict(cur.fetchone())
             
             if transaction['status'] != 'pending':
                 raise ValueError(f"Transaction {transaction_id} is not pending (status: {transaction['status']})")
             
-            # Execute the trade
-            from backend.services.paper_trading import PaperTradingService
-            trading_service = PaperTradingService()
+            # Route to appropriate trading service based on portfolio type
+            portfolio_type = transaction['portfolio_type']
             
-            trade_result = trading_service.execute_trade(
-                portfolio_id=transaction['portfolio_id'],
-                symbol=transaction['symbol'],
-                quantity=transaction['quantity'],
-                trade_type=transaction['transaction_type'],
-                price=transaction['proposed_price']  # Use proposed price for paper trading
-            )
+            if portfolio_type == 'paper':
+                # Execute paper trade
+                from services.paper_trading import PaperTradingService
+                trading_service = PaperTradingService()
+                
+                trade_result = trading_service.execute_trade(
+                    portfolio_id=transaction['portfolio_id'],
+                    symbol=transaction['symbol'],
+                    quantity=transaction['quantity'],
+                    trade_type=transaction['transaction_type'],
+                    price=transaction['proposed_price']
+                )
+                
+            elif portfolio_type == 'live':
+                # Execute real trade through Schwab
+                from services.schwab_service import SchwabService
+                schwab_service = SchwabService()
+                
+                # Place order with Schwab API
+                # Note: This requires Schwab order placement API integration
+                # Currently using market orders with proposed price as reference
+                order_result = schwab_service.place_order(
+                    account_number=transaction['portfolio_id'],  # Will need actual account number
+                    symbol=transaction['symbol'],
+                    quantity=transaction['quantity'],
+                    instruction='BUY' if transaction['transaction_type'] == 'buy' else 'SELL',
+                    order_type='MARKET',  # Could be LIMIT with proposed_price
+                    price=transaction['proposed_price']
+                )
+                
+                trade_result = {
+                    "success": True,
+                    "message": f"Live order placed: {order_result.get('orderId', 'N/A')}",
+                    "order_id": order_result.get('orderId'),
+                    "status": order_result.get('status')
+                }
+                
+            else:
+                raise ValueError(f"Unknown portfolio type: {portfolio_type}")
             
             # Update pending transaction status
             update_query = """
