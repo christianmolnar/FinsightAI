@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import SellValidation from './SellValidation';
+import MarketStatus from './MarketStatus';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -39,13 +40,11 @@ const PaperPortfolio = () => {
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showSellValidation, setShowSellValidation] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState(null);
-  const [marketStatus, setMarketStatus] = useState(null);
 
   useEffect(() => {
     fetchPortfolio();
     loadWatchlist();
     fetchTransactions();
-    fetchMarketStatus();
     
     // Auto-refresh disabled - use manual refresh button instead
     // Users can refresh manually when needed to avoid constant reloading
@@ -98,17 +97,6 @@ const PaperPortfolio = () => {
       setTransactions(response.data);
     } catch (err) {
       console.error('Error fetching transactions:', err);
-    }
-  };
-
-  const fetchMarketStatus = async () => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/api/market/status`);
-      if (response.data.success) {
-        setMarketStatus(response.data);
-      }
-    } catch (err) {
-      console.error('Error fetching market status:', err);
     }
   };
 
@@ -342,14 +330,7 @@ const PaperPortfolio = () => {
                 ({(((portfolio?.total_value || 10000) - 10000) / 10000 * 100).toFixed(2)}%)
               </div>
             </div>
-            {marketStatus && (
-              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-700">
-                <div className={`w-2 h-2 rounded-full ${
-                  marketStatus.is_open ? 'bg-green-500 animate-pulse' : 'bg-red-500'
-                }`}></div>
-                <span>Markets {marketStatus.status}</span>
-              </div>
-            )}
+            <MarketStatus />
           </div>
         </div>
       </div>

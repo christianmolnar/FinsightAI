@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import MarketStatus from './MarketStatus';
 
 const MarketDataDashboard = () => {
   const [connectionStatus, setConnectionStatus] = useState('connected');
@@ -10,14 +11,12 @@ const MarketDataDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [recentData, setRecentData] = useState([]);
-  const [marketStatus, setMarketStatus] = useState(null);
 
   const API_BASE = 'http://localhost:8000/api/market';
 
   // Auto-fetch quotes on component mount
   useEffect(() => {
     getQuotes();
-    fetchMarketStatus();
   }, []);
 
   const getQuotes = async () => {
@@ -86,17 +85,6 @@ const MarketDataDashboard = () => {
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to get recent data');
       console.error('Error getting recent data:', err);
-    }
-  };
-
-  const fetchMarketStatus = async () => {
-    try {
-      const response = await axios.get(`${API_BASE}/status`);
-      if (response.data.success) {
-        setMarketStatus(response.data);
-      }
-    } catch (err) {
-      console.error('Error fetching market status:', err);
     }
   };
 
@@ -177,14 +165,7 @@ const MarketDataDashboard = () => {
             Real-time market data integration with Charles Schwab API
           </p>
         </div>
-        {marketStatus && (
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-700">
-            <div className={`w-2 h-2 rounded-full ${
-              marketStatus.is_open ? 'bg-green-500 animate-pulse' : 'bg-red-500'
-            }`}></div>
-            <span>Markets {marketStatus.status}</span>
-          </div>
-        )}
+        <MarketStatus />
       </div>
 
       <ConnectionStatus />

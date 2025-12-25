@@ -1,33 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React from 'react';
 import PortfolioOverview from './PortfolioOverview';
 import PortfolioChart from './PortfolioChart';
 import PositionsTable from './PositionsTable';
 import TradesTable from './TradesTable';
 import MarketOverview from './MarketOverview';
-
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+import MarketStatus from './MarketStatus';
 
 const Dashboard = ({ portfolioData, trades, loading, onRefresh }) => {
-  const [marketStatus, setMarketStatus] = useState(null);
-
-  // Fetch market status on component mount and every 60 seconds
-  useEffect(() => {
-    fetchMarketStatus();
-    const interval = setInterval(fetchMarketStatus, 60000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchMarketStatus = async () => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/api/market/status`);
-      if (response.data.success) {
-        setMarketStatus(response.data);
-      }
-    } catch (error) {
-      console.error('Error fetching market status:', error);
-    }
-  };
 
   if (loading && !portfolioData) {
     return <DashboardSkeleton />;
@@ -43,14 +22,7 @@ const Dashboard = ({ portfolioData, trades, loading, onRefresh }) => {
             Real-time portfolio performance and trading activity
           </p>
         </div>
-        {marketStatus && (
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-700">
-            <div className={`w-2 h-2 rounded-full ${
-              marketStatus.is_open ? 'bg-green-500 animate-pulse' : 'bg-red-500'
-            }`}></div>
-            <span>Market {marketStatus.status}</span>
-          </div>
-        )}
+        <MarketStatus />
       </div>
 
       {/* Portfolio Overview Cards */}

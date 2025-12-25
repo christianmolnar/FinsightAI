@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import MarketStatus from './MarketStatus';
 import { Clock, CheckCircle, XCircle, Edit3, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -191,9 +192,12 @@ const TransactionQueue = () => {
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Transaction Queue</h1>
-        <p className="text-gray-600">Review and approve AI-proposed trades before execution</p>
+      <div className="mb-6 flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Transaction Queue</h1>
+          <p className="text-gray-600">Review and approve AI-proposed trades before execution</p>
+        </div>
+        <MarketStatus />
       </div>
 
       {/* Filters Row */}

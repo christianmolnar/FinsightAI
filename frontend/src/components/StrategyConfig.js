@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import MarketStatus from './MarketStatus';
 import RiskManagementPanel from './RiskManagementPanel';
 import TechnicalFiltersPanel from './TechnicalFiltersPanel';
 import { 
@@ -265,25 +266,26 @@ const StrategyConfig = () => {
     <div className="max-w-7xl mx-auto p-6">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between mb-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Strategy Configuration</h1>
             <p className="text-gray-600">Configure AI-powered trading strategies with intelligent parameter optimization</p>
           </div>
-          <div className="flex space-x-3">
-            <button className="flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
-              <Download className="w-4 h-4" />
-              <span>Export Config</span>
-            </button>
-            <button className="flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
-              <Upload className="w-4 h-4" />
-              <span>Import Config</span>
-            </button>
-            <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
-              <Save className="w-4 h-4" />
-              <span>Save Changes</span>
-            </button>
-          </div>
+          <MarketStatus />
+        </div>
+        <div className="flex justify-end space-x-3">
+          <button className="flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+            <Download className="w-4 h-4" />
+            <span>Export Config</span>
+          </button>
+          <button className="flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+            <Upload className="w-4 h-4" />
+            <span>Import Config</span>
+          </button>
+          <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+            <Save className="w-4 h-4" />
+            <span>Save Changes</span>
+          </button>
         </div>
       </div>
 
