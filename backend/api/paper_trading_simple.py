@@ -10,6 +10,14 @@ import json
 import time
 import os
 
+# Import Schwab API for real-time prices
+try:
+    from app.schwab_api import schwab_service
+    SCHWAB_AVAILABLE = True
+except ImportError:
+    SCHWAB_AVAILABLE = False
+    print("Warning: Schwab API not available, using mock prices")
+
 router = APIRouter()
 
 # Simple in-memory storage for development
@@ -36,6 +44,7 @@ class Position(BaseModel):
     symbol: str
     quantity: float
     avg_price: float
+    current_price: float  # Real-time price from Schwab API
     market_value: float
     unrealized_pnl: float
 
@@ -61,7 +70,26 @@ MOCK_PRICES = {
 }
 
 def get_current_price(symbol: str) -> float:
-    """Get current price for a symbol (mock implementation)"""
+    """Get current price for a symbol using Schwab API, fallback to mock prices"""
+    if SCHWAB_AVAILABLE and schwab_service and schwab_service.client:
+        try:
+            quotes = schwab_service.get_real_time_quotes([symbol.upper()])
+            if quotes and symbol.upper() in quotes:
+                quote_data = quotes[symbol.upper()]
+                # Schwab API returns quote data in nested structure
+                if 'quote' in quote_data:
+                    quote_data = quote_data['quote']
+                # Try different price fields
+                price = (quote_data.get('lastPrice') or 
+                        quote_data.get('mark') or 
+                        quote_data.get('last') or 
+                        quote_data.get('close'))
+                if price:
+                    return float(price)
+        except Exception as e:
+            print(f"Error fetching Schwab price for {symbol}: {e}")
+    
+    # Fallback to mock prices
     return MOCK_PRICES.get(symbol.upper(), 100.0)  # Default to $100 if not found
 
 @router.get("/paper/portfolio", response_model=Portfolio)
@@ -97,6 +125,7 @@ async def get_paper_portfolio():
                 symbol=symbol,
                 quantity=position_data["quantity"],
                 avg_price=position_data["avg_price"],
+                current_price=current_price,  # Include real-time price
                 market_value=market_value,
                 unrealized_pnl=unrealized_pnl
             ))

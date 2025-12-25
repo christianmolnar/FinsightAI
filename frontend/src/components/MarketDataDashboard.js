@@ -10,12 +10,14 @@ const MarketDataDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [recentData, setRecentData] = useState([]);
+  const [marketStatus, setMarketStatus] = useState(null);
 
   const API_BASE = 'http://localhost:8000/api/market';
 
   // Auto-fetch quotes on component mount
   useEffect(() => {
     getQuotes();
+    fetchMarketStatus();
   }, []);
 
   const getQuotes = async () => {
@@ -87,6 +89,17 @@ const MarketDataDashboard = () => {
     }
   };
 
+  const fetchMarketStatus = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/status`);
+      if (response.data.success) {
+        setMarketStatus(response.data);
+      }
+    } catch (err) {
+      console.error('Error fetching market status:', err);
+    }
+  };
+
   const getCompanyName = (symbol) => {
     const companyNames = {
       'AAPL': 'Apple Inc.',
@@ -155,13 +168,27 @@ const MarketDataDashboard = () => {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Charles Schwab Market Data
-        </h1>
-        <p className="text-gray-600">
-          Real-time market data integration with Charles Schwab API
-        </p>
+      <div className="mb-8 flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Charles Schwab Market Data
+          </h1>
+          <p className="text-gray-600">
+            Real-time market data integration with Charles Schwab API
+          </p>
+        </div>
+        {marketStatus && (
+          <div className={`inline-flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium ${
+            marketStatus.is_open 
+              ? 'bg-green-500 bg-opacity-30 text-green-100' 
+              : 'bg-gray-500 bg-opacity-30 text-gray-100'
+          }`}>
+            <div className={`w-2 h-2 rounded-full ${
+              marketStatus.is_open ? 'bg-green-300 animate-pulse' : 'bg-gray-300'
+            }`}></div>
+            <span>Markets {marketStatus.status}</span>
+          </div>
+        )}
       </div>
 
       <ConnectionStatus />

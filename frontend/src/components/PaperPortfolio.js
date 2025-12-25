@@ -351,7 +351,7 @@ const PaperPortfolio = () => {
                 <div className={`w-2 h-2 rounded-full ${
                   marketStatus.is_open ? 'bg-green-300 animate-pulse' : 'bg-gray-300'
                 }`}></div>
-                <span>Market {marketStatus.status}</span>
+                <span>Markets {marketStatus.status}</span>
               </div>
             )}
           </div>
@@ -470,7 +470,7 @@ const PaperPortfolio = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {currentPositions.map((position, index) => {
-                  const currentPrice = position.avg_price || 0; // Using avg_price as current for now
+                  const currentPrice = position.current_price || position.avg_price || 0;
                   const pnlPercent = position.unrealized_pnl ? (position.unrealized_pnl / (position.avg_price * position.quantity) * 100) : 0;
                   
                   return (
