@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { DollarSign, TrendingUp, TrendingDown, Eye, EyeOff, RefreshCw } from 'lucide-react';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const RealPortfolio = () => {
   const [portfolioData, setPortfolioData] = useState(null);
@@ -7,6 +10,7 @@ const RealPortfolio = () => {
   const [error, setError] = useState(null);
   const [showValues, setShowValues] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [marketStatus, setMarketStatus] = useState(null);
 
   const fetchPortfolioData = async () => {
     try {
@@ -29,7 +33,21 @@ const RealPortfolio = () => {
 
   useEffect(() => {
     fetchPortfolioData();
+    fetchMarketStatus();
+    const interval = setInterval(fetchMarketStatus, 60000);
+    return () => clearInterval(interval);
   }, []);
+
+  const fetchMarketStatus = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/market/status`);
+      if (response.data.success) {
+        setMarketStatus(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching market status:', error);
+    }
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -104,7 +122,21 @@ const RealPortfolio = () => {
     <div className="p-6">
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Christian's Portfolio</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-3xl font-bold text-gray-900">Christian's Portfolio</h1>
+          {marketStatus && (
+            <div className={`inline-flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium ${
+              marketStatus.is_open 
+                ? 'bg-green-100 text-green-700' 
+                : 'bg-gray-100 text-gray-700'
+            }`}>
+              <div className={`w-2 h-2 rounded-full ${
+                marketStatus.is_open ? 'bg-green-500 animate-pulse' : 'bg-gray-500'
+              }`}></div>
+              <span>Market {marketStatus.status}</span>
+            </div>
+          )}
+        </div>
         <div className="flex gap-3">
           <button
             onClick={() => setShowValues(!showValues)}

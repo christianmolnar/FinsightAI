@@ -46,11 +46,11 @@ const Dashboard = ({ portfolioData, trades, loading, onRefresh }) => {
         {marketStatus && (
           <div className={`inline-flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium ${
             marketStatus.is_open 
-              ? 'bg-green-500 bg-opacity-30 text-green-100' 
-              : 'bg-gray-500 bg-opacity-30 text-gray-100'
+              ? 'bg-green-100 text-green-700' 
+              : 'bg-gray-100 text-gray-700'
           }`}>
             <div className={`w-2 h-2 rounded-full ${
-              marketStatus.is_open ? 'bg-green-300 animate-pulse' : 'bg-gray-300'
+              marketStatus.is_open ? 'bg-green-500 animate-pulse' : 'bg-gray-500'
             }`}></div>
             <span>Market {marketStatus.status}</span>
           </div>
