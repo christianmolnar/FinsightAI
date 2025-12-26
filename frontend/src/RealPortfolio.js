@@ -125,20 +125,24 @@ const RealPortfolio = () => {
     );
   }
 
-  if (!portfolioData || portfolioData.total_accounts === 0) {
+  if (!portfolioData || !portfolioData.account) {
     return (
       <div className="p-6">
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-          <h2 className="text-xl font-semibold text-yellow-800 mb-2">No Accounts Found</h2>
+          <h2 className="text-xl font-semibold text-yellow-800 mb-2">No Account Found</h2>
           <p className="text-yellow-600">Please make sure you're authenticated with Alpaca API and have linked your account.</p>
         </div>
       </div>
     );
   }
 
-  const totalValue = portfolioData.total_market_value || 0;
-  const totalDayPL = portfolioData.total_day_pl || 0;
-  const dayPLPercent = portfolioData.day_pl_percent || 0;
+  const account = portfolioData.account;
+  const positions = portfolioData.positions || [];
+  const metrics = portfolioData.metrics || {};
+  
+  const totalValue = metrics.total_portfolio_value || account.portfolio_value || 0;
+  const totalDayPL = 0; // Alpaca doesn't provide daily P&L in same way
+  const dayPLPercent = 0;
 
   return (
     <div className="p-6">
@@ -182,135 +186,121 @@ const RealPortfolio = () => {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Today's P&L</p>
-              <p className={`text-2xl font-bold ${totalDayPL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatCurrency(totalDayPL)}
+              <p className="text-sm font-medium text-gray-600">Cash Balance</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {formatCurrency(account.cash)}
               </p>
             </div>
-            {totalDayPL >= 0 ? 
-              <TrendingUp className="w-8 h-8 text-green-600" /> : 
-              <TrendingDown className="w-8 h-8 text-red-600" />
-            }
+            <DollarSign className="w-8 h-8 text-blue-600" />
           </div>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Today's Return</p>
-              <p className={`text-2xl font-bold ${dayPLPercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatPercent(dayPLPercent)}
+              <p className="text-sm font-medium text-gray-600">Buying Power</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {formatCurrency(account.buying_power)}
               </p>
             </div>
-            {dayPLPercent >= 0 ? 
-              <TrendingUp className="w-8 h-8 text-green-600" /> : 
-              <TrendingDown className="w-8 h-8 text-red-600" />
-            }
+            <TrendingUp className="w-8 h-8 text-green-600" />
           </div>
         </div>
       </div>
 
-      {/* Accounts */}
+      {/* Account Details */}
       <div className="space-y-6">
-        {portfolioData.accounts.map((account, index) => (
-          <div key={account.accountHash} className="bg-white rounded-lg shadow">
-            <div className="p-6 border-b">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900">
-                    Account {account.accountNumber} {account.isDayTrader && <span className="text-orange-600">(Day Trader)</span>}
-                  </h3>
-                  <p className="text-gray-600">{account.type}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-gray-900">{formatCurrency(account.marketValue)}</p>
-                  <p className={`text-sm ${account.dayPL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {formatCurrency(account.dayPL)} today
-                  </p>
-                </div>
+        <div className="bg-white rounded-lg shadow">
+          <div className="p-6 border-b">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900">
+                  Alpaca Account {account.pattern_day_trader && <span className="text-orange-600">(Day Trader)</span>}
+                </h3>
+                <p className="text-gray-600">{account.status}</p>
               </div>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t">
-                <div>
-                  <p className="text-xs text-gray-500">Cash Balance</p>
-                  <p className="text-sm font-medium">{formatCurrency(account.cashBalance)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Buying Power</p>
-                  <p className="text-sm font-medium">{formatCurrency(account.buyingPower)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Positions</p>
-                  <p className="text-sm font-medium">{account.positionCount}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Market Value</p>
-                  <p className="text-sm font-medium">{formatCurrency(account.marketValue)}</p>
-                </div>
+              <div className="text-right">
+                <p className="text-lg font-bold text-gray-900">{formatCurrency(account.portfolio_value)}</p>
+                <p className="text-sm text-gray-500">Portfolio Value</p>
               </div>
             </div>
-
-            {/* Positions */}
-            {account.positions && account.positions.length > 0 && (
-              <div className="p-6">
-                <h4 className="text-lg font-semibold mb-4">Positions</h4>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left font-medium text-gray-600">Symbol</th>
-                        <th className="px-4 py-3 text-right font-medium text-gray-600">Quantity</th>
-                        <th className="px-4 py-3 text-right font-medium text-gray-600">Avg Price</th>
-                        <th className="px-4 py-3 text-right font-medium text-gray-600">Current Price</th>
-                        <th className="px-4 py-3 text-right font-medium text-gray-600">Market Value</th>
-                        <th className="px-4 py-3 text-right font-medium text-gray-600">Day P&L</th>
-                        <th className="px-4 py-3 text-right font-medium text-gray-600">Total P&L</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {account.positions.map((position, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50">
-                          <td className="px-4 py-3">
-                            <div>
-                              <p className="font-medium text-gray-900">{position.symbol}</p>
-                              <p className="text-xs text-gray-500">{position.assetType}</p>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-right font-medium">
-                            {position.quantity.toLocaleString()}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            {formatCurrency(position.averagePrice)}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            {formatCurrency(position.currentPrice)}
-                          </td>
-                          <td className="px-4 py-3 text-right font-medium">
-                            {formatCurrency(position.marketValue)}
-                          </td>
-                          <td className={`px-4 py-3 text-right font-medium ${position.dayPL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {formatCurrency(position.dayPL)}
-                            <br />
-                            <span className="text-xs">
-                              {formatPercent(position.dayPLPercent)}
-                            </span>
-                          </td>
-                          <td className={`px-4 py-3 text-right font-medium ${position.totalPL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {formatCurrency(position.totalPL)}
-                            <br />
-                            <span className="text-xs">
-                              {formatPercent(position.totalPLPercent)}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t">
+              <div>
+                <p className="text-xs text-gray-500">Cash Balance</p>
+                <p className="text-sm font-medium">{formatCurrency(account.cash)}</p>
               </div>
-            )}
+              <div>
+                <p className="text-xs text-gray-500">Buying Power</p>
+                <p className="text-sm font-medium">{formatCurrency(account.buying_power)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Positions</p>
+                <p className="text-sm font-medium">{metrics.position_count || 0}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Equity</p>
+                <p className="text-sm font-medium">{formatCurrency(account.equity)}</p>
+              </div>
+            </div>
           </div>
-        ))}
+
+          {/* Positions */}
+          {positions && positions.length > 0 ? (
+            <div className="p-6">
+              <h4 className="text-lg font-semibold mb-4">Positions</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-medium text-gray-600">Symbol</th>
+                      <th className="px-4 py-3 text-right font-medium text-gray-600">Quantity</th>
+                      <th className="px-4 py-3 text-right font-medium text-gray-600">Avg Price</th>
+                      <th className="px-4 py-3 text-right font-medium text-gray-600">Current Price</th>
+                      <th className="px-4 py-3 text-right font-medium text-gray-600">Market Value</th>
+                      <th className="px-4 py-3 text-right font-medium text-gray-600">Unrealized P&L</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {positions.map((position, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <div>
+                            <p className="font-medium text-gray-900">{position.symbol}</p>
+                            <p className="text-xs text-gray-500">{position.asset_class || 'Stock'}</p>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right font-medium">
+                          {parseFloat(position.qty).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {formatCurrency(parseFloat(position.avg_entry_price))}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {formatCurrency(parseFloat(position.current_price))}
+                        </td>
+                        <td className="px-4 py-3 text-right font-medium">
+                          {formatCurrency(parseFloat(position.market_value))}
+                        </td>
+                        <td className={`px-4 py-3 text-right font-medium ${parseFloat(position.unrealized_pl) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {formatCurrency(parseFloat(position.unrealized_pl))}
+                          <br />
+                          <span className="text-xs">
+                            {formatPercent(parseFloat(position.unrealized_plpc) * 100)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="p-6 text-center text-gray-500">
+              <p>No open positions</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
