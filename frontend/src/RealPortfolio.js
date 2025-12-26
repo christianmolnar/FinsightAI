@@ -11,24 +11,46 @@ const RealPortfolio = () => {
   const [error, setError] = useState(null);
   const [showValues, setShowValues] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
-  const fetchPortfolioData = async () => {
-    try {
-      setError(null);
-      const response = await fetch('http://localhost:8000/api/v1/alpaca/portfolio');
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.detail || 'Failed to fetch portfolio data');
+  const fetchPortfolioData = async (tryAlternatePorts = true) => {
+    const portsToTry = tryAlternatePorts ? [8000, 8001] : [8000];
+    
+    for (const port of portsToTry) {
+      try {
+        setError(null);
+        const baseUrl = `http://localhost:${port}`;
+        const response = await fetch(`${baseUrl}/api/v1/alpaca/portfolio`, {
+          signal: AbortSignal.timeout(5000) // 5 second timeout
+        });
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.detail || 'Failed to fetch portfolio data');
+        }
+        
+        setPortfolioData(data);
+        setRetryCount(0);
+        return; // Success, exit function
+      } catch (err) {
+        // If this was the last port to try, set the error
+        if (port === portsToTry[portsToTry.length - 1]) {
+          const isConnectionRefused = err.message.includes('fetch') || err.name === 'TypeError';
+          if (isConnectionRefused) {
+            setError('Cannot connect to backend server. Please ensure the backend is running on port 8000 or 8001.');
+          } else if (err.name === 'TimeoutError') {
+            setError('Backend server is not responding. Please check if it\'s running.');
+          } else {
+            setError(err.message);
+          }
+        }
+        // Continue to next port
+        continue;
       }
-      
-      setPortfolioData(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
     }
+    
+    setLoading(false);
+    setRefreshing(false);
   };
 
   useEffect(() => {
@@ -78,11 +100,25 @@ const RealPortfolio = () => {
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
           <h2 className="text-xl font-semibold text-red-800 mb-2">Error Loading Portfolio</h2>
           <p className="text-red-600 mb-4">{error}</p>
+          {error.includes('backend') && (
+            <div className="text-sm text-gray-600 mb-4 p-3 bg-gray-50 rounded">
+              <p className="font-medium mb-2">Troubleshooting steps:</p>
+              <ol className="text-left list-decimal list-inside space-y-1">
+                <li>Make sure the backend server is running</li>
+                <li>Check terminal for any backend errors</li>
+                <li>Try restarting the backend: <code className="bg-gray-200 px-1 rounded">uvicorn app.main:app --reload --port 8000</code></li>
+              </ol>
+            </div>
+          )}
           <button
-            onClick={fetchPortfolioData}
+            onClick={() => {
+              setLoading(true);
+              setRetryCount(retryCount + 1);
+              fetchPortfolioData();
+            }}
             className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
           >
-            Try Again
+            Try Again {retryCount > 0 && `(Attempt ${retryCount + 1})`}
           </button>
         </div>
       </div>
