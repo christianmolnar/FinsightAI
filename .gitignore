@@ -17,6 +17,11 @@ backend/.env
 backend/.env.*
 !backend/.env.example
 
+# API Tokens - NEVER commit these files!
+tokens.json
+backend/tokens.json
+**/tokens.json
+
 # Build
 build/
 dist/
