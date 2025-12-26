@@ -1,6 +1,46 @@
 # FInsightAI Documentation Index
 
-**Last Updated:** December 22, 2025
+**Last Updated:** December 25, 2025  
+**Current Broker:** Alpaca Markets
+
+---
+
+## 🚀 Quick Navigation
+
+### For Active Development
+- **[Alpaca Integration](/brokers/alpaca/)** - Current broker (start here)
+- **[Quick Start](QUICK-START.md)** - Get started in 5 minutes
+- **[Current System Architecture](architecture/CURRENT-SYSTEM-ARCHITECTURE.md)** - System overview
+
+### For Reference
+- **[Schwab Integration (Archived)](/brokers/schwab/)** - Legacy broker (deprecated)
+- **[Documentation Organization](#-documentation-structure)** - How docs are organized
+
+---
+
+## 🏢 Broker Integrations (`/brokers`)
+
+### **Alpaca Markets** - ✅ CURRENT ACTIVE BROKER
+📁 **[/brokers/alpaca/](/brokers/alpaca/)**
+
+Complete Alpaca integration documentation:
+- **[alpaca-integration.md](/brokers/alpaca/architecture/alpaca-integration.md)** - Primary architecture
+- **[alpaca-migration-status.md](/brokers/alpaca/implementation/alpaca-migration-status.md)** - Current status
+- **[Implementation Plans](/brokers/alpaca/implementation/)** - Migration docs & progress
+
+**Status:**
+- ✅ Paper Trading: $100k virtual account operational
+- ⏸️ Live Trading: Endpoint created, awaiting account approval
+
+### **Charles Schwab** - ⚠️ DEPRECATED
+📁 **[/brokers/schwab/](/brokers/schwab/)**
+
+Archived Schwab integration (replaced by Alpaca):
+- Historical architecture documentation
+- OAuth troubleshooting guides
+- Migration decision documentation
+
+**Why Deprecated:** Complex OAuth, 7-day token refresh, limited paper trading
 
 ---
 

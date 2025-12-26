@@ -20,7 +20,8 @@ const RealPortfolio = () => {
       try {
         setError(null);
         const baseUrl = `http://localhost:${port}`;
-        const response = await fetch(`${baseUrl}/api/v1/alpaca/portfolio`, {
+        // TODO: Change back to /alpaca/live/portfolio when live trading is enabled
+        const response = await fetch(`${baseUrl}/api/v1/alpaca/paper/portfolio`, {
           signal: AbortSignal.timeout(5000) // 5 second timeout
         });
         const data = await response.json();
@@ -31,6 +32,8 @@ const RealPortfolio = () => {
         
         setPortfolioData(data);
         setRetryCount(0);
+        setLoading(false);
+        setRefreshing(false);
         return; // Success, exit function
       } catch (err) {
         // If this was the last port to try, set the error

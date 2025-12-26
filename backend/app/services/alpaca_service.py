@@ -26,11 +26,16 @@ logger = logging.getLogger(__name__)
 class AlpacaService:
     """Service for interacting with Alpaca API"""
     
-    def __init__(self):
-        """Initialize Alpaca clients"""
+    def __init__(self, paper: bool = True):
+        """
+        Initialize Alpaca clients
+        
+        Args:
+            paper: If True, use paper trading account. If False, use live account.
+        """
         self.api_key = os.getenv("ALPACA_API_KEY_ID")
         self.secret_key = os.getenv("ALPACA_API_SECRET_KEY")
-        self.paper = os.getenv("ALPACA_PAPER", "true").lower() == "true"
+        self.paper = paper
         
         if not self.api_key or not self.secret_key:
             raise ValueError(
@@ -369,13 +374,28 @@ class AlpacaService:
             raise
 
 
-# Singleton instance
-_alpaca_service = None
+# Singleton instances
+_alpaca_paper_service = None
+_alpaca_live_service = None
 
 
-def get_alpaca_service() -> AlpacaService:
-    """Get or create AlpacaService singleton"""
-    global _alpaca_service
-    if _alpaca_service is None:
-        _alpaca_service = AlpacaService()
-    return _alpaca_service
+def get_alpaca_service(paper: bool = True) -> AlpacaService:
+    """
+    Get or create AlpacaService singleton
+    
+    Args:
+        paper: If True, return paper trading service. If False, return live service.
+    
+    Returns:
+        AlpacaService instance
+    """
+    global _alpaca_paper_service, _alpaca_live_service
+    
+    if paper:
+        if _alpaca_paper_service is None:
+            _alpaca_paper_service = AlpacaService(paper=True)
+        return _alpaca_paper_service
+    else:
+        if _alpaca_live_service is None:
+            _alpaca_live_service = AlpacaService(paper=False)
+        return _alpaca_live_service

@@ -207,11 +207,45 @@ async def get_position(symbol: str, db: Session = Depends(get_db)):
 # ALPACA ACCOUNT INTEGRATION - Real Portfolio Data
 # =============================================================================
 
+@router.get("/alpaca/paper/account")
+async def get_alpaca_paper_account():
+    """Get Alpaca paper trading account information"""
+    try:
+        alpaca = get_alpaca_service(paper=True)
+        account = alpaca.get_account()
+        
+        return {
+            "success": True,
+            "account": account
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching Alpaca paper account: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.get("/alpaca/live/account")
+async def get_alpaca_live_account():
+    """Get Alpaca live trading account information"""
+    try:
+        alpaca = get_alpaca_service(paper=False)
+        account = alpaca.get_account()
+        
+        return {
+            "success": True,
+            "account": account
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching Alpaca live account: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
 @router.get("/alpaca/account")
 async def get_alpaca_account():
-    """Get Alpaca account information"""
+    """Get Alpaca account information (defaults to paper for backwards compatibility)"""
     try:
-        alpaca = get_alpaca_service()
+        alpaca = get_alpaca_service(paper=True)
         account = alpaca.get_account()
         
         return {
@@ -224,11 +258,61 @@ async def get_alpaca_account():
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
+@router.get("/alpaca/paper/positions")
+async def get_alpaca_paper_positions():
+    """Get all Alpaca paper trading positions"""
+    try:
+        alpaca = get_alpaca_service(paper=True)
+        positions = alpaca.get_positions()
+        
+        # Calculate totals
+        total_market_value = sum(pos["market_value"] for pos in positions)
+        total_pl = sum(pos["unrealized_pl"] for pos in positions)
+        
+        return {
+            "success": True,
+            "positions": positions,
+            "position_count": len(positions),
+            "total_market_value": total_market_value,
+            "total_unrealized_pl": total_pl,
+            "total_unrealized_pl_percent": (total_pl / total_market_value * 100) if total_market_value > 0 else 0
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching Alpaca paper positions: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.get("/alpaca/live/positions")
+async def get_alpaca_live_positions():
+    """Get all Alpaca live trading positions"""
+    try:
+        alpaca = get_alpaca_service(paper=False)
+        positions = alpaca.get_positions()
+        
+        # Calculate totals
+        total_market_value = sum(pos["market_value"] for pos in positions)
+        total_pl = sum(pos["unrealized_pl"] for pos in positions)
+        
+        return {
+            "success": True,
+            "positions": positions,
+            "position_count": len(positions),
+            "total_market_value": total_market_value,
+            "total_unrealized_pl": total_pl,
+            "total_unrealized_pl_percent": (total_pl / total_market_value * 100) if total_market_value > 0 else 0
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching Alpaca live positions: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
 @router.get("/alpaca/positions")
 async def get_alpaca_positions():
-    """Get all Alpaca positions"""
+    """Get all Alpaca positions (defaults to paper for backwards compatibility)"""
     try:
-        alpaca = get_alpaca_service()
+        alpaca = get_alpaca_service(paper=True)
         positions = alpaca.get_positions()
         
         # Calculate totals
@@ -271,11 +355,11 @@ async def get_alpaca_position(symbol: str):
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
-@router.get("/alpaca/portfolio")
-async def get_alpaca_portfolio():
-    """Get complete Alpaca portfolio overview"""
+@router.get("/alpaca/paper/portfolio")
+async def get_alpaca_paper_portfolio():
+    """Get complete Alpaca paper trading portfolio overview"""
     try:
-        alpaca = get_alpaca_service()
+        alpaca = get_alpaca_service(paper=True)
         
         # Get account info
         account = alpaca.get_account()
@@ -311,8 +395,92 @@ async def get_alpaca_portfolio():
         }
         
     except Exception as e:
-        logger.error(f"Error fetching Alpaca portfolio: {e}")
+        logger.error(f"Error fetching Alpaca paper portfolio: {e}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.get("/alpaca/live/portfolio")
+async def get_alpaca_live_portfolio():
+    """Get complete Alpaca live trading portfolio overview"""
+    try:
+        alpaca = get_alpaca_service(paper=False)
+        
+        # Get account info
+        account = alpaca.get_account()
+        
+        # Get all positions
+        positions = alpaca.get_positions()
+        
+        # Calculate metrics
+        total_market_value = sum(pos["market_value"] for pos in positions)
+        total_pl = sum(pos["unrealized_pl"] for pos in positions)
+        total_pl_percent = (total_pl / total_market_value * 100) if total_market_value > 0 else 0
+        
+        return {
+            "success": True,
+            "account": {
+                "id": account["id"],
+                "status": account["status"],
+                "cash": account["cash"],
+                "portfolio_value": account["portfolio_value"],
+                "buying_power": account["buying_power"],
+                "equity": account["equity"],
+                "pattern_day_trader": account["pattern_day_trader"]
+            },
+            "positions": positions,
+            "metrics": {
+                "position_count": len(positions),
+                "total_market_value": total_market_value,
+                "total_unrealized_pl": total_pl,
+                "total_unrealized_pl_percent": total_pl_percent,
+                "cash_balance": account["cash"],
+                "total_portfolio_value": account["portfolio_value"]
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching Alpaca live portfolio: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.get("/alpaca/portfolio")
+async def get_alpaca_portfolio():
+    """Get complete Alpaca portfolio overview (defaults to paper for backwards compatibility)"""
+    try:
+        alpaca = get_alpaca_service(paper=True)
+        
+        # Get account info
+        account = alpaca.get_account()
+        
+        # Get all positions
+        positions = alpaca.get_positions()
+        
+        # Calculate metrics
+        total_market_value = sum(pos["market_value"] for pos in positions)
+        total_pl = sum(pos["unrealized_pl"] for pos in positions)
+        total_pl_percent = (total_pl / total_market_value * 100) if total_market_value > 0 else 0
+        
+        return {
+            "success": True,
+            "account": {
+                "id": account["id"],
+                "status": account["status"],
+                "cash": account["cash"],
+                "portfolio_value": account["portfolio_value"],
+                "buying_power": account["buying_power"],
+                "equity": account["equity"],
+                "pattern_day_trader": account["pattern_day_trader"]
+            },
+            "positions": positions,
+            "metrics": {
+                "position_count": len(positions),
+                "total_market_value": total_market_value,
+                "total_unrealized_pl": total_pl,
+                "total_unrealized_pl_percent": total_pl_percent,
+                "cash_balance": account["cash"],
+                "total_portfolio_value": account["portfolio_value"]
+            }
+        }
         
     except Exception as e:
         logger.error(f"Error fetching Alpaca portfolio: {e}")

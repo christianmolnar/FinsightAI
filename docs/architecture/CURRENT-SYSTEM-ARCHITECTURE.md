@@ -1,6 +1,10 @@
 # FInsightAI System Architecture - Current State
-**Last Updated:** December 23, 2025  
-**Status:** ✅ Operational & Stable
+**Last Updated:** December 25, 2025  
+**Status:** ✅ Operational & Stable  
+**Broker:** Alpaca Markets (migrated from Schwab)
+
+> **Note:** See `/docs/brokers/alpaca/architecture/alpaca-integration.md` for detailed Alpaca architecture.
+> Legacy Schwab docs are in `/docs/brokers/schwab/` (archived).
 
 ---
 
@@ -17,8 +21,9 @@
 ┌───────────────────────────▼─────────────────────────────────┐
 │                     FRONTEND (React)                          │
 │  ┌──────────────┐ ┌─────────────┐ ┌──────────────────────┐ │
-│  │   Portfolio  │ │ Schwab Acct │ │   Market Data Tab   │ │
-│  │  Dashboard   │ │  Dashboard  │ │  ✅ FIXED TODAY     │ │
+│  │   Paper      │ │ Live        │ │   Market Data Tab   │ │
+│  │  Portfolio   │ │  Portfolio  │ │                      │ │
+│  │  ($100k)  ✅ │ │  (real $) ⏸│ │                      │ │
 │  └──────────────┘ └─────────────┘ └──────────────────────┘ │
 │  ┌──────────────┐ ┌─────────────┐ ┌──────────────────────┐ │
 │  │   Trading    │ │    News     │ │   AI Optimization   │ │
@@ -32,16 +37,16 @@
 │                    BACKEND (FastAPI)                          │
 │                 http://localhost:8000                         │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │              API ENDPOINTS                            │   │
-│  │  /api/v1/portfolio           (200 OK) ✅            │   │
-│  │  /api/v1/trades              (200 OK) ✅            │   │
-│  │  /api/v1/schwab/portfolio    (200 OK) ✅            │   │
-│  │  /api/market/quotes          (200 OK) ✅            │   │
-│  │  /api/auth/schwab/status     (200 OK) ✅            │   │
+│  │              ALPACA API ENDPOINTS                     │   │
+│  │  /api/v1/alpaca/paper/portfolio    (200 OK) ✅      │   │
+│  │  /api/v1/alpaca/paper/account      (200 OK) ✅      │   │
+│  │  /api/v1/alpaca/paper/positions    (200 OK) ✅      │   │
+│  │  /api/v1/alpaca/live/portfolio     (401) ⏸         │   │
+│  │  /api/v1/alpaca/live/account       (401) ⏸         │   │
 │  └──────────────────────────────────────────────────────┘   │
 │                                                                │
 │  ┌──────────────┐ ┌─────────────┐ ┌──────────────────────┐ │
-│  │   Schwab     │ │  Portfolio  │ │    Market Data      │ │
+│  │   Alpaca     │ │  Portfolio  │ │    Market Data      │ │
 │  │   Service    │ │   Service   │ │     Service         │ │
 │  │ ✅ Connected │ │             │ │                      │ │
 │  └──────┬───────┘ └──────┬──────┘ └──────────┬───────────┘ │
@@ -53,16 +58,17 @@
           │                 ┌─────────▼─────────┐
           │                 │   PostgreSQL DB   │
           │                 │   (Railway)       │
-          │                 │  ✅ Schema Fixed  │
+          │                 │  ✅ Operational   │
           │                 └───────────────────┘
           │
-          │ OAuth/API
+          │ REST API (Permanent Keys)
           │
 ┌─────────▼─────────────────────────────────────────────────┐
-│                Charles Schwab API                          │
+│                  Alpaca Markets API                        │
+│  • Paper Trading: $100k virtual account ✅                │
+│  • Live Trading: Real money (pending setup) ⏸            │
 │  • Market Data API                                         │
-│  • Trading API (Paper Trading)                            │
-│  • Account API                                             │
+│  • Orders & Positions API                                  │
 │  ✅ Access Token: 22 min remaining                        │
 │  ✅ Refresh Token: 167 hours remaining                    │
 └────────────────────────────────────────────────────────────┘

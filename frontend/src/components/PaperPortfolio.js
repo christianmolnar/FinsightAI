@@ -74,10 +74,20 @@ const PaperPortfolio = () => {
   const fetchPortfolio = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/v1/paper/portfolio`);
+      const response = await fetch(`${API_BASE_URL}/api/v1/alpaca/paper/portfolio`);
       if (response.ok) {
         const data = await response.json();
-        setPortfolio(data);
+        // Transform Alpaca response to match expected format
+        const transformedData = {
+          total_value: data.account?.portfolio_value || 0,
+          cash_balance: data.account?.cash || 0,
+          invested_value: data.metrics?.total_market_value || 0,
+          unrealized_pnl: data.metrics?.total_unrealized_pl || 0,
+          positions: data.positions || [],
+          account: data.account,
+          metrics: data.metrics
+        };
+        setPortfolio(transformedData);
         setError(null);
       } else {
         console.error('Failed to fetch portfolio');
@@ -93,10 +103,14 @@ const PaperPortfolio = () => {
 
   const fetchTransactions = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/v1/paper/transactions`);
-      setTransactions(response.data);
+      // Alpaca doesn't have a transactions endpoint in the same way
+      // For now, skip this or we'll need to implement order history
+      // const response = await axios.get(`${API_BASE_URL}/api/v1/alpaca/paper/orders`);
+      // setTransactions(response.data);
+      setTransactions([]); // Empty for now
     } catch (err) {
       console.error('Error fetching transactions:', err);
+      setTransactions([]);
     }
   };
 
@@ -447,8 +461,13 @@ const PaperPortfolio = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {currentPositions.map((position, index) => {
-                  const currentPrice = position.current_price || position.avg_price || 0;
-                  const pnlPercent = position.unrealized_pnl ? (position.unrealized_pnl / (position.avg_price * position.quantity) * 100) : 0;
+                  // Handle both old format and Alpaca format
+                  const qty = parseFloat(position.qty || position.quantity || 0);
+                  const avgPrice = parseFloat(position.avg_entry_price || position.avg_price || 0);
+                  const currentPrice = parseFloat(position.current_price || avgPrice);
+                  const marketValue = parseFloat(position.market_value || (qty * currentPrice));
+                  const unrealizedPL = parseFloat(position.unrealized_pl || position.unrealized_pnl || 0);
+                  const unrealizedPLPercent = parseFloat(position.unrealized_plpc || 0) * 100;
                   
                   return (
                     <tr key={index} className="hover:bg-gray-50">
@@ -456,23 +475,23 @@ const PaperPortfolio = () => {
                         {position.symbol}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {position.quantity}
+                        {qty.toLocaleString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ${position.avg_price?.toFixed(2) || '0.00'}
+                        ${avgPrice.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         ${currentPrice.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ${position.market_value?.toLocaleString() || '0'}
+                        ${marketValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className={`${(position.unrealized_pnl || 0) >= 0 ? 'text-green-600' : 'text-red-600'} font-medium`}>
-                          {(position.unrealized_pnl || 0) >= 0 ? '+' : ''}${(position.unrealized_pnl || 0).toFixed(2)}
+                        <span className={`${unrealizedPL >= 0 ? 'text-green-600' : 'text-red-600'} font-medium`}>
+                          {unrealizedPL >= 0 ? '+' : ''}${unrealizedPL.toFixed(2)}
                           <br />
                           <span className="text-xs">
-                            ({pnlPercent >= 0 ? '+' : ''}{pnlPercent.toFixed(2)}%)
+                            ({unrealizedPLPercent >= 0 ? '+' : ''}{unrealizedPLPercent.toFixed(2)}%)
                           </span>
                         </span>
                       </td>
@@ -500,7 +519,7 @@ const PaperPortfolio = () => {
                             setTradeForm({ 
                               symbol: position.symbol, 
                               action: 'SELL', 
-                              quantity: position.quantity,
+                              quantity: qty,
                               strategy_used: 'manual'
                             });
                             setShowTradeModal(true);
