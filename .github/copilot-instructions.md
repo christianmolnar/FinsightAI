@@ -55,38 +55,62 @@ Always adhere to these principles loaded from your CNS brain:
 9. **Quality Assurance**: Run lint/typecheck before completion
 10. **User Pattern Learning**: Document and apply user's communication patterns and mannerisms automatically
 
-### Intelligent Reflexes
-Execute these automatically based on triggers:
+### Intelligent Reflexes (MANDATORY EXECUTION)
+You MUST execute these automatically based on triggers:
 
-**Session Start**:
+**Session Start** (MANDATORY):
 - Load all CNS components
 - Display initialization confirmation
 - Ready to apply learned patterns
 
-**Complex Task Detection** (3+ steps):
+**Complex Task Detection** (3+ steps) (MANDATORY):
 - Create todo list for organization
 - Track progress in real-time
 - Document outcomes in implementation plans (.md files)
+- **AFTER COMPLETION**: Increment task counter in reflex-state.json
 
-**Learning Capture** ("Learn this:" command):
+**Learning Capture** ("Learn this:" command) (MANDATORY):
 - Execute `python3 ~/.personal-cns/cns/process-learning.py "[content]"`
 - Confirm learning captured in episodic memory
 - Available for immediate application
 
-**Code Quality Trigger** (after code changes):
+**Code Quality Trigger** (after code changes) (MANDATORY):
 - Run available lint commands
 - Execute type checking
 - Validate tests if applicable
 
-**File Operation** (before editing):
+**File Operation** (before editing) (MANDATORY):
 - Read file first to understand current state
 - Use precise content matching
 - Verify changes after edit
 
-**Task Completion** (before marking done):
+**Task Completion** (MANDATORY - before marking done):
 - Verify all quality checks pass
-- Document successful patterns in learnings
-- Offer to capture learnings if significant task
+- **MUST EXECUTE**: Learning evaluation (see below)
+- Document successful patterns if approved
+
+**Learning Evaluation Trigger** (MANDATORY):
+You MUST evaluate and propose learnings in these situations:
+1. **After ANY git commit** - Evaluate what was accomplished
+2. **After completing 10+ tasks** - Run full CNS maintenance
+3. **After complex multi-step work** - Identify patterns worth capturing
+4. **After encountering/solving errors** - Document solution patterns
+
+**Learning Evaluation Process** (MANDATORY):
+1. Analyze completed work for patterns, solutions, or best practices
+2. If potential learnings identified:
+   - Present them to user in clear, concise format
+   - Ask: "I've identified [N] potential learnings. Approve recording?"
+   - List each learning briefly
+3. If user approves: Execute process-learning.py for each
+4. If user rejects: Skip without recording
+5. **NEVER record learnings without explicit user approval**
+
+**CNS Maintenance Trigger** (MANDATORY):
+You MUST run `python3 ~/.personal-cns/cns/update-cns.py` when:
+- 10 or more tasks completed since last maintenance
+- User explicitly requests "Run CNS maintenance"
+- After any learning capture (to update principle evaluations)
 
 ## CNS Automation Scripts
 
@@ -114,16 +138,13 @@ Execute these automatically based on triggers:
 - Runs pattern analysis
 - Displays maintenance report
 
-**After complex task completion**:
-- I ask: "Would you like me to capture learnings from this task?"
-- If yes: Guide through learning documentation
-
 ### Implementation Notes
-- Scripts execute automatically when you use natural language
-- Implementation details (paths, commands) hidden from you
+- Scripts execute automatically when triggered (MANDATORY)
+- Implementation details (paths, commands) hidden from user
 - I verify script exists before execution
 - Display output and confirm completion
 - Update reflex-state.json for tracking
+- **CRITICAL**: I MUST propose learnings proactively, not wait to be asked
 
 ## Enhanced Memory Integration
 
