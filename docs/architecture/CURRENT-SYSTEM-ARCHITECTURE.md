@@ -12,48 +12,48 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                         USER BROWSER                          │
-│                     http://localhost:3000                     │
+│                         USER BROWSER                        │
+│                     http://localhost:3000                   │
 └───────────────────────────┬─────────────────────────────────┘
                             │
                             │ HTTP/HTTPS
                             │
 ┌───────────────────────────▼─────────────────────────────────┐
-│                     FRONTEND (React)                          │
-│  ┌──────────────┐ ┌─────────────┐ ┌──────────────────────┐ │
-│  │   Paper      │ │ Live        │ │   Market Data Tab   │ │
-│  │  Portfolio   │ │  Portfolio  │ │                      │ │
-│  │  ($100k)  ✅ │ │  (real $) ⏸│ │                      │ │
-│  └──────────────┘ └─────────────┘ └──────────────────────┘ │
-│  ┌──────────────┐ ┌─────────────┐ ┌──────────────────────┐ │
-│  │   Trading    │ │    News     │ │   AI Optimization   │ │
-│  │  Dashboard   │ │  Dashboard  │ │                      │ │
-│  └──────────────┘ └─────────────┘ └──────────────────────┘ │
+│                     FRONTEND (React)                        │
+│  ┌──────────────┐ ┌─────────────┐ ┌──────────────────────┐  │
+│  │   Paper      │ │ Live        │ │   Market Data Tab    │  │
+│  │  Portfolio   │ │  Portfolio  │ │                      │  │
+│  │  ($100k)  ✅ │ │  (real $) ⏸ │ │                      │  │
+│  └──────────────┘ └─────────────┘ └──────────────────────┘  │
+│  ┌──────────────┐ ┌─────────────┐ ┌──────────────────────┐  │
+│  │   Trading    │ │    News     │ │   AI Optimization    │  │
+│  │  Dashboard   │ │  Dashboard  │ │                      │  │
+│  └──────────────┘ └─────────────┘ └──────────────────────┘  │
 └───────────────────────────┬─────────────────────────────────┘
                             │
                             │ API Calls
                             │
 ┌───────────────────────────▼─────────────────────────────────┐
-│                    BACKEND (FastAPI)                          │
-│                 http://localhost:8000                         │
+│                    BACKEND (FastAPI)                        │
+│                 http://localhost:8000                       │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │              ALPACA API ENDPOINTS                     │   │
-│  │  /api/v1/alpaca/paper/portfolio    (200 OK) ✅      │   │
-│  │  /api/v1/alpaca/paper/account      (200 OK) ✅      │   │
-│  │  /api/v1/alpaca/paper/positions    (200 OK) ✅      │   │
-│  │  /api/v1/alpaca/live/portfolio     (401) ⏸         │   │
-│  │  /api/v1/alpaca/live/account       (401) ⏸         │   │
+│  │              ALPACA API ENDPOINTS                    │   │
+│  │  /api/v1/alpaca/paper/portfolio    (200 OK) ✅       │   │
+│  │  /api/v1/alpaca/paper/account      (200 OK) ✅       │   │
+│  │  /api/v1/alpaca/paper/positions    (200 OK) ✅       │   │
+│  │  /api/v1/alpaca/live/portfolio     (401) ⏸           │   │
+│  │  /api/v1/alpaca/live/account       (401) ⏸           │   │
 │  └──────────────────────────────────────────────────────┘   │
-│                                                                │
-│  ┌──────────────┐ ┌─────────────┐ ┌──────────────────────┐ │
-│  │   Alpaca     │ │  Portfolio  │ │    Market Data      │ │
-│  │   Service    │ │   Service   │ │     Service         │ │
-│  │ ✅ Connected │ │             │ │                      │ │
-│  └──────┬───────┘ └──────┬──────┘ └──────────┬───────────┘ │
-│         │                │                     │              │
-└─────────┼────────────────┼─────────────────────┼──────────────┘
-          │                │                     │
-          │                └──────────┬──────────┘
+│                                                             │
+│  ┌──────────────┐ ┌─────────────┐ ┌──────────────────────┐  │
+│  │   Alpaca     │ │  Portfolio  │ │    Market Data       │  │
+│  │   Service    │ │   Service   │ │     Service          │  │
+│  │ ✅ Connected │ │             │ │                      │  │
+│  └──────┬───────┘ └──────┬──────┘ └──────────┬───────────┘  │
+│         │                │                   │              │
+└─────────┼────────────────┼───────────────────┼──────────────┘
+          │                │                   │
+          │                └──────────┬────────┘
           │                           │
           │                 ┌─────────▼─────────┐
           │                 │   PostgreSQL DB   │
@@ -64,14 +64,14 @@
           │ REST API (Permanent Keys)
           │
 ┌─────────▼─────────────────────────────────────────────────┐
-│                  Alpaca Markets API                        │
+│                  Alpaca Markets API                       │
 │  • Paper Trading: $100k virtual account ✅                │
-│  • Live Trading: Real money (pending setup) ⏸            │
-│  • Market Data API                                         │
-│  • Orders & Positions API                                  │
+│  • Live Trading: Real money (pending setup) ⏸             │
+│  • Market Data API                                        │
+│  • Orders & Positions API                                 │
 │  ✅ Access Token: 22 min remaining                        │
 │  ✅ Refresh Token: 167 hours remaining                    │
-└────────────────────────────────────────────────────────────┘
+└───────────────────────────────────────────────────────────┘
 ```
 
 ---
