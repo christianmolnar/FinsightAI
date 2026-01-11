@@ -18,8 +18,11 @@ from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockLatestQuoteRequest
 from dotenv import load_dotenv
 import logging
+from pathlib import Path
 
-load_dotenv()
+# Load .env from project root (one level up from backend/)
+env_path = Path(__file__).parent.parent.parent.parent / '.env'
+load_dotenv(dotenv_path=env_path)
 logger = logging.getLogger(__name__)
 
 
@@ -33,14 +36,22 @@ class AlpacaService:
         Args:
             paper: If True, use paper trading account. If False, use live account.
         """
-        self.api_key = os.getenv("ALPACA_API_KEY_ID")
-        self.secret_key = os.getenv("ALPACA_API_SECRET_KEY")
         self.paper = paper
+        
+        # Load correct credentials based on paper vs live
+        if paper:
+            self.api_key = os.getenv("ALPACA_PAPER_API_KEY_ID")
+            self.secret_key = os.getenv("ALPACA_PAPER_API_SECRET_KEY")
+            key_type = "paper"
+        else:
+            self.api_key = os.getenv("ALPACA_LIVE_API_KEY_ID")
+            self.secret_key = os.getenv("ALPACA_LIVE_API_SECRET_KEY")
+            key_type = "live"
         
         if not self.api_key or not self.secret_key:
             raise ValueError(
-                "Alpaca API credentials not found. "
-                "Set ALPACA_API_KEY_ID and ALPACA_API_SECRET_KEY in .env"
+                f"Alpaca {key_type} trading API credentials not found. "
+                f"Set ALPACA_{key_type.upper()}_API_KEY_ID and ALPACA_{key_type.upper()}_API_SECRET_KEY in .env"
             )
         
         # Trading client (for account, positions, orders)

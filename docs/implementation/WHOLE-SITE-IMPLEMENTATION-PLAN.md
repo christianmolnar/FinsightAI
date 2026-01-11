@@ -50,6 +50,52 @@
 
 ---
 
+## 📂 Key Files to Know
+
+### **Implementation & Planning**
+- **`/docs/implementation/WHOLE-SITE-IMPLEMENTATION-PLAN.md`** - This file, master roadmap
+- **`/docs/implementation/alpaca-migration-status.md`** - Broker migration details
+- **`/docs/status/2025-12-24-phase3-completion.md`** - Latest phase completion summary
+
+### **Backend - Core Services**
+- **`/backend/services/alpaca_service.py`** - Alpaca broker integration (430 lines)
+- **`/backend/services/ai_models.py`** - Dual AI (OpenAI + Claude) (298 lines)
+- **`/backend/services/stock_researcher.py`** - Market data research (245 lines)
+- **`/backend/services/transaction_queue.py`** - Queue management system
+- **`/backend/services/sell_validator.py`** - Sell validation with tax analysis
+
+### **Backend - API Endpoints**
+- **`/backend/api/portfolio.py`** - Portfolio & position endpoints
+- **`/backend/api/research.py`** - AI research endpoints (115 lines)
+- **`/backend/api/market.py`** - Market data & quotes
+- **`/backend/api/queue.py`** - Transaction queue endpoints (9 REST endpoints)
+
+### **Backend - Database**
+- **`/backend/models/portfolio.py`** - Portfolio & Trade models
+- **`/backend/models/pending_transaction.py`** - Queue system models (25 columns)
+- **`/backend/database.py`** - Database connection & session management
+
+### **Frontend - Key Components**
+- **`/frontend/src/components/Research.js`** - AI research UI (298 lines)
+- **`/frontend/src/components/PaperPortfolio.js`** - Paper trading view
+- **`/frontend/src/components/RealPortfolio.js`** - Live trading view
+- **`/frontend/src/components/TransactionQueue.js`** - Queue management UI
+- **`/frontend/src/components/SellValidation.js`** - Sell validation modal
+- **`/frontend/src/App.js`** - Main application with tab routing
+
+### **Configuration**
+- **`/.env`** - Environment variables (Alpaca keys, AI API keys)
+- **`/backend/requirements.txt`** - Python dependencies
+- **`/frontend/package.json`** - Node.js dependencies
+- **`/.vscode/settings.json`** - Pylance type checking configuration
+
+### **Deployment**
+- **`/Procfile`** - Railway deployment configuration
+- **`/railway.json`** - Railway service configuration
+- **`/nixpacks.toml`** - Build configuration
+
+---
+
 ## 🎉 Recent Achievements (December 2025)
 
 ### ✅ Alpaca Broker Migration COMPLETE! (December 25, 2025)

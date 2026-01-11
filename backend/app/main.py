@@ -48,9 +48,6 @@ from utils.market_hours import get_market_status
 # from api.ai_optimizer import router as ai_optimizer_router
 # from api.paper_trading_db import router as paper_trading_router
 
-# Import Schwab API service
-from app.schwab_api import SchwabAPIService
-
 app.include_router(portfolio_router)
 app.include_router(market_router)
 app.include_router(auth_router)
@@ -62,13 +59,9 @@ app.include_router(queue_router)
 
 # Paper trading endpoints are defined directly in this file below
 
-# Initialize Schwab API service
-schwab_service = None
-
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database and Schwab API on startup"""
-    global schwab_service
+    """Initialize database on startup"""
     
     logger.info("Starting FInsightAI Trading Agent...")
     
@@ -85,19 +78,7 @@ async def startup_event():
     except Exception as e:
         logger.error(f"✗ Failed to load models: {e}")
     
-    # Initialize Schwab API
-    try:
-        schwab_service = SchwabAPIService()
-        if schwab_service.is_configured():
-            if schwab_service.initialize_client():
-                logger.info("✓ Schwab API client initialized successfully")
-            else:
-                logger.warning("⚠ Schwab API client initialization failed")
-        else:
-            logger.warning("⚠ Schwab API credentials not configured")
-    except Exception as e:
-        logger.error(f"✗ Failed to initialize Schwab API: {e}")
-        schwab_service = None
+    logger.info("✓ Using Alpaca for trading (paper + live)")
 
 
 @app.get("/")
@@ -201,39 +182,28 @@ async def get_market_data(symbol: str):
         raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")
 
 
-# Helper function to get real stock price using Schwab API
+# Helper function to get real stock price using Alpaca API
 def get_real_stock_price(symbol: str) -> float | None:
-    """Fetch real-time stock price from Schwab API"""
-    global schwab_service
-    
-    if not schwab_service or not schwab_service.client:
-        logger.warning(f"Schwab API not available for {symbol}")
-        return None
-    
+    """Fetch real-time stock price from Alpaca API"""
     try:
-        # Get quote from Schwab API
-        quotes = schwab_service.get_real_time_quotes([symbol])
+        from app.services.alpaca_service import get_alpaca_service
         
-        if quotes and symbol in quotes:
-            quote_data = quotes[symbol]['quote']
-            
-            # Try to get the last price (various possible field names)
-            price = (quote_data.get('lastPrice') or 
-                    quote_data.get('last') or 
-                    quote_data.get('mark') or
-                    quote_data.get('closePrice'))
-            
-            if price:
-                return float(price)
+        alpaca_service = get_alpaca_service(paper=True)  # Use paper for market data
+        quote = alpaca_service.get_quote(symbol)
+        
+        if quote and 'ask_price' in quote:
+            # Return bid/ask midpoint for most accurate price
+            if quote.get('bid_price') and quote.get('ask_price'):
+                return (float(quote['bid_price']) + float(quote['ask_price'])) / 2
+            elif quote.get('ask_price'):
+                return float(quote['ask_price'])
         
         logger.warning(f"No price data available for {symbol}")
         return None
         
     except Exception as e:
-        logger.warning(f"Could not fetch Schwab price for {symbol}: {e}")
+        logger.warning(f"Could not fetch Alpaca price for {symbol}: {e}")
         return None
-    # Fallback to stored price
-    return None
 
 
 # Paper Trading Routes (Railway PostgreSQL)
@@ -524,47 +494,36 @@ async def paper_trade(trade: TradeRequest):
 
 @app.get("/api/v1/quotes/{symbol}")
 async def get_quote(symbol: str):
-    """Get real-time quote for a symbol using Schwab API"""
-    global schwab_service
-    
+    """Get real-time quote for a symbol using Alpaca API"""
     try:
-        if not schwab_service or not schwab_service.client:
-            raise HTTPException(status_code=503, detail="Schwab API not available")
+        from app.services.alpaca_service import get_alpaca_service
         
-        # Get quote from Schwab API
-        quotes = schwab_service.get_real_time_quotes([symbol])
+        alpaca_service = get_alpaca_service(paper=True)
+        quote = alpaca_service.get_quote(symbol)
         
-        if not quotes or symbol not in quotes:
+        if not quote:
             raise HTTPException(status_code=404, detail=f"Could not fetch price for {symbol}")
         
-        quote_data = quotes[symbol]['quote']
+        # Calculate change from previous close if available
+        last_price = float(quote.get('ask_price', 0))
+        bid_price = float(quote.get('bid_price', 0))
         
-        # Extract price and change data
-        last_price = (quote_data.get('lastPrice') or 
-                     quote_data.get('last') or 
-                     quote_data.get('mark') or
-                     quote_data.get('closePrice'))
-        
-        if not last_price:
-            raise HTTPException(status_code=404, detail=f"No price data available for {symbol}")
-        
-        net_change = quote_data.get('netChange', 0)
-        close_price = quote_data.get('closePrice', last_price)
-        change_percent = (net_change / close_price * 100) if close_price else 0
+        # Use midpoint for most accurate current price
+        current_price = (last_price + bid_price) / 2 if last_price and bid_price else last_price
         
         return {
             "symbol": symbol.upper(),
-            "price": float(last_price),
-            "change": float(net_change),
-            "changePercent": float(change_percent),
+            "price": current_price,
+            "change": 0,  # Would need historical data for this
+            "changePercent": 0,  # Would need historical data for this
             "timestamp": time.time(),
-            "volume": quote_data.get('totalVolume', 0),
-            "bid": quote_data.get('bidPrice', 0),
-            "ask": quote_data.get('askPrice', 0),
-            "high": quote_data.get('highPrice', 0),
-            "low": quote_data.get('lowPrice', 0),
-            "open": quote_data.get('openPrice', 0),
-            "previousClose": close_price
+            "volume": 0,  # Alpaca quote doesn't include volume in basic quote
+            "bid": bid_price,
+            "ask": last_price,
+            "high": 0,
+            "low": 0,
+            "open": 0,
+            "previousClose": 0
         }
         
     except HTTPException:

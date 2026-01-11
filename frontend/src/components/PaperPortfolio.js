@@ -74,7 +74,9 @@ const PaperPortfolio = () => {
   const fetchPortfolio = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await fetch(`${API_BASE_URL}/api/v1/alpaca/paper/portfolio`);
+      
       if (response.ok) {
         const data = await response.json();
         // Transform Alpaca response to match expected format
@@ -90,12 +92,19 @@ const PaperPortfolio = () => {
         setPortfolio(transformedData);
         setError(null);
       } else {
-        console.error('Failed to fetch portfolio');
-        setError('Failed to load portfolio');
+        const errorData = await response.json();
+        console.error('Failed to fetch portfolio:', errorData);
+        
+        // Check if it's an authorization error (wrong keys)
+        if (response.status === 401 || response.status === 500) {
+          setError('❌ Paper Trading API keys are invalid or unauthorized. Your current keys appear to be LIVE trading keys (starting with "AK"). Paper trading keys should start with "PK". Please generate proper Paper Trading keys from: https://app.alpaca.markets/paper/dashboard/overview');
+        } else {
+          setError(`Failed to load portfolio: ${errorData.detail || 'Unknown error'}`);
+        }
       }
     } catch (error) {
       console.error('Error fetching portfolio:', error);
-      setError('Error loading portfolio');
+      setError('Error connecting to backend. Please ensure the server is running.');
     } finally {
       setLoading(false);
     }
@@ -335,14 +344,18 @@ const PaperPortfolio = () => {
           </div>
           <div className="text-right space-y-2">
             <div>
-              <div className="text-3xl font-bold">${portfolio?.total_value?.toLocaleString() || '10,000'}</div>
-              <div className={`text-lg font-medium ${
-                (portfolio?.total_value || 10000) >= 10000 ? 'text-green-200' : 'text-red-200'
-              }`}>
-                {(portfolio?.total_value || 10000) >= 10000 ? '+' : ''}
-                ${Math.abs((portfolio?.total_value || 10000) - 10000).toLocaleString()}
-                ({(((portfolio?.total_value || 10000) - 10000) / 10000 * 100).toFixed(2)}%)
+              <div className="text-3xl font-bold">
+                {portfolio?.total_value ? `$${portfolio.total_value.toLocaleString()}` : 'N/A'}
               </div>
+              {portfolio?.total_value && (
+                <div className={`text-lg font-medium ${
+                  portfolio.total_value >= 100000 ? 'text-green-200' : 'text-red-200'
+                }`}>
+                  {portfolio.total_value >= 100000 ? '+' : ''}
+                  ${Math.abs(portfolio.total_value - 100000).toLocaleString()}
+                  ({((portfolio.total_value - 100000) / 100000 * 100).toFixed(2)}%)
+                </div>
+              )}
             </div>
             <MarketStatus />
           </div>
@@ -356,7 +369,9 @@ const PaperPortfolio = () => {
             <DollarSign className="w-8 h-8 text-green-600" />
             <div>
               <p className="text-sm font-medium text-gray-600">Available Cash</p>
-              <p className="text-2xl font-bold text-gray-900">${portfolio?.cash_balance?.toLocaleString() || '10,000'}</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {portfolio?.cash_balance ? `$${portfolio.cash_balance.toLocaleString()}` : 'N/A'}
+              </p>
             </div>
           </div>
         </div>
@@ -367,7 +382,7 @@ const PaperPortfolio = () => {
             <div>
               <p className="text-sm font-medium text-gray-600">Positions Value</p>
               <p className="text-2xl font-bold text-gray-900">
-                ${((portfolio?.total_value || 10000) - (portfolio?.cash_balance || 10000)).toLocaleString()}
+                {portfolio ? `$${((portfolio.total_value || 0) - (portfolio.cash_balance || 0)).toLocaleString()}` : 'N/A'}
               </p>
             </div>
           </div>
@@ -429,10 +444,33 @@ const PaperPortfolio = () => {
 
       {/* Error Display */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center space-x-2">
-            <AlertTriangle className="w-5 h-5 text-red-500" />
-            <p className="text-red-700">{error}</p>
+        <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6 mb-6">
+          <div className="flex items-start space-x-3">
+            <AlertTriangle className="w-6 h-6 text-yellow-600 flex-shrink-0 mt-1" />
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-yellow-900 mb-2">Paper Trading Connection Issue</h3>
+              <p className="text-yellow-800 mb-4 leading-relaxed">{error}</p>
+              
+              {error.includes('PK') && (
+                <div className="bg-white border border-yellow-200 rounded p-4 text-sm">
+                  <p className="font-semibold text-gray-900 mb-2">📋 To fix this:</p>
+                  <ol className="list-decimal list-inside space-y-1 text-gray-700">
+                    <li>Go to <a href="https://app.alpaca.markets/paper/dashboard/overview" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-medium">Alpaca Paper Trading Dashboard</a></li>
+                    <li>Navigate to "Your API Keys" section</li>
+                    <li>Generate new Paper Trading keys (they'll start with "PK")</li>
+                    <li>Update <code className="bg-gray-100 px-1 py-0.5 rounded">ALPACA_PAPER_API_KEY_ID</code> and <code className="bg-gray-100 px-1 py-0.5 rounded">ALPACA_PAPER_API_SECRET_KEY</code> in your .env file</li>
+                    <li>Restart the backend server</li>
+                  </ol>
+                </div>
+              )}
+              
+              <button
+                onClick={fetchPortfolio}
+                className="mt-4 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors font-medium"
+              >
+                Try Again
+              </button>
+            </div>
           </div>
         </div>
       )}

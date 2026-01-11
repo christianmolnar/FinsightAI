@@ -485,3 +485,122 @@ async def get_alpaca_portfolio():
     except Exception as e:
         logger.error(f"Error fetching Alpaca portfolio: {e}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+# Trade execution request model
+class TradeRequest(BaseModel):
+    symbol: str
+    quantity: int
+    side: str  # "buy" or "sell"
+    type: str = "market"  # "market" or "limit"
+    limit_price: Optional[float] = None
+
+
+@router.post("/alpaca/paper/trade")
+async def execute_paper_trade(trade: TradeRequest):
+    """Execute a trade on Alpaca paper trading account"""
+    try:
+        alpaca = get_alpaca_service(paper=True)
+        
+        # Validate inputs
+        if trade.side.lower() not in ["buy", "sell"]:
+            raise HTTPException(status_code=400, detail="Side must be 'buy' or 'sell'")
+        
+        if trade.quantity <= 0:
+            raise HTTPException(status_code=400, detail="Quantity must be positive")
+        
+        # Execute trade
+        if trade.type.lower() == "market":
+            order = alpaca.place_market_order(
+                symbol=trade.symbol.upper(),
+                qty=trade.quantity,
+                side=trade.side.lower()
+            )
+        elif trade.type.lower() == "limit":
+            if not trade.limit_price:
+                raise HTTPException(status_code=400, detail="Limit price required for limit orders")
+            order = alpaca.place_limit_order(
+                symbol=trade.symbol.upper(),
+                qty=trade.quantity,
+                side=trade.side.lower(),
+                limit_price=trade.limit_price
+            )
+        else:
+            raise HTTPException(status_code=400, detail="Order type must be 'market' or 'limit'")
+        
+        return {
+            "success": True,
+            "order": {
+                "id": order["id"],
+                "symbol": order["symbol"],
+                "qty": order["qty"],
+                "side": order["side"],
+                "type": order["type"],
+                "status": order["status"],
+                "filled_qty": order.get("filled_qty", 0),
+                "filled_avg_price": order.get("filled_avg_price"),
+                "submitted_at": order.get("submitted_at"),
+                "filled_at": order.get("filled_at")
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error executing paper trade: {e}")
+        raise HTTPException(status_code=500, detail=f"Trade execution failed: {str(e)}")
+
+
+@router.post("/alpaca/live/trade")
+async def execute_live_trade(trade: TradeRequest):
+    """Execute a trade on Alpaca LIVE trading account"""
+    try:
+        alpaca = get_alpaca_service(paper=False)
+        
+        # Validate inputs
+        if trade.side.lower() not in ["buy", "sell"]:
+            raise HTTPException(status_code=400, detail="Side must be 'buy' or 'sell'")
+        
+        if trade.quantity <= 0:
+            raise HTTPException(status_code=400, detail="Quantity must be positive")
+        
+        # Execute trade
+        if trade.type.lower() == "market":
+            order = alpaca.place_market_order(
+                symbol=trade.symbol.upper(),
+                qty=trade.quantity,
+                side=trade.side.lower()
+            )
+        elif trade.type.lower() == "limit":
+            if not trade.limit_price:
+                raise HTTPException(status_code=400, detail="Limit price required for limit orders")
+            order = alpaca.place_limit_order(
+                symbol=trade.symbol.upper(),
+                qty=trade.quantity,
+                side=trade.side.lower(),
+                limit_price=trade.limit_price
+            )
+        else:
+            raise HTTPException(status_code=400, detail="Order type must be 'market' or 'limit'")
+        
+        return {
+            "success": True,
+            "order": {
+                "id": order["id"],
+                "symbol": order["symbol"],
+                "qty": order["qty"],
+                "side": order["side"],
+                "type": order["type"],
+                "status": order["status"],
+                "filled_qty": order.get("filled_qty", 0),
+                "filled_avg_price": order.get("filled_avg_price"),
+                "submitted_at": order.get("submitted_at"),
+                "filled_at": order.get("filled_at")
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error executing live trade: {e}")
+        raise HTTPException(status_code=500, detail=f"Trade execution failed: {str(e)}")
