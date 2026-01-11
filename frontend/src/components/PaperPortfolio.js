@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import SellValidation from './SellValidation';
 import MarketStatus from './MarketStatus';
+import ConfirmationModal from './ConfirmationModal';
+import NotificationModal from './NotificationModal';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -14,7 +16,10 @@ import {
   Calendar,
   Eye,
   Brain,
-  AlertTriangle
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  Clock
 } from 'lucide-react';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -40,11 +45,21 @@ const PaperPortfolio = () => {
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showSellValidation, setShowSellValidation] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState(null);
+  const [pendingOrders, setPendingOrders] = useState([]);
+  const [showPendingOrders, setShowPendingOrders] = useState(true);
+  const [showHoldings, setShowHoldings] = useState(true);
+  
+  // Modal states
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmModalConfig, setConfirmModalConfig] = useState({});
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationConfig, setNotificationConfig] = useState({});
 
   useEffect(() => {
     fetchPortfolio();
     loadWatchlist();
     fetchTransactions();
+    fetchPendingOrders();
     
     // Auto-refresh disabled - use manual refresh button instead
     // Users can refresh manually when needed to avoid constant reloading
@@ -107,6 +122,22 @@ const PaperPortfolio = () => {
       setError('Error connecting to backend. Please ensure the server is running.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPendingOrders = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/alpaca/paper/orders`);
+      if (response.ok) {
+        const data = await response.json();
+        // Filter for pending statuses
+        const pending = (data.orders || []).filter(order => 
+          ['new', 'accepted', 'pending_new', 'partially_filled'].includes(order.status)
+        );
+        setPendingOrders(pending);
+      }
+    } catch (err) {
+      console.error('Failed to fetch pending orders:', err);
     }
   };
 
@@ -179,11 +210,21 @@ const PaperPortfolio = () => {
         saveWatchlist(updated);
         setNewWatchSymbol('');
       } else {
-        alert('Invalid symbol or unable to fetch price');
+        setNotificationConfig({
+          title: 'Invalid Symbol',
+          message: 'Invalid symbol or unable to fetch price',
+          type: 'error'
+        });
+        setShowNotification(true);
       }
     } catch (error) {
       console.error('Error adding to watchlist:', error);
-      alert('Error adding symbol to watchlist');
+      setNotificationConfig({
+        title: 'Error',
+        message: 'Error adding symbol to watchlist',
+        type: 'error'
+      });
+      setShowNotification(true);
     }
   };
 
@@ -222,7 +263,12 @@ const PaperPortfolio = () => {
 
   const executeTrade = async () => {
     if (!tradeForm.symbol || !tradeForm.quantity) {
-      alert('Please fill in all fields');
+      setNotificationConfig({
+        title: 'Invalid Input',
+        message: 'Please fill in all fields',
+        type: 'error'
+      });
+      setShowNotification(true);
       return;
     }
 
@@ -245,39 +291,77 @@ const PaperPortfolio = () => {
         
         // Check if backend returned an error status
         if (result.status === 'error') {
-          alert(`Trade failed: ${result.message || 'Unknown error'}`);
+          setNotificationConfig({
+            title: 'Trade Failed',
+            message: result.message || 'Unknown error',
+            type: 'error'
+          });
+          setShowNotification(true);
           return;
         }
         
-        // Show success message in nice dialog
-        setSuccessMessage(result.message || 'Trade executed successfully');
+        // Show success message
+        setNotificationConfig({
+          title: 'Trade Executed',
+          message: result.message || 'Trade executed successfully',
+          type: 'success'
+        });
+        setShowNotification(true);
         setShowTradeModal(false);
         setTradeForm({ symbol: '', action: 'BUY', quantity: 10, strategy_used: 'manual' });
         fetchPortfolio(); // Refresh portfolio
         fetchTransactions(); // Refresh transaction history
-        
-        // Auto-hide success message after 3 seconds
-        setTimeout(() => setSuccessMessage(null), 3000);
+        fetchPendingOrders(); // Refresh pending orders
       } else {
         const error = await response.json();
-        alert(error.detail || 'Trade execution failed');
+        setNotificationConfig({
+          title: 'Trade Failed',
+          message: error.detail || 'Trade execution failed',
+          type: 'error'
+        });
+        setShowNotification(true);
       }
     } catch (error) {
       console.error('Error executing trade:', error);
-      alert('Error executing trade');
+      setNotificationConfig({
+        title: 'Error',
+        message: 'Error executing trade',
+        type: 'error'
+      });
+      setShowNotification(true);
     }
   };
 
   const resetPortfolio = async () => {
-    if (window.confirm('Are you sure you want to reset your paper portfolio to $10,000? This will close all positions.')) {
-      try {
-        await axios.post(`${API_BASE_URL}/api/v1/paper/reset`);
-        await fetchPortfolio();
-        await fetchTransactions();
-      } catch (err) {
-        setError('Failed to reset portfolio');
+    setConfirmModalConfig({
+      title: 'Reset Portfolio',
+      message: 'Are you sure you want to reset your paper portfolio to $10,000? This will close all positions.',
+      type: 'warning',
+      confirmText: 'Reset Portfolio',
+      cancelText: 'Cancel',
+      confirmButtonClass: 'bg-red-600 hover:bg-red-700',
+      onConfirm: async () => {
+        try {
+          await axios.post(`${API_BASE_URL}/api/v1/paper/reset`);
+          await fetchPortfolio();
+          await fetchTransactions();
+          setNotificationConfig({
+            title: 'Portfolio Reset',
+            message: 'Your paper portfolio has been reset to $10,000',
+            type: 'success'
+          });
+          setShowNotification(true);
+        } catch (err) {
+          setNotificationConfig({
+            title: 'Reset Failed',
+            message: 'Failed to reset portfolio',
+            type: 'error'
+          });
+          setShowNotification(true);
+        }
       }
-    }
+    });
+    setShowConfirmModal(true);
   };
 
   const handleGetAIAnalysis = (position) => {
@@ -475,26 +559,101 @@ const PaperPortfolio = () => {
         </div>
       )}
 
+      {/* Pending Orders Table */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+        <div 
+          className="p-6 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors flex items-center justify-between"
+          onClick={() => setShowPendingOrders(!showPendingOrders)}
+        >
+          <div className="flex items-center gap-3">
+            <Clock className="w-5 h-5 text-yellow-500" />
+            <h2 className="text-xl font-semibold text-gray-900">Pending Orders</h2>
+            {pendingOrders.length > 0 && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                {pendingOrders.length}
+              </span>
+            )}
+          </div>
+          {showPendingOrders ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+        </div>
+        {showPendingOrders && (
+          <div className="overflow-x-auto">
+            {pendingOrders.length > 0 ? (
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Symbol</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Side</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Limit Price</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {pendingOrders.map((order, index) => (
+                    <tr key={order.id || index} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.symbol}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          order.side === 'buy' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {order.side?.toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.qty}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{order.type}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {order.limit_price ? `$${parseFloat(order.limit_price).toFixed(2)}` : '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                          {order.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {order.submitted_at ? new Date(order.submitted_at).toLocaleString() : '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="p-12 text-center">
+                <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">No pending orders</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Holdings Table */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
+        <div 
+          className="p-6 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors flex items-center justify-between"
+          onClick={() => setShowHoldings(!showHoldings)}
+        >
           <h2 className="text-xl font-semibold text-gray-900">Current Holdings</h2>
+          {showHoldings ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
         </div>
-        <div className="overflow-x-auto">
-          {hasPositions ? (
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Symbol</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Cost</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Price</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Market Value</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P&L</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days Held</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Strategy</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">AI Analysis</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Close Position</th>
+        {showHoldings && (
+          <div className="overflow-x-auto">
+            {hasPositions ? (
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Symbol</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Cost</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Price</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Market Value</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P&L</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days Held</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Strategy</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">AI Analysis</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Close Position</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -579,7 +738,8 @@ const PaperPortfolio = () => {
               <p className="text-gray-400">Execute your first trade to get started!</p>
             </div>
           )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Watchlist Section */}
@@ -879,6 +1039,28 @@ const PaperPortfolio = () => {
           onConfirmSell={handleSellExecuted}
         />
       )}
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={confirmModalConfig.onConfirm}
+        title={confirmModalConfig.title}
+        message={confirmModalConfig.message}
+        type={confirmModalConfig.type}
+        confirmText={confirmModalConfig.confirmText}
+        cancelText={confirmModalConfig.cancelText}
+        confirmButtonClass={confirmModalConfig.confirmButtonClass}
+      />
+
+      {/* Notification Modal */}
+      <NotificationModal
+        isOpen={showNotification}
+        onClose={() => setShowNotification(false)}
+        title={notificationConfig.title}
+        message={notificationConfig.message}
+        type={notificationConfig.type}
+      />
     </div>
   );
 };

@@ -443,6 +443,40 @@ async def get_alpaca_live_portfolio():
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
+@router.get("/alpaca/paper/orders")
+async def get_alpaca_paper_orders():
+    """Get pending orders from Alpaca paper trading account"""
+    try:
+        alpaca = get_alpaca_service(paper=True)
+        orders = alpaca.get_orders(status="open")
+        
+        return {
+            "success": True,
+            "orders": orders
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching Alpaca paper orders: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.get("/alpaca/live/orders")
+async def get_alpaca_live_orders():
+    """Get pending orders from Alpaca live trading account"""
+    try:
+        alpaca = get_alpaca_service(paper=False)
+        orders = alpaca.get_orders(status="open")
+        
+        return {
+            "success": True,
+            "orders": orders
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching Alpaca live orders: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
 @router.get("/alpaca/portfolio")
 async def get_alpaca_portfolio():
     """Get complete Alpaca portfolio overview (defaults to paper for backwards compatibility)"""
