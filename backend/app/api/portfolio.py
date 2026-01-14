@@ -526,8 +526,9 @@ class TradeRequest(BaseModel):
     symbol: str
     quantity: int
     side: str  # "buy" or "sell"
-    type: str = "market"  # "market" or "limit"
+    type: str = "market"  # "market", "limit", "stop", or "stop_limit"
     limit_price: Optional[float] = None
+    stop_price: Optional[float] = None
 
 
 @router.post("/alpaca/paper/trade")
@@ -614,8 +615,27 @@ async def execute_live_trade(trade: TradeRequest):
                 side=trade.side.lower(),
                 limit_price=trade.limit_price
             )
+        elif trade.type.lower() == "stop":
+            if not trade.stop_price:
+                raise HTTPException(status_code=400, detail="Stop price required for stop orders")
+            order = alpaca.place_stop_order(
+                symbol=trade.symbol.upper(),
+                qty=trade.quantity,
+                side=trade.side.lower(),
+                stop_price=trade.stop_price
+            )
+        elif trade.type.lower() == "stop_limit":
+            if not trade.stop_price or not trade.limit_price:
+                raise HTTPException(status_code=400, detail="Stop price and limit price required for stop-limit orders")
+            order = alpaca.place_stop_limit_order(
+                symbol=trade.symbol.upper(),
+                qty=trade.quantity,
+                side=trade.side.lower(),
+                stop_price=trade.stop_price,
+                limit_price=trade.limit_price
+            )
         else:
-            raise HTTPException(status_code=400, detail="Order type must be 'market' or 'limit'")
+            raise HTTPException(status_code=400, detail="Order type must be 'market', 'limit', 'stop', or 'stop_limit'")
         
         return {
             "success": True,

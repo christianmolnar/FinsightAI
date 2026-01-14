@@ -493,7 +493,7 @@ async def paper_trade(trade: TradeRequest):
 
 
 @app.get("/api/v1/quotes/{symbol}")
-async def get_quote(symbol: str):
+async def get_quote(symbol: str, previous_price: float = None):
     """Get real-time quote for a symbol using Alpaca API"""
     try:
         from app.services.alpaca_service import get_alpaca_service
@@ -511,11 +511,18 @@ async def get_quote(symbol: str):
         # Use midpoint for most accurate current price
         current_price = (last_price + bid_price) / 2 if last_price and bid_price else last_price
         
+        # Calculate change from previous price if provided (from watchlist)
+        change = 0
+        change_percent = 0
+        if previous_price and previous_price > 0:
+            change = current_price - previous_price
+            change_percent = (change / previous_price) * 100
+        
         return {
             "symbol": symbol.upper(),
             "price": current_price,
-            "change": 0,  # Would need historical data for this
-            "changePercent": 0,  # Would need historical data for this
+            "change": change,
+            "changePercent": change_percent,
             "timestamp": time.time(),
             "volume": 0,  # Alpaca quote doesn't include volume in basic quote
             "bid": bid_price,

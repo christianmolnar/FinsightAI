@@ -12,7 +12,7 @@ Provides methods for:
 import os
 from typing import List, Dict, Optional
 from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
+from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest, StopOrderRequest, StopLimitOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockLatestQuoteRequest
@@ -261,6 +261,89 @@ class AlpacaService:
             return self._format_order(order)
         except Exception as e:
             logger.error(f"Error placing limit order: {e}")
+            raise
+    
+    def place_stop_order(
+        self,
+        symbol: str,
+        qty: float,
+        side: str,
+        stop_price: float,
+        time_in_force: str = "day"
+    ) -> Dict:
+        """
+        Place a stop order
+        
+        Args:
+            symbol: Stock symbol
+            qty: Number of shares (can be fractional)
+            side: 'buy' or 'sell'
+            stop_price: Stop price (triggers order when reached)
+            time_in_force: 'day', 'gtc', 'ioc', 'fok'
+            
+        Returns:
+            Order dict with order details
+        """
+        try:
+            order_side = OrderSide.BUY if side.lower() == "buy" else OrderSide.SELL
+            tif = TimeInForce[time_in_force.upper()]
+            
+            stop_order_data = StopOrderRequest(
+                symbol=symbol,
+                qty=qty,
+                side=order_side,
+                stop_price=stop_price,
+                time_in_force=tif
+            )
+            
+            order = self.trading_client.submit_order(stop_order_data)
+            
+            return self._format_order(order)
+        except Exception as e:
+            logger.error(f"Error placing stop order: {e}")
+            raise
+    
+    def place_stop_limit_order(
+        self,
+        symbol: str,
+        qty: float,
+        side: str,
+        stop_price: float,
+        limit_price: float,
+        time_in_force: str = "day"
+    ) -> Dict:
+        """
+        Place a stop-limit order
+        
+        Args:
+            symbol: Stock symbol
+            qty: Number of shares (can be fractional)
+            side: 'buy' or 'sell'
+            stop_price: Stop price (triggers the limit order)
+            limit_price: Limit price (execution price after trigger)
+            time_in_force: 'day', 'gtc', 'ioc', 'fok'
+            
+        Returns:
+            Order dict with order details
+        """
+        try:
+            order_side = OrderSide.BUY if side.lower() == "buy" else OrderSide.SELL
+            tif = TimeInForce[time_in_force.upper()]
+            
+            stop_limit_order_data = StopLimitOrderRequest(
+                symbol=symbol,
+                qty=qty,
+                side=order_side,
+                stop_price=stop_price,
+                limit_price=limit_price,
+                time_in_force=tif
+            )
+            
+            order = self.trading_client.submit_order(stop_limit_order_data)
+            
+            return self._format_order(order)
+        except Exception as e:
+            logger.error(f"Error placing stop-limit order: {e}")
             raise
     
     def get_orders(self, status: str = "open") -> List[Dict]:

@@ -26,3 +26,5 @@ class User(Base):
     strategy_configs = relationship("StrategyConfig", back_populates="user", cascade="all, delete-orphan")
     ai_optimizations = relationship("AIOptimization", back_populates="user", cascade="all, delete-orphan")
     strategy_parameters = relationship("StrategyParameter", back_populates="user", cascade="all, delete-orphan")
+    watchlist = relationship("UserWatchlist", back_populates="user", cascade="all, delete-orphan")
+    preferences = relationship("UserPreferences", back_populates="user", cascade="all, delete-orphan", uselist=False)

@@ -19,7 +19,9 @@ const RealPortfolio = () => {
     symbol: '',
     action: 'BUY',
     quantity: 1,
-    orderType: 'market'
+    orderType: 'market',
+    limitPrice: '',
+    stopPrice: ''
   });
   const [currentPrice, setCurrentPrice] = useState(null);
   const [loadingPrice, setLoadingPrice] = useState(false);
@@ -28,6 +30,9 @@ const RealPortfolio = () => {
   const [pendingOrders, setPendingOrders] = useState([]);
   const [showPendingOrders, setShowPendingOrders] = useState(true);
   const [showHoldings, setShowHoldings] = useState(true);
+  const [watchlist, setWatchlist] = useState([]);
+  const [newWatchSymbol, setNewWatchSymbol] = useState('');
+  const [refreshingWatchlist, setRefreshingWatchlist] = useState(false);
   
   // Modal states
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -81,6 +86,7 @@ const RealPortfolio = () => {
     fetchPortfolioData();
     fetchMarketStatus();
     fetchPendingOrders();
+    loadWatchlist();
   }, []);
 
   // Fetch price when symbol changes in trade modal
@@ -138,11 +144,153 @@ const RealPortfolio = () => {
     }
   };
 
+  // Watchlist functions
+  const loadWatchlist = () => {
+    const saved = localStorage.getItem('liveWatchlist');
+    if (saved) {
+      setWatchlist(JSON.parse(saved));
+    }
+  };
+
+  const saveWatchlist = (list) => {
+    localStorage.setItem('liveWatchlist', JSON.stringify(list));
+    setWatchlist(list);
+  };
+
+  const addToWatchlist = async () => {
+    const symbol = newWatchSymbol.trim().toUpperCase();
+    if (!symbol || watchlist.some(w => w.symbol === symbol)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/quotes/${symbol}`);
+      const data = await response.json();
+      
+      if (response.ok && data.price) {
+        const newWatch = {
+          symbol,
+          price: data.price,
+          initialPrice: data.price, // Store initial price for change calculation
+          change: data.change || 0,
+          changePercent: data.changePercent || 0,
+          lastUpdated: new Date().toISOString()
+        };
+        
+        const updated = [...watchlist, newWatch];
+        saveWatchlist(updated);
+        setNewWatchSymbol('');
+        
+        setNotificationConfig({
+          title: 'Added to Watchlist',
+          message: `${symbol} added successfully`,
+          type: 'success'
+        });
+        setShowNotification(true);
+      } else {
+        setNotificationConfig({
+          title: 'Invalid Symbol',
+          message: 'Invalid symbol or unable to fetch price',
+          type: 'error'
+        });
+        setShowNotification(true);
+      }
+    } catch (error) {
+      console.error('Error adding to watchlist:', error);
+      setNotificationConfig({
+        title: 'Error',
+        message: 'Error adding symbol to watchlist',
+        type: 'error'
+      });
+      setShowNotification(true);
+    }
+  };
+
+  const removeFromWatchlist = (symbol) => {
+    const updated = watchlist.filter(w => w.symbol !== symbol);
+    saveWatchlist(updated);
+  };
+
+  const refreshWatchlist = async () => {
+    if (watchlist.length === 0) return;
+    
+    setRefreshingWatchlist(true);
+    try {
+      // Fetch updated prices for all watchlist symbols
+      const updatedWatchlist = await Promise.all(
+        watchlist.map(async (item) => {
+          try {
+            // Pass initial price to calculate change from when first added
+            const initialPrice = item.initialPrice || item.price;
+            const response = await fetch(`${API_BASE_URL}/api/v1/quotes/${item.symbol}?previous_price=${initialPrice}`);
+            const data = await response.json();
+            
+            if (response.ok && data.price) {
+              return {
+                ...item,
+                price: data.price,
+                initialPrice, // Preserve initial price
+                change: data.change || 0,
+                changePercent: data.changePercent || 0,
+                lastUpdated: new Date().toISOString()
+              };
+            }
+            return item; // Keep old data if fetch fails
+          } catch (error) {
+            console.error(`Error refreshing ${item.symbol}:`, error);
+            return item; // Keep old data if fetch fails
+          }
+        })
+      );
+      
+      saveWatchlist(updatedWatchlist);
+      
+      setNotificationConfig({
+        title: 'Watchlist Refreshed',
+        message: `Updated ${watchlist.length} symbols`,
+        type: 'success'
+      });
+      setShowNotification(true);
+    } catch (error) {
+      console.error('Error refreshing watchlist:', error);
+      setNotificationConfig({
+        title: 'Refresh Failed',
+        message: 'Unable to refresh watchlist prices',
+        type: 'error'
+      });
+      setShowNotification(true);
+    } finally {
+      setRefreshingWatchlist(false);
+    }
+  };
+
   const executeTrade = async () => {
     if (!tradeForm.symbol || tradeForm.quantity <= 0) {
       setNotificationConfig({
         title: 'Invalid Input',
         message: 'Please enter a valid symbol and quantity',
+        type: 'error'
+      });
+      setShowNotification(true);
+      return;
+    }
+
+    // Validate limit price for limit orders
+    if ((tradeForm.orderType === 'limit' || tradeForm.orderType === 'stop_limit') && (!tradeForm.limitPrice || parseFloat(tradeForm.limitPrice) <= 0)) {
+      setNotificationConfig({
+        title: 'Limit Price Required',
+        message: 'Please enter a valid limit price for limit orders',
+        type: 'error'
+      });
+      setShowNotification(true);
+      return;
+    }
+
+    // Validate stop price for stop orders
+    if ((tradeForm.orderType === 'stop' || tradeForm.orderType === 'stop_limit') && (!tradeForm.stopPrice || parseFloat(tradeForm.stopPrice) <= 0)) {
+      setNotificationConfig({
+        title: 'Stop Price Required',
+        message: 'Please enter a valid stop price for stop orders',
         type: 'error'
       });
       setShowNotification(true);
@@ -175,15 +323,29 @@ const RealPortfolio = () => {
   const executeTradeConfirmed = async () => {
     try {
       setTradeLoading(true);
+      
+      // Build request body
+      const requestBody = {
+        symbol: tradeForm.symbol,
+        quantity: parseFloat(tradeForm.quantity),
+        side: tradeForm.action,
+        type: tradeForm.orderType
+      };
+      
+      // Add limit price if it's a limit or stop-limit order
+      if ((tradeForm.orderType === 'limit' || tradeForm.orderType === 'stop_limit') && tradeForm.limitPrice) {
+        requestBody.limit_price = parseFloat(tradeForm.limitPrice);
+      }
+      
+      // Add stop price if it's a stop or stop-limit order
+      if ((tradeForm.orderType === 'stop' || tradeForm.orderType === 'stop_limit') && tradeForm.stopPrice) {
+        requestBody.stop_price = parseFloat(tradeForm.stopPrice);
+      }
+      
       const response = await fetch(`${API_BASE_URL}/api/v1/alpaca/live/trade`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          symbol: tradeForm.symbol,
-          quantity: parseFloat(tradeForm.quantity),
-          side: tradeForm.action,
-          type: tradeForm.orderType
-        })
+        body: JSON.stringify(requestBody)
       });
 
       const data = await response.json();
@@ -224,7 +386,8 @@ const RealPortfolio = () => {
     setRefreshing(true);
     await Promise.all([
       fetchPortfolioData(),
-      fetchPendingOrders()
+      fetchPendingOrders(),
+      refreshWatchlist() // Also refresh watchlist
     ]);
   };
 
@@ -585,6 +748,94 @@ const RealPortfolio = () => {
         )}
       </div>
 
+      {/* Watchlist Section */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">Watchlist</h2>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={refreshWatchlist}
+                disabled={watchlist.length === 0 || refreshingWatchlist}
+                className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Refresh prices"
+              >
+                <RefreshCw className={`w-5 h-5 ${refreshingWatchlist ? 'animate-spin' : ''}`} />
+              </button>
+              <input
+                type="text"
+                value={newWatchSymbol}
+                onChange={(e) => setNewWatchSymbol(e.target.value.toUpperCase())}
+                onKeyPress={(e) => e.key === 'Enter' && addToWatchlist()}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-32"
+                placeholder="AAPL"
+              />
+              <button
+                onClick={addToWatchlist}
+                disabled={!newWatchSymbol}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:opacity-50"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          {watchlist.length > 0 ? (
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Symbol</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Change</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {watchlist.map((item) => (
+                  <tr key={item.symbol} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {item.symbol}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      ${item.price?.toFixed(2) || '0.00'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className={`${(item.changePercent || 0) >= 0 ? 'text-green-600' : 'text-red-600'} font-medium`}>
+                        {(item.changePercent || 0) >= 0 ? '+' : ''}{(item.changePercent || 0).toFixed(2)}%
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm space-x-3">
+                      <button
+                        onClick={() => {
+                          setTradeForm({ ...tradeForm, symbol: item.symbol });
+                          setShowTradeModal(true);
+                        }}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        Trade
+                      </button>
+                      <button
+                        onClick={() => removeFromWatchlist(item.symbol)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="text-center py-12">
+              <Eye className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg">No symbols in watchlist</p>
+              <p className="text-gray-400">Add symbols to monitor their prices</p>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Trade Modal */}
       {showTradeModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -670,18 +921,84 @@ const RealPortfolio = () => {
                   onChange={(e) => setTradeForm({...tradeForm, orderType: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="market">Market Order</option>
-                  <option value="limit">Limit Order</option>
+                  <option value="market">Market Order (Execute immediately at current price)</option>
+                  <option value="limit">Limit Order (Execute at or better than limit price)</option>
+                  <option value="stop">Stop Order (Trigger when price reaches stop price)</option>
+                  <option value="stop_limit">Stop-Limit Order (Trigger at stop, execute at limit)</option>
                 </select>
+                
+                {/* Helper text for each order type */}
+                <p className="mt-1 text-xs text-gray-500">
+                  {tradeForm.orderType === 'market' && 'Executes immediately at best available price'}
+                  {tradeForm.orderType === 'limit' && tradeForm.action === 'BUY' && 'Buy only at or below limit price'}
+                  {tradeForm.orderType === 'limit' && tradeForm.action === 'SELL' && 'Sell only at or above limit price'}
+                  {tradeForm.orderType === 'stop' && tradeForm.action === 'BUY' && 'Buy when price rises to or above stop price (breakout/momentum)'}
+                  {tradeForm.orderType === 'stop' && tradeForm.action === 'SELL' && 'Sell when price drops to or below stop price (stop-loss)'}
+                  {tradeForm.orderType === 'stop_limit' && 'Triggers at stop price, then becomes limit order'}
+                </p>
               </div>
 
+              {/* Limit Price Input (only show for limit and stop-limit orders) */}
+              {(tradeForm.orderType === 'limit' || tradeForm.orderType === 'stop_limit') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Limit Price
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={tradeForm.limitPrice}
+                      onChange={(e) => setTradeForm({...tradeForm, limitPrice: e.target.value})}
+                      placeholder={currentPrice ? currentPrice.toFixed(2) : "0.00"}
+                      className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {tradeForm.action === 'BUY' ? 'Will execute at this price or lower' : 'Will execute at this price or higher'}
+                  </p>
+                </div>
+              )}
+
+              {/* Stop Price Input (only show for stop and stop-limit orders) */}
+              {(tradeForm.orderType === 'stop' || tradeForm.orderType === 'stop_limit') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Stop Price
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={tradeForm.stopPrice}
+                      onChange={(e) => setTradeForm({...tradeForm, stopPrice: e.target.value})}
+                      placeholder={currentPrice ? currentPrice.toFixed(2) : "0.00"}
+                      className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {tradeForm.action === 'BUY' ? 'Triggers when price rises to this level or above (breakout)' : 'Triggers when price drops to this level or below (stop-loss)'}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-600 font-medium">
+                    Current price: ${currentPrice ? currentPrice.toFixed(2) : 'N/A'}
+                  </p>
+                </div>
+              )}
+
               {/* Estimated Total */}
-              {currentPrice && tradeForm.quantity && (
+              {((tradeForm.orderType === 'market' && currentPrice) || (tradeForm.orderType === 'limit' && tradeForm.limitPrice)) && tradeForm.quantity && (
                 <div className="bg-blue-50 p-3 rounded-lg">
                   <p className="text-sm text-blue-600">Estimated Total</p>
                   <p className="text-xl font-bold text-blue-700">
-                    ${(currentPrice * parseFloat(tradeForm.quantity)).toFixed(2)}
+                    ${((tradeForm.orderType === 'limit' ? parseFloat(tradeForm.limitPrice) : currentPrice) * parseFloat(tradeForm.quantity)).toFixed(2)}
                   </p>
+                  {tradeForm.orderType === 'limit' && (
+                    <p className="text-xs text-gray-600 mt-1">
+                      Limit order will execute at ${parseFloat(tradeForm.limitPrice).toFixed(2)} or better
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -695,7 +1012,12 @@ const RealPortfolio = () => {
                 </button>
                 <button
                   onClick={executeTrade}
-                  disabled={!tradeForm.symbol || !tradeForm.quantity || tradeLoading}
+                  disabled={
+                    !tradeForm.symbol || 
+                    !tradeForm.quantity || 
+                    (tradeForm.orderType === 'limit' && !tradeForm.limitPrice) ||
+                    tradeLoading
+                  }
                   className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors font-medium"
                 >
                   {tradeLoading ? 'Executing...' : 'Execute Trade'}

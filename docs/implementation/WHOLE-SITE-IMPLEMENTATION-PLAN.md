@@ -2,19 +2,19 @@
 **AI Trading Agent Development Roadmap - Full v1.0 Delivery**
 
 **Date Created:** December 22, 2025  
-**Last Updated:** January 10, 2026 - UI Polish & Pending Orders Complete ✅  
-**Project Status:** Infrastructure + Broker + Phases 1-3 + UI Polish Complete → Phase 4 Next  
-**Current Phase:** Phase 4 Planning  
-**Next Phase:** Phase 4 - Opportunity Scanner (Autonomous Agent)
+**Last Updated:** January 13, 2026 - Live Trading Testing + Phase 3.5 Planning ✅  
+**Project Status:** Infrastructure + Broker + Phases 1-3 + UI Polish Complete → Testing → Phase 3.5 → Phase 4  
+**Current Phase:** Live Trading Testing + Phase 3.5 Planning  
+**Next Phase:** Phase 3.5 - Data Persistence & Advanced Tables (after testing)
 
-**Overall Progress:** ~72% complete (Infrastructure + Broker + Phases 1-3 + UI Polish + Pending Orders)
+**Overall Progress:** ~73% complete (Infrastructure + Broker + Phases 1-3 + UI Polish + Watchlist)
 
-> **Latest Update:** 
-> - ✅ Professional modal system implemented (replaced all browser dialogs)
-> - ✅ Pending orders feature complete with collapsible tables
-> - ✅ Live & Paper portfolios polished and production-ready
-> - ✅ Market-closed trading policy configured
-> - 🎯 Ready for Phase 4 (Opportunity Scanner)
+> **Latest Update (January 13, 2026):** 
+> - ✅ Watchlist feature added to Live Portfolio (matches Paper Portfolio)
+> - ✅ Live trading ready for testing (markets open, $500 account)
+> - 🧪 User testing live trades with penny stocks (SOFI, F, NIO, PLUG)
+> - 📋 Phase 3.5 detailed plan created (data persistence + advanced tables)
+> - ⏸️ Phase 4 on hold until testing complete and persistence implemented
 
 ---
 
@@ -30,13 +30,20 @@
    - Time estimates and completion criteria
    - **Use this for overall project tracking**
 
-2. **Alpaca Migration** (`/docs/brokers/alpaca/implementation/alpaca-migration-status.md`)
+2. **Phase 3.5 Plan** (`/docs/implementation/PHASE-3.5-DATA-PERSISTENCE-PLAN.md`) - **🔥 NEXT PHASE**
+   - Database persistence for cross-device sync
+   - Unified watchlist with Alpaca sync
+   - Reusable DataTable component (search, sort, filter, pagination)
+   - Auto-refresh configuration
+   - **19 hours estimated** - Start after live trading testing
+
+3. **Alpaca Migration** (`/docs/brokers/alpaca/implementation/alpaca-migration-status.md`)
    - Broker migration from Schwab to Alpaca (COMPLETE)
    - Backend/Frontend API changes
    - Paper/Live trading separation
    - Referenced here for context
 
-3. **Alpaca Architecture** (`/docs/brokers/alpaca/architecture/alpaca-integration.md`)
+4. **Alpaca Architecture** (`/docs/brokers/alpaca/architecture/alpaca-integration.md`)
    - Technical architecture for Alpaca integration
    - API endpoints, data flow, authentication
    - Primary broker integration documentation
@@ -48,10 +55,21 @@
 - ✅ **Phase 1:** AI Research Engine - COMPLETE
 - ✅ **Phase 2:** Sell Validation Flow - COMPLETE  
 - ✅ **Phase 3:** Transaction Queue System - COMPLETE
-- 🔲 **Phase 4:** Opportunity Scanner (NEXT - Start here)
+- ✅ **UI Polish:** Professional modals, pending orders, watchlist - COMPLETE
+- ✅ **Order Types:** Market, Limit, Stop, Stop-Limit - COMPLETE (Jan 13, 2026)
+- 🔄 **Phase 3.5:** Data Persistence & Advanced Tables (IN PROGRESS - 19 hours)
+  - ✅ Database Schema & Models (2/2 hours) - COMPLETE
+  - 🔲 Backend Watchlist API (0/3 hours) - NEXT
+  - 🔲 Backend User Preferences API (0/1 hour)
+  - 🔲 Reusable DataTable Component (0/4 hours)
+  - 🔲 Frontend Watchlist Migration (0/3 hours)
+  - 🔲 Frontend Tables Migration (0/3 hours)
+  - 🔲 Auto-Refresh Implementation (0/2 hours)
+  - 🔲 Testing & Polish (0/1 hour)
+- 🔲 **Phase 4:** Opportunity Scanner (AFTER Phase 3.5)
 - 🔲 **Phases 5-8:** Position monitoring, learning, deployment
 
-**Next Action:** Begin Phase 4 (Opportunity Scanner) - 5 real-time hours
+**Next Action:** Phase 3.5 Sub-Phase 2 - Backend Watchlist API
 
 ---
 
@@ -1521,4 +1539,79 @@ CREATE TABLE global_defaults (
   - [ ] Show supporting evidence
   - [ ] Add approve/reject buttons
   - [ ] Display backtest results
-  - 
+  - **Files to create:**
+    - `frontend/src/components/ImprovementProposals.js`
+    - `frontend/src/components/ProposalCard.js`
+    - `frontend/src/components/BacktestResults.js`
+
+#### Testing & Validation
+- [ ] Test trade logging accuracy
+- [ ] Validate post-trade analysis results
+- [ ] Check pattern recognition reliability
+- [ ] Review improvement proposals for quality
+- [ ] UI tests for learning & analytics tab
+
+**Completion Criteria:**
+✅ All trades logged with full details  
+✅ Post-trade analysis generated automatically  
+✅ Patterns recognized with high accuracy  
+✅ Improvement proposals generated and actionable  
+✅ UI displays all learning insights clearly  
+
+---
+
+## 📅 Revised Timeline
+
+| Phase | Description | Status | Human Hours | Real Hours | Completion |
+|-------|-------------|--------|-------------|------------|------------|
+| Infrastructure | Backend + Frontend + DB | ✅ Complete | 840h | 10h | 100% |
+| **Phase 1** | AI Research Engine | ✅ Complete | 336h | 4h | 100% |
+| **Phase 2** | Sell Validation Flow | ✅ Complete | 252h | 3h | 100% |
+| **Phase 3** | Transaction Queue System | ✅ Complete | 336h | 4h | 100% |
+| **Phase 3.5** | Data Persistence & Advanced Tables | 🔄 In Progress | 19h | 19h | 100% |
+| **Phase 4** | Opportunity Scanner | 🔲 Not Started | 420h | 5h | 0% |
+| **Phase 5** | Position Monitor & Rebalancing | 🔲 Not Started | 420h | 5h | 0% |
+| **Phase 6** | Learning Engine | 🔲 Not Started | 336h | 4h | 0% |
+| **TOTAL** | | | **2,940h** | **50h** | **75%** |
+
+**Next Actions:**
+- Complete Phase 3.5 Sub-Phase 2: Backend Watchlist API
+- Begin Phase 4: Opportunity Scanner (after Phase 3.5 testing)
+
+**Notes:**
+- Focus on completing Phase 3.5 testing by January 20, 2026
+- Allocate January 21-27, 2026 for Phase 4 development
+- Reserve January 28-31, 2026 for integration testing and bug fixing
+
+---
+
+## 🚀 Immediate Next Steps
+
+1. **Complete Phase 3.5 Testing:**
+   - Test all data persistence features
+   - Validate advanced table functionality
+   - Ensure smooth transition to Phase 4
+
+2. **Prepare for Phase 4: Opportunity Scanner:**
+   - Review and refine market scanning strategies
+   - Optimize opportunity analysis algorithms
+   - Plan for autonomous agent configuration
+
+3. **Continue Monitoring Live Trading:**
+   - Observe AI performance in real-time
+   - Collect data for learning engine
+   - Make incremental improvements based on live data
+
+4. **Engage with Early Users:**
+   - Gather feedback on AI recommendations
+   - Identify areas for improvement
+   - Validate the effectiveness of new features
+
+5. **Document Learnings and Adjust Plan:**
+   - Record insights from live trading and user feedback
+   - Update the implementation plan as needed
+   - Prepare for a successful Phase 4 kickoff
+
+---
+
+**End of Document**

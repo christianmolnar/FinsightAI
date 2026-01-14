@@ -1,17 +1,26 @@
 # Alpaca Migration Status
 
 **Date:** December 25, 2025  
-**Last Updated:** December 25, 2025 22:05 PST  
+**Last Updated:** January 13, 2026 (Order Types Implementation)  
 **Branch:** `feature/alpaca-migration`  
-**Status:** Backend ✅ Complete | Frontend ✅ Complete | Paper/Live Separation ✅ Complete | Testing ⏸️ In Progress
+**Status:** Backend ✅ Complete | Frontend ✅ Complete | Paper/Live Separation ✅ Complete | Order Types ✅ Complete | Testing ⏸️ In Progress
 
 ---
 
 ## Executive Summary
 
-Successfully migrated FInsightAI from Schwab API to Alpaca API to eliminate OAuth re-authentication complexity. Backend migration complete with separate paper/live trading endpoints. Frontend fully functional with both Paper Portfolio and Live Portfolio tabs connected to Alpaca paper trading account ($100k virtual). Transaction system disabled temporarily (Alpaca uses different order model). Ready for feature parity work and final testing.
+Successfully migrated FInsightAI from Schwab API to Alpaca API to eliminate OAuth re-authentication complexity. Backend migration complete with separate paper/live trading endpoints. Frontend fully functional with both Paper Portfolio and Live Portfolio tabs. Full order type support implemented (market, limit, stop, stop-limit) with real-time watchlist tracking. Ready for comprehensive testing.
 
-**Latest Session (Dec 25 Evening):**
+**Latest Session (Jan 13, 2026):**
+- ✅ Implemented watchlist with initialPrice tracking and change calculation
+- ✅ Fixed watchlist refresh to calculate from initial add time
+- ✅ Updated top Refresh button to refresh all data including watchlist
+- ✅ Added 4 order types: market, limit, stop, stop-limit
+- ✅ Context-aware UI with conditional input fields and helper text
+- ✅ Full backend support for all order types via Alpaca SDK
+- ✅ Created comprehensive order types educational guide
+
+**Previous Session (Dec 25 Evening):**
 - ✅ Separated paper and live trading endpoints
 - ✅ Fixed PaperPortfolio.js to display Alpaca data correctly
 - ✅ Both frontend tabs working with $100k paper account
@@ -88,6 +97,58 @@ Successfully migrated FInsightAI from Schwab API to Alpaca API to eliminate OAut
 - ✅ Both tabs display correctly with 0 positions
 - ✅ MarketStatus component working
 - ✅ No console errors
+
+### Order Types Implementation (Jan 13, 2026 - 2 hours)
+- [x] Fixed watchlist price tracking:
+  - Store `initialPrice` when adding symbol to watchlist
+  - Pass `previous_price` query parameter on refresh
+  - Backend calculates change/changePercent from initial price
+  - Updated `/api/v1/quotes/{symbol}` endpoint to accept `previous_price`
+- [x] Updated top Refresh button:
+  - Now refreshes portfolio + pending orders + watchlist
+  - Comprehensive data refresh in one click
+- [x] Implemented 4 order types:
+  - **Market**: Execute immediately at current price
+  - **Limit**: Execute at specified price or better
+  - **Stop**: Trigger at stop price, execute as market order
+  - **Stop-Limit**: Trigger at stop price, execute as limit order
+- [x] Frontend UI (`RealPortfolio.js`):
+  - Order type dropdown with 4 options
+  - Conditional input fields (limit price shows for limit/stop_limit, stop price for stop/stop_limit)
+  - Context-aware helper text explaining each order type
+  - Different messaging for BUY vs SELL actions
+  - Frontend validation for required fields
+  - Updated trade form state to include `stopPrice`
+- [x] Backend API (`portfolio.py`):
+  - Updated `TradeRequest` model with `stop_price` field
+  - Updated `execute_live_trade()` with stop and stop_limit branches
+  - Added support for both paper and live trading endpoints
+- [x] Backend Service (`alpaca_service.py`):
+  - Implemented `place_stop_order()` method using Alpaca `StopOrderRequest`
+  - Implemented `place_stop_limit_order()` method using Alpaca `StopLimitOrderRequest`
+  - Both methods follow same pattern as `place_limit_order()`
+- [x] Created comprehensive documentation:
+  - `/docs/ORDER_TYPES_GUIDE.md` - Educational guide with examples
+  - Real-world use cases and trading scenarios
+  - Comparison table of all order types
+  - Testing recommendations
+
+**Trade Execution Flow:**
+1. User selects order type from dropdown
+2. UI shows/hides relevant price fields dynamically
+3. Helper text explains order behavior based on BUY/SELL
+4. Frontend validates all required fields
+5. Backend receives order with type, limit_price (optional), stop_price (optional)
+6. AlpacaService calls appropriate Alpaca SDK method
+7. Order submitted to Alpaca (queued if markets closed)
+
+**Order Type Use Cases:**
+- **Market**: Immediate entry/exit, high liquidity stocks
+- **Limit BUY**: Set max price willing to pay, wait for dips
+- **Limit SELL**: Set min price to accept, wait for rallies
+- **Stop BUY**: Breakout trading, buy when price rises above resistance
+- **Stop SELL**: Stop-loss protection, sell when price drops below support
+- **Stop-Limit**: Combine stop trigger with price control
 
 ### Frontend Migration (30 minutes)
 - [x] Updated `App.js`:
