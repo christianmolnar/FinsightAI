@@ -2,19 +2,20 @@
 **AI Trading Agent Development Roadmap - Full v1.0 Delivery**
 
 **Date Created:** December 22, 2025  
-**Last Updated:** January 13, 2026 - Live Trading Testing + Phase 3.5 Planning ✅  
-**Project Status:** Infrastructure + Broker + Phases 1-3 + UI Polish Complete → Testing → Phase 3.5 → Phase 4  
-**Current Phase:** Live Trading Testing + Phase 3.5 Planning  
-**Next Phase:** Phase 3.5 - Data Persistence & Advanced Tables (after testing)
+**Last Updated:** January 19, 2026 - Phase 3.5.2 Backend Watchlist API Complete ✅  
+**Project Status:** Infrastructure + Broker + Phases 1-3 + UI Polish + Phase 3.5.2 Complete → Phase 3.5.3 → Phase 4  
+**Current Phase:** Phase 3.5 - Data Persistence & Advanced Tables (Sub-Phase 2 Complete)  
+**Next Phase:** Phase 3.5.3 - Backend User Preferences API (1 hour)
 
-**Overall Progress:** ~73% complete (Infrastructure + Broker + Phases 1-3 + UI Polish + Watchlist)
+**Overall Progress:** ~75% complete (Infrastructure + Broker + Phases 1-3 + UI Polish + Phase 3.5 ongoing)
 
-> **Latest Update (January 13, 2026):** 
-> - ✅ Watchlist feature added to Live Portfolio (matches Paper Portfolio)
-> - ✅ Live trading ready for testing (markets open, $500 account)
-> - 🧪 User testing live trades with penny stocks (SOFI, F, NIO, PLUG)
-> - 📋 Phase 3.5 detailed plan created (data persistence + advanced tables)
-> - ⏸️ Phase 4 on hold until testing complete and persistence implemented
+> **Latest Update (January 19, 2026):** 
+> - ✅ Phase 3.5.2 COMPLETE - Backend Watchlist API operational (3 hours)
+> - ✅ WatchlistService with 5 methods (get, add, remove, sync from/to Alpaca)
+> - ✅ 5 REST endpoints: GET, POST, DELETE, 2× sync
+> - ✅ Database schema alignment: fixed created_at→added_at, removed notes
+> - ✅ All endpoints tested and server stable
+> - 🎯 Next: Phase 3.5.3 - Backend User Preferences API (1 hour)
 
 ---
 
@@ -59,8 +60,8 @@
 - ✅ **Order Types:** Market, Limit, Stop, Stop-Limit - COMPLETE (Jan 13, 2026)
 - 🔄 **Phase 3.5:** Data Persistence & Advanced Tables (IN PROGRESS - 19 hours)
   - ✅ Database Schema & Models (2/2 hours) - COMPLETE
-  - 🔲 Backend Watchlist API (0/3 hours) - NEXT
-  - 🔲 Backend User Preferences API (0/1 hour)
+  - ✅ Backend Watchlist API (3/3 hours) - COMPLETE ⭐ **JUST FINISHED**
+  - 🔲 Backend User Preferences API (0/1 hour) - NEXT ⭐
   - 🔲 Reusable DataTable Component (0/4 hours)
   - 🔲 Frontend Watchlist Migration (0/3 hours)
   - 🔲 Frontend Tables Migration (0/3 hours)
@@ -69,7 +70,7 @@
 - 🔲 **Phase 4:** Opportunity Scanner (AFTER Phase 3.5)
 - 🔲 **Phases 5-8:** Position monitoring, learning, deployment
 
-**Next Action:** Phase 3.5 Sub-Phase 2 - Backend Watchlist API
+**Next Action:** Phase 3.5.3 - Backend User Preferences API (1 hour)
 
 ---
 
@@ -86,16 +87,21 @@
 - **`/backend/services/stock_researcher.py`** - Market data research (245 lines)
 - **`/backend/services/transaction_queue.py`** - Queue management system
 - **`/backend/services/sell_validator.py`** - Sell validation with tax analysis
+- **`/backend/services/watchlist_service.py`** - Watchlist CRUD operations (228 lines) ⭐ **NEW**
+- **`/backend/services/preferences_service.py`** - User preferences management (217 lines) ⭐ **NEW**
 
 ### **Backend - API Endpoints**
 - **`/backend/api/portfolio.py`** - Portfolio & position endpoints
 - **`/backend/api/research.py`** - AI research endpoints (115 lines)
 - **`/backend/api/market.py`** - Market data & quotes
 - **`/backend/api/queue.py`** - Transaction queue endpoints (9 REST endpoints)
+- **`/backend/api/watchlist.py`** - Watchlist management endpoints (5 REST endpoints) ⭐ **NEW**
 
 ### **Backend - Database**
 - **`/backend/models/portfolio.py`** - Portfolio & Trade models
 - **`/backend/models/pending_transaction.py`** - Queue system models (25 columns)
+- **`/backend/models/watchlist.py`** - UserWatchlist model (Phase 3.5) ⭐ **NEW**
+- **`/backend/models/preferences.py`** - UserPreferences model (Phase 3.5) ⭐ **NEW**
 - **`/backend/database.py`** - Database connection & session management
 
 ### **Frontend - Key Components**
