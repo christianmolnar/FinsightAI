@@ -89,20 +89,20 @@ class AlpacaService:
             account = self.trading_client.get_account()
             
             return {
-                "id": account.id,
-                "account_number": account.account_number,
-                "status": account.status,
-                "currency": account.currency,
-                "cash": float(account.cash),
-                "portfolio_value": float(account.portfolio_value),
-                "buying_power": float(account.buying_power),
-                "equity": float(account.equity),
-                "last_equity": float(account.last_equity),
-                "pattern_day_trader": account.pattern_day_trader,
-                "trading_blocked": account.trading_blocked,
-                "transfers_blocked": account.transfers_blocked,
-                "account_blocked": account.account_blocked,
-                "created_at": account.created_at.isoformat() if account.created_at else None,
+                "id": getattr(account, 'id', str(account)),
+                "account_number": getattr(account, 'account_number', ''),
+                "status": getattr(account, 'status', ''),
+                "currency": getattr(account, 'currency', 'USD'),
+                "cash": float(getattr(account, 'cash', 0)),
+                "portfolio_value": float(getattr(account, 'portfolio_value', 0)),
+                "buying_power": float(getattr(account, 'buying_power', 0)),
+                "equity": float(getattr(account, 'equity', 0)),
+                "last_equity": float(getattr(account, 'last_equity', 0)),
+                "pattern_day_trader": getattr(account, 'pattern_day_trader', False),
+                "trading_blocked": getattr(account, 'trading_blocked', False),
+                "transfers_blocked": getattr(account, 'transfers_blocked', False),
+                "account_blocked": getattr(account, 'account_blocked', False),
+                "created_at": getattr(account, 'created_at', None),
             }
         except Exception as e:
             logger.error(f"Error fetching account info: {e}")
@@ -132,17 +132,17 @@ class AlpacaService:
             
             return [
                 {
-                    "symbol": pos.symbol,
-                    "qty": float(pos.qty),
-                    "avg_entry_price": float(pos.avg_entry_price),
-                    "current_price": float(pos.current_price),
-                    "market_value": float(pos.market_value),
-                    "cost_basis": float(pos.cost_basis),
-                    "unrealized_pl": float(pos.unrealized_pl),
-                    "unrealized_plpc": float(pos.unrealized_plpc),
-                    "side": pos.side,
-                    "exchange": pos.exchange,
-                    "asset_id": pos.asset_id,
+                    "symbol": getattr(pos, 'symbol', ''),
+                    "qty": float(getattr(pos, 'qty', 0)),
+                    "avg_entry_price": float(getattr(pos, 'avg_entry_price', 0)),
+                    "current_price": float(getattr(pos, 'current_price', 0)),
+                    "market_value": float(getattr(pos, 'market_value', 0)),
+                    "cost_basis": float(getattr(pos, 'cost_basis', 0)),
+                    "unrealized_pl": float(getattr(pos, 'unrealized_pl', 0)),
+                    "unrealized_plpc": float(getattr(pos, 'unrealized_plpc', 0)),
+                    "side": getattr(pos, 'side', ''),
+                    "exchange": getattr(pos, 'exchange', ''),
+                    "asset_id": getattr(pos, 'asset_id', ''),
                 }
                 for pos in positions
             ]
@@ -164,17 +164,17 @@ class AlpacaService:
             pos = self.trading_client.get_open_position(symbol)
             
             return {
-                "symbol": pos.symbol,
-                "qty": float(pos.qty),
-                "avg_entry_price": float(pos.avg_entry_price),
-                "current_price": float(pos.current_price),
-                "market_value": float(pos.market_value),
-                "cost_basis": float(pos.cost_basis),
-                "unrealized_pl": float(pos.unrealized_pl),
-                "unrealized_plpc": float(pos.unrealized_plpc),
-                "side": pos.side,
-                "exchange": pos.exchange,
-                "asset_id": pos.asset_id,
+                "symbol": getattr(pos, 'symbol', symbol),
+                "qty": float(getattr(pos, 'qty', 0)),
+                "avg_entry_price": float(getattr(pos, 'avg_entry_price', 0)),
+                "current_price": float(getattr(pos, 'current_price', 0)),
+                "market_value": float(getattr(pos, 'market_value', 0)),
+                "cost_basis": float(getattr(pos, 'cost_basis', 0)),
+                "unrealized_pl": float(getattr(pos, 'unrealized_pl', 0)),
+                "unrealized_plpc": float(getattr(pos, 'unrealized_plpc', 0)),
+                "side": getattr(pos, 'side', ''),
+                "exchange": getattr(pos, 'exchange', ''),
+                "asset_id": getattr(pos, 'asset_id', ''),
             }
         except Exception as e:
             if "position does not exist" in str(e).lower():
@@ -466,6 +466,90 @@ class AlpacaService:
         except Exception as e:
             logger.error(f"Error fetching quotes: {e}")
             raise
+    
+    # ========================================
+    # WATCHLIST METHODS
+    # ========================================
+    
+    def get_watchlist(self) -> List[Dict]:
+        """
+        Get default watchlist from Alpaca
+        
+        Returns:
+            List of watchlist item dicts with symbol and asset info
+        """
+        try:
+            # Get all watchlists
+            watchlists = self.trading_client.get_watchlists()
+            
+            if not watchlists:
+                logger.info("No watchlists found in Alpaca")
+                return []
+            
+            # Use first watchlist (or could filter by name)
+            watchlist = watchlists[0]
+            
+            # Extract symbols from watchlist assets
+            items = []
+            for asset in getattr(watchlist, 'assets', []):
+                items.append({
+                    'symbol': getattr(asset, 'symbol', ''),
+                    'asset_id': getattr(asset, 'id', ''),
+                    'name': getattr(asset, 'name', ''),
+                })
+            
+            logger.info(f"Retrieved {len(items)} items from Alpaca watchlist")
+            return items
+            
+        except Exception as e:
+            logger.error(f"Error fetching Alpaca watchlist: {e}")
+            # Return empty list instead of raising to allow graceful degradation
+            return []
+    
+    def update_watchlist(self, symbols: List[str]) -> bool:
+        """
+        Update Alpaca watchlist with provided symbols
+        Creates or updates the default watchlist
+        
+        Args:
+            symbols: List of stock symbols to set in watchlist
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Get existing watchlists
+            watchlists = self.trading_client.get_watchlists()
+            
+            # Find or create default watchlist
+            watchlist_id = None
+            watchlist_name = "FinsightAI Watchlist"
+            
+            for wl in watchlists:
+                if getattr(wl, 'name', '') == watchlist_name:
+                    watchlist_id = getattr(wl, 'id', None)
+                    break
+            
+            if watchlist_id:
+                # Update existing watchlist
+                self.trading_client.update_watchlist_by_id(
+                    watchlist_id=watchlist_id,
+                    symbols=symbols
+                )
+                logger.info(f"Updated Alpaca watchlist {watchlist_id} with {len(symbols)} symbols")
+            else:
+                # Create new watchlist
+                self.trading_client.create_watchlist(
+                    name=watchlist_name,
+                    symbols=symbols
+                )
+                logger.info(f"Created Alpaca watchlist with {len(symbols)} symbols")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating Alpaca watchlist: {e}")
+            return False
 
 
 # Singleton instances
