@@ -12,7 +12,7 @@ Provides methods for:
 import os
 from typing import List, Dict, Optional
 from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest, StopOrderRequest, StopLimitOrderRequest
+from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockLatestQuoteRequest
@@ -88,10 +88,11 @@ class AlpacaService:
         try:
             account = self.trading_client.get_account()
             
+            # Use getattr for safe attribute access (Alpaca returns RawData objects)
             return {
-                "id": getattr(account, 'id', str(account)),
-                "account_number": getattr(account, 'account_number', ''),
-                "status": getattr(account, 'status', ''),
+                "id": getattr(account, 'id', None),
+                "account_number": getattr(account, 'account_number', None),
+                "status": getattr(account, 'status', None),
                 "currency": getattr(account, 'currency', 'USD'),
                 "cash": float(getattr(account, 'cash', 0)),
                 "portfolio_value": float(getattr(account, 'portfolio_value', 0)),
@@ -102,7 +103,7 @@ class AlpacaService:
                 "trading_blocked": getattr(account, 'trading_blocked', False),
                 "transfers_blocked": getattr(account, 'transfers_blocked', False),
                 "account_blocked": getattr(account, 'account_blocked', False),
-                "created_at": getattr(account, 'created_at', None),
+                "created_at": getattr(account, 'created_at', None).isoformat() if getattr(account, 'created_at', None) else None,
             }
         except Exception as e:
             logger.error(f"Error fetching account info: {e}")
@@ -130,6 +131,7 @@ class AlpacaService:
         try:
             positions = self.trading_client.get_all_positions()
             
+            # Use getattr for safe attribute access (Alpaca returns RawData objects)
             return [
                 {
                     "symbol": getattr(pos, 'symbol', ''),
@@ -140,9 +142,9 @@ class AlpacaService:
                     "cost_basis": float(getattr(pos, 'cost_basis', 0)),
                     "unrealized_pl": float(getattr(pos, 'unrealized_pl', 0)),
                     "unrealized_plpc": float(getattr(pos, 'unrealized_plpc', 0)),
-                    "side": getattr(pos, 'side', ''),
-                    "exchange": getattr(pos, 'exchange', ''),
-                    "asset_id": getattr(pos, 'asset_id', ''),
+                    "side": getattr(pos, 'side', None),
+                    "exchange": getattr(pos, 'exchange', None),
+                    "asset_id": getattr(pos, 'asset_id', None),
                 }
                 for pos in positions
             ]
@@ -163,6 +165,7 @@ class AlpacaService:
         try:
             pos = self.trading_client.get_open_position(symbol)
             
+            # Use getattr for safe attribute access (Alpaca returns RawData objects)
             return {
                 "symbol": getattr(pos, 'symbol', symbol),
                 "qty": float(getattr(pos, 'qty', 0)),
@@ -172,9 +175,9 @@ class AlpacaService:
                 "cost_basis": float(getattr(pos, 'cost_basis', 0)),
                 "unrealized_pl": float(getattr(pos, 'unrealized_pl', 0)),
                 "unrealized_plpc": float(getattr(pos, 'unrealized_plpc', 0)),
-                "side": getattr(pos, 'side', ''),
-                "exchange": getattr(pos, 'exchange', ''),
-                "asset_id": getattr(pos, 'asset_id', ''),
+                "side": getattr(pos, 'side', None),
+                "exchange": getattr(pos, 'exchange', None),
+                "asset_id": getattr(pos, 'asset_id', None),
             }
         except Exception as e:
             if "position does not exist" in str(e).lower():
@@ -261,89 +264,6 @@ class AlpacaService:
             return self._format_order(order)
         except Exception as e:
             logger.error(f"Error placing limit order: {e}")
-            raise
-    
-    def place_stop_order(
-        self,
-        symbol: str,
-        qty: float,
-        side: str,
-        stop_price: float,
-        time_in_force: str = "day"
-    ) -> Dict:
-        """
-        Place a stop order
-        
-        Args:
-            symbol: Stock symbol
-            qty: Number of shares (can be fractional)
-            side: 'buy' or 'sell'
-            stop_price: Stop price (triggers order when reached)
-            time_in_force: 'day', 'gtc', 'ioc', 'fok'
-            
-        Returns:
-            Order dict with order details
-        """
-        try:
-            order_side = OrderSide.BUY if side.lower() == "buy" else OrderSide.SELL
-            tif = TimeInForce[time_in_force.upper()]
-            
-            stop_order_data = StopOrderRequest(
-                symbol=symbol,
-                qty=qty,
-                side=order_side,
-                stop_price=stop_price,
-                time_in_force=tif
-            )
-            
-            order = self.trading_client.submit_order(stop_order_data)
-            
-            return self._format_order(order)
-        except Exception as e:
-            logger.error(f"Error placing stop order: {e}")
-            raise
-    
-    def place_stop_limit_order(
-        self,
-        symbol: str,
-        qty: float,
-        side: str,
-        stop_price: float,
-        limit_price: float,
-        time_in_force: str = "day"
-    ) -> Dict:
-        """
-        Place a stop-limit order
-        
-        Args:
-            symbol: Stock symbol
-            qty: Number of shares (can be fractional)
-            side: 'buy' or 'sell'
-            stop_price: Stop price (triggers the limit order)
-            limit_price: Limit price (execution price after trigger)
-            time_in_force: 'day', 'gtc', 'ioc', 'fok'
-            
-        Returns:
-            Order dict with order details
-        """
-        try:
-            order_side = OrderSide.BUY if side.lower() == "buy" else OrderSide.SELL
-            tif = TimeInForce[time_in_force.upper()]
-            
-            stop_limit_order_data = StopLimitOrderRequest(
-                symbol=symbol,
-                qty=qty,
-                side=order_side,
-                stop_price=stop_price,
-                limit_price=limit_price,
-                time_in_force=tif
-            )
-            
-            order = self.trading_client.submit_order(stop_limit_order_data)
-            
-            return self._format_order(order)
-        except Exception as e:
-            logger.error(f"Error placing stop-limit order: {e}")
             raise
     
     def get_orders(self, status: str = "open") -> List[Dict]:
@@ -466,90 +386,6 @@ class AlpacaService:
         except Exception as e:
             logger.error(f"Error fetching quotes: {e}")
             raise
-    
-    # ========================================
-    # WATCHLIST METHODS
-    # ========================================
-    
-    def get_watchlist(self) -> List[Dict]:
-        """
-        Get default watchlist from Alpaca
-        
-        Returns:
-            List of watchlist item dicts with symbol and asset info
-        """
-        try:
-            # Get all watchlists
-            watchlists = self.trading_client.get_watchlists()
-            
-            if not watchlists:
-                logger.info("No watchlists found in Alpaca")
-                return []
-            
-            # Use first watchlist (or could filter by name)
-            watchlist = watchlists[0]
-            
-            # Extract symbols from watchlist assets
-            items = []
-            for asset in getattr(watchlist, 'assets', []):
-                items.append({
-                    'symbol': getattr(asset, 'symbol', ''),
-                    'asset_id': getattr(asset, 'id', ''),
-                    'name': getattr(asset, 'name', ''),
-                })
-            
-            logger.info(f"Retrieved {len(items)} items from Alpaca watchlist")
-            return items
-            
-        except Exception as e:
-            logger.error(f"Error fetching Alpaca watchlist: {e}")
-            # Return empty list instead of raising to allow graceful degradation
-            return []
-    
-    def update_watchlist(self, symbols: List[str]) -> bool:
-        """
-        Update Alpaca watchlist with provided symbols
-        Creates or updates the default watchlist
-        
-        Args:
-            symbols: List of stock symbols to set in watchlist
-            
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            # Get existing watchlists
-            watchlists = self.trading_client.get_watchlists()
-            
-            # Find or create default watchlist
-            watchlist_id = None
-            watchlist_name = "FinsightAI Watchlist"
-            
-            for wl in watchlists:
-                if getattr(wl, 'name', '') == watchlist_name:
-                    watchlist_id = getattr(wl, 'id', None)
-                    break
-            
-            if watchlist_id:
-                # Update existing watchlist
-                self.trading_client.update_watchlist_by_id(
-                    watchlist_id=watchlist_id,
-                    symbols=symbols
-                )
-                logger.info(f"Updated Alpaca watchlist {watchlist_id} with {len(symbols)} symbols")
-            else:
-                # Create new watchlist
-                self.trading_client.create_watchlist(
-                    name=watchlist_name,
-                    symbols=symbols
-                )
-                logger.info(f"Created Alpaca watchlist with {len(symbols)} symbols")
-            
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error updating Alpaca watchlist: {e}")
-            return False
 
 
 # Singleton instances

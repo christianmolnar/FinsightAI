@@ -43,8 +43,8 @@ from app.api.auth import router as auth_router
 from app.api.strategy_parameters import router as strategy_parameters_router
 from api.research import router as research_router
 from api.queue import router as queue_router
-from api.watchlist import router as watchlist_router
-from api.preferences import router as preferences_router
+from api.scanner import router as scanner_router
+from api.agent import router as agent_router
 from utils.market_hours import get_market_status
 # Commented out optional routers that may not exist in deployment
 # from api.ai_optimizer import router as ai_optimizer_router
@@ -56,8 +56,8 @@ app.include_router(auth_router)
 app.include_router(strategy_parameters_router)
 app.include_router(research_router)
 app.include_router(queue_router)
-app.include_router(watchlist_router)
-app.include_router(preferences_router)
+app.include_router(scanner_router)
+app.include_router(agent_router)
 # app.include_router(ai_optimizer_router, prefix="/api/v1/ai", tags=["AI Optimization"])
 # app.include_router(paper_trading_router, prefix="/api/v1", tags=["Paper Trading"])
 
@@ -497,7 +497,7 @@ async def paper_trade(trade: TradeRequest):
 
 
 @app.get("/api/v1/quotes/{symbol}")
-async def get_quote(symbol: str, previous_price: float = None):
+async def get_quote(symbol: str):
     """Get real-time quote for a symbol using Alpaca API"""
     try:
         from app.services.alpaca_service import get_alpaca_service
@@ -515,18 +515,11 @@ async def get_quote(symbol: str, previous_price: float = None):
         # Use midpoint for most accurate current price
         current_price = (last_price + bid_price) / 2 if last_price and bid_price else last_price
         
-        # Calculate change from previous price if provided (from watchlist)
-        change = 0
-        change_percent = 0
-        if previous_price and previous_price > 0:
-            change = current_price - previous_price
-            change_percent = (change / previous_price) * 100
-        
         return {
             "symbol": symbol.upper(),
             "price": current_price,
-            "change": change,
-            "changePercent": change_percent,
+            "change": 0,  # Would need historical data for this
+            "changePercent": 0,  # Would need historical data for this
             "timestamp": time.time(),
             "volume": 0,  # Alpaca quote doesn't include volume in basic quote
             "bid": bid_price,

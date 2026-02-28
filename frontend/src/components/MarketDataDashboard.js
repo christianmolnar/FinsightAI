@@ -11,6 +11,9 @@ const MarketDataDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [recentData, setRecentData] = useState([]);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState(60); // seconds
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const API_BASE = 'http://localhost:8000/api/market';
 
@@ -18,6 +21,17 @@ const MarketDataDashboard = () => {
   useEffect(() => {
     getQuotes();
   }, []);
+
+  // Auto-refresh quotes at interval
+  useEffect(() => {
+    if (!autoRefresh || !symbols.trim()) return;
+
+    const interval = setInterval(() => {
+      getQuotes();
+    }, refreshInterval * 1000);
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, refreshInterval, symbols]);
 
   const getQuotes = async () => {
     if (!symbols.trim()) return;
@@ -28,6 +42,7 @@ const MarketDataDashboard = () => {
     try {
       const response = await axios.get(`${API_BASE}/quotes/${symbols}`);
       setQuotes(response.data.quotes || {});
+      setLastUpdated(new Date());
       console.log('Quotes received:', response.data);
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to get quotes');
@@ -102,17 +117,22 @@ const MarketDataDashboard = () => {
 
   const formatQuoteData = (quotes) => {
     return Object.entries(quotes).map(([symbol, data]) => {
-      // Handle different possible data structures from Alpaca API
+      // Handle Alpaca API quote structure
       const quote = data.quote || data;
+      // Calculate mid-price from bid/ask
+      const bidPrice = parseFloat(quote.bid_price || 0);
+      const askPrice = parseFloat(quote.ask_price || 0);
+      const midPrice = bidPrice && askPrice ? (bidPrice + askPrice) / 2 : bidPrice || askPrice || 0;
+      
       return {
         symbol,
         companyName: getCompanyName(symbol),
-        price: quote.lastPrice || quote.last || quote.regularMarketPrice || 'N/A',
-        change: quote.netChange || quote.change || 'N/A',
-        changePercent: quote.netPercentChange || quote.changePercent || 'N/A',
-        volume: quote.totalVolume || quote.volume || 'N/A',
-        high: quote.highPrice || quote.dayHigh || 'N/A',
-        low: quote.lowPrice || quote.dayLow || 'N/A'
+        price: midPrice > 0 ? midPrice.toFixed(2) : 'N/A',
+        change: 'N/A', // Not provided by real-time quotes
+        changePercent: 'N/A', // Not provided by real-time quotes
+        volume: 'N/A', // Not provided by real-time quotes
+        high: `$${bidPrice.toFixed(2)}`,
+        low: `$${askPrice.toFixed(2)}`
       };
     });
   };
@@ -175,7 +195,39 @@ const MarketDataDashboard = () => {
         <>
           {/* Market Quotes Section */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-semibold mb-4">Real-Time Quotes</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Real-Time Quotes</h2>
+              
+              {/* Auto-refresh controls */}
+              <div className="flex items-center gap-3 text-sm">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={autoRefresh}
+                    onChange={(e) => setAutoRefresh(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span>Auto-refresh</span>
+                </label>
+                {autoRefresh && (
+                  <>
+                    <span className="text-gray-500">every</span>
+                    <select
+                      value={refreshInterval}
+                      onChange={(e) => setRefreshInterval(Number(e.target.value))}
+                      className="border rounded px-2 py-1"
+                    >
+                      <option value={15}>15s</option>
+                      <option value={30}>30s</option>
+                      <option value={60}>1 min</option>
+                      <option value={120}>2 min</option>
+                      <option value={300}>5 min</option>
+                    </select>
+                    <span className="text-green-600 text-xs">●</span>
+                  </>
+                )}
+              </div>
+            </div>
             
             <div className="flex items-center gap-4 mb-4">
               <input
@@ -193,6 +245,12 @@ const MarketDataDashboard = () => {
                 {loading ? 'Loading...' : 'Get Quotes'}
               </button>
             </div>
+
+            {lastUpdated && (
+              <div className="text-xs text-gray-500 mb-4">
+                Last updated: {lastUpdated.toLocaleTimeString()}
+              </div>
+            )}
 
             {Object.keys(quotes).length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
