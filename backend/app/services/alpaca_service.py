@@ -15,10 +15,13 @@ from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
 from alpaca.data.historical import StockHistoricalDataClient
-from alpaca.data.requests import StockLatestQuoteRequest
+from alpaca.data.requests import StockLatestQuoteRequest, StockBarsRequest
+from alpaca.data.timeframe import TimeFrame
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import logging
 from pathlib import Path
+import pandas as pd
 
 # Load .env from project root (one level up from backend/)
 env_path = Path(__file__).parent.parent.parent.parent / '.env'
@@ -386,6 +389,122 @@ class AlpacaService:
         except Exception as e:
             logger.error(f"Error fetching quotes: {e}")
             raise
+    
+    # ========================================
+    # HISTORICAL DATA METHODS
+    # ========================================
+    
+    def get_historical_bars(
+        self,
+        symbols: List[str],
+        start: datetime,
+        end: datetime,
+        timeframe: str = "1Day"
+    ) -> Dict[str, pd.DataFrame]:
+        """
+        Get historical price bars for multiple symbols
+        
+        Args:
+            symbols: List of stock symbols
+            start: Start date
+            end: End date
+            timeframe: Bar timeframe ('1Min', '5Min', '15Min', '1Hour', '1Day')
+            
+        Returns:
+            Dict mapping symbol to DataFrame with columns:
+            - timestamp: Bar timestamp
+            - open: Opening price
+            - high: High price
+            - low: Low price
+            - close: Closing price
+            - volume: Trading volume
+        """
+        try:
+            # Map timeframe string to TimeFrame enum
+            timeframe_map = {
+                "1Min": TimeFrame.Minute,
+                "5Min": TimeFrame(5, "Min"),
+                "15Min": TimeFrame(15, "Min"),
+                "1Hour": TimeFrame.Hour,
+                "1Day": TimeFrame.Day,
+            }
+            
+            tf = timeframe_map.get(timeframe, TimeFrame.Day)
+            
+            # Request bars from Alpaca
+            request_params = StockBarsRequest(
+                symbol_or_symbols=symbols,
+                timeframe=tf,
+                start=start,
+                end=end
+            )
+            
+            bars = self.market_data_client.get_stock_bars(request_params)
+            
+            # Convert to dict of DataFrames (one per symbol)
+            # BarSet.data contains a dict of symbol -> list of Bar objects
+            result = {}
+            
+            # Access the data attribute which contains the dict
+            bars_dict = getattr(bars, 'data', {})
+            
+            for symbol in symbols:
+                if symbol in bars_dict:
+                    symbol_bars = bars_dict[symbol]
+                    df = pd.DataFrame([
+                        {
+                            'timestamp': bar.timestamp,
+                            'open': float(bar.open),
+                            'high': float(bar.high),
+                            'low': float(bar.low),
+                            'close': float(bar.close),
+                            'volume': int(bar.volume),
+                        }
+                        for bar in symbol_bars
+                    ])
+                    
+                    if not df.empty:
+                        df['timestamp'] = pd.to_datetime(df['timestamp'])
+                        df = df.set_index('timestamp')
+                        result[symbol] = df
+                    else:
+                        result[symbol] = pd.DataFrame()
+                else:
+                    result[symbol] = pd.DataFrame()
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error fetching historical bars: {e}")
+            raise
+    
+    def get_historical_bars_single(
+        self,
+        symbol: str,
+        start: datetime,
+        end: datetime,
+        timeframe: str = "1Day"
+    ) -> pd.DataFrame:
+        """
+        Get historical price bars for a single symbol
+        
+        Args:
+            symbol: Stock symbol
+            start: Start date
+            end: End date
+            timeframe: Bar timeframe ('1Min', '5Min', '15Min', '1Hour', '1Day')
+            
+        Returns:
+            DataFrame with columns:
+            - timestamp (index): Bar timestamp
+            - open: Opening price
+            - high: High price
+            - low: Low price
+            - close: Closing price
+            - volume: Trading volume
+        """
+        result = self.get_historical_bars([symbol], start, end, timeframe)
+        return result.get(symbol, pd.DataFrame())
 
 
 # Singleton instances

@@ -30,6 +30,7 @@ from app.models.strategy_parameters import (
     ParameterType
 )
 from app.models.agent_config import AgentConfig
+from app.models.historical_price import HistoricalPrice
 
 # Backward compatibility alias - already defined in portfolio module
 # Trade = Transaction
@@ -94,6 +95,7 @@ __all__ = [
     'MarketData',
     'TradingSignal',
     'NewsEvent',
+    'HistoricalPrice',
     
     # Agent models
     'AgentConfig',

@@ -2,20 +2,22 @@
 **AI Trading Agent Development Roadmap - Full v1.0 Delivery**
 
 **Date Created:** December 22, 2025  
-**Last Updated:** January 19, 2026 - Phase 3.5.2 Backend Watchlist API Complete ✅  
-**Project Status:** Infrastructure + Broker + Phases 1-3 + UI Polish + Phase 3.5.2 Complete → Phase 3.5.3 → Phase 4  
-**Current Phase:** Phase 3.5 - Data Persistence & Advanced Tables (Sub-Phase 2 Complete)  
-**Next Phase:** Phase 3.5.3 - Backend User Preferences API (1 hour)
+**Last Updated:** March 5, 2026 - Calibration System Phase 2 Complete ✅  
+**Project Status:** Infrastructure + Broker + Phases 1-3 + UI Polish + Calibration (Phase 2) Complete  
+**Current Phase:** Calibration Phase 3 (Frontend UI)  
+**Next Phase:** Calibration Phase 4 (Performance Dashboard) → Then Opportunity Scanner
 
-**Overall Progress:** ~75% complete (Infrastructure + Broker + Phases 1-3 + UI Polish + Phase 3.5 ongoing)
+**Overall Progress:** ~75% complete (Infrastructure + Broker + Phases 1-3 + UI Polish + Calibration Phase 2)
 
-> **Latest Update (January 19, 2026):** 
-> - ✅ Phase 3.5.2 COMPLETE - Backend Watchlist API operational (3 hours)
-> - ✅ WatchlistService with 5 methods (get, add, remove, sync from/to Alpaca)
-> - ✅ 5 REST endpoints: GET, POST, DELETE, 2× sync
-> - ✅ Database schema alignment: fixed created_at→added_at, removed notes
-> - ✅ All endpoints tested and server stable
-> - 🎯 Next: Phase 3.5.3 - Backend User Preferences API (1 hour)
+> **Latest Update (March 5, 2026):** 
+> - ✅ **Calibration System Phase 2 Complete:** AI-powered backtest calibration engine (2.5h)
+>   - CalibrationEngine with 4 analysis methods
+>   - OpenAI + Anthropic AI integration
+>   - 20 parameters with validation
+>   - Full database CRUD operations
+>   - All tests passing (4 test scripts)
+> - 🔄 **Calibration Phase 3 In Progress:** Frontend UI (2-3h estimated)
+> - ⏳ **Calibration Phase 4 Planned:** Performance dashboard (5-6h estimated)
 
 ---
 
@@ -31,23 +33,23 @@
    - Time estimates and completion criteria
    - **Use this for overall project tracking**
 
-2. **Phase 3.5 Plan** (`/docs/implementation/PHASE-3.5-DATA-PERSISTENCE-PLAN.md`) - **🔥 NEXT PHASE**
-   - Database persistence for cross-device sync
-   - Unified watchlist with Alpaca sync
-   - Reusable DataTable component (search, sort, filter, pagination)
-   - Auto-refresh configuration
-   - **19 hours estimated** - Start after live trading testing
-
-3. **Alpaca Migration** (`/docs/brokers/alpaca/implementation/alpaca-migration-status.md`)
+2. **Alpaca Migration** (`/docs/brokers/alpaca/implementation/alpaca-migration-status.md`)
    - Broker migration from Schwab to Alpaca (COMPLETE)
    - Backend/Frontend API changes
    - Paper/Live trading separation
    - Referenced here for context
 
-4. **Alpaca Architecture** (`/docs/brokers/alpaca/architecture/alpaca-integration.md`)
+3. **Alpaca Architecture** (`/docs/brokers/alpaca/architecture/alpaca-integration.md`)
    - Technical architecture for Alpaca integration
    - API endpoints, data flow, authentication
    - Primary broker integration documentation
+
+4. **Backtest Calibration System** (`/docs/specs/BACKTEST-CALIBRATION-SPEC.md` + `/docs/implementation/BACKTEST-CALIBRATION-TRACKER.md`)
+   - **SPEC:** Defines WHAT to build (user requirements, success criteria)
+   - **TRACKER:** Tracks HOW we're building it (tasks, progress, time)
+   - Phase 2 (Calibration Engine): ✅ Complete
+   - Phase 3 (Frontend UI): 🔄 In Progress
+   - Phase 4 (Performance Dashboard): ⏳ Planned
 
 ### Current Status Summary
 
@@ -56,21 +58,13 @@
 - ✅ **Phase 1:** AI Research Engine - COMPLETE
 - ✅ **Phase 2:** Sell Validation Flow - COMPLETE  
 - ✅ **Phase 3:** Transaction Queue System - COMPLETE
-- ✅ **UI Polish:** Professional modals, pending orders, watchlist - COMPLETE
-- ✅ **Order Types:** Market, Limit, Stop, Stop-Limit - COMPLETE (Jan 13, 2026)
-- 🔄 **Phase 3.5:** Data Persistence & Advanced Tables (IN PROGRESS - 19 hours)
-  - ✅ Database Schema & Models (2/2 hours) - COMPLETE
-  - ✅ Backend Watchlist API (3/3 hours) - COMPLETE ⭐ **JUST FINISHED**
-  - 🔲 Backend User Preferences API (0/1 hour) - NEXT ⭐
-  - 🔲 Reusable DataTable Component (0/4 hours)
-  - 🔲 Frontend Watchlist Migration (0/3 hours)
-  - 🔲 Frontend Tables Migration (0/3 hours)
-  - 🔲 Auto-Refresh Implementation (0/2 hours)
-  - 🔲 Testing & Polish (0/1 hour)
-- 🔲 **Phase 4:** Opportunity Scanner (AFTER Phase 3.5)
+- ✅ **Calibration Phase 2:** AI Calibration Engine - COMPLETE (March 5, 2026)
+- 🔄 **Calibration Phase 3:** Frontend UI - IN PROGRESS
+- ⏳ **Calibration Phase 4:** Performance Dashboard - PLANNED
+- 🔲 **Phase 4:** Opportunity Scanner (NEXT after Calibration complete)
 - 🔲 **Phases 5-8:** Position monitoring, learning, deployment
 
-**Next Action:** Phase 3.5.3 - Backend User Preferences API (1 hour)
+**Next Action:** Complete Calibration Phase 3 (Frontend UI) - 2-3 hours
 
 ---
 
@@ -87,21 +81,16 @@
 - **`/backend/services/stock_researcher.py`** - Market data research (245 lines)
 - **`/backend/services/transaction_queue.py`** - Queue management system
 - **`/backend/services/sell_validator.py`** - Sell validation with tax analysis
-- **`/backend/services/watchlist_service.py`** - Watchlist CRUD operations (228 lines) ⭐ **NEW**
-- **`/backend/services/preferences_service.py`** - User preferences management (217 lines) ⭐ **NEW**
 
 ### **Backend - API Endpoints**
 - **`/backend/api/portfolio.py`** - Portfolio & position endpoints
 - **`/backend/api/research.py`** - AI research endpoints (115 lines)
 - **`/backend/api/market.py`** - Market data & quotes
 - **`/backend/api/queue.py`** - Transaction queue endpoints (9 REST endpoints)
-- **`/backend/api/watchlist.py`** - Watchlist management endpoints (5 REST endpoints) ⭐ **NEW**
 
 ### **Backend - Database**
 - **`/backend/models/portfolio.py`** - Portfolio & Trade models
 - **`/backend/models/pending_transaction.py`** - Queue system models (25 columns)
-- **`/backend/models/watchlist.py`** - UserWatchlist model (Phase 3.5) ⭐ **NEW**
-- **`/backend/models/preferences.py`** - UserPreferences model (Phase 3.5) ⭐ **NEW**
 - **`/backend/database.py`** - Database connection & session management
 
 ### **Frontend - Key Components**
@@ -611,6 +600,87 @@ AI learns from outcomes
 ✅ User sees "Proposed by: 🤖 AI Agent"  
 ✅ Agent can be enabled/disabled  
 ✅ Agent respects risk limits  
+
+---
+
+### **Phase 4.5: Backtest Calibration & Performance Tracking System** 🆕
+**Goal:** Use backtest data to optimize strategy parameters + track performance over time
+
+**Status:** 🔲 Planning  
+**Priority:** HIGH  
+**Estimated Dev Time:** 16-21 hours (2-3 days)  
+**Timeline:** Can be done in parallel with Phase 5
+
+**Deliverable:** 
+1. "Calibrate from Backtest" button in Strategy Config that generates data-driven recommendations
+2. Performance Tracking Dashboard showing portfolio timeline with config change markers
+3. Paper vs Live comparison to identify execution issues
+4. 1-year historical tracking of all config changes and their impact
+
+**📋 Detailed Plan:** See [`/docs/implementation/BACKTEST-CALIBRATION-SYSTEM.md`](BACKTEST-CALIBRATION-SYSTEM.md)
+
+**Key Features:**
+- ✅ Replace "AI Optimize" with backtest-driven calibration
+- ✅ AI analyzes backtest results to generate recommendations
+- ✅ User approves/rejects each recommendation individually
+- ✅ Track every config change with before/after snapshots
+- ✅ Performance dashboard with timeline graph + config change markers
+- ✅ Paper vs Live comparison showing execution differences
+- ✅ Attribution analysis: "Config change on Feb 15 improved returns by 1.8%"
+- ✅ 1-year data retention with auto-expiration
+
+**User Requirements Addressed:**
+1. **"Are recommendations things I can change with sliders?"** → YES, 100% coverage
+2. **"Generate recommendations and give me choice to apply them"** → Calibration modal with approve/reject
+3. **"Remove AI Optimize button"** → Replaced with backtest-based system
+4. **"Track every strategy change for last year"** → Performance Dashboard + config_changes table
+
+**Implementation Phases:**
+- **Phase 1:** Database & Backend Core ✅ COMPLETE (2 hours actual)
+  - ✅ backtest_reports table created (25+ columns with indexes)
+  - ✅ config_changes table created (tracks before/after snapshots)
+  - ✅ portfolio_snapshots table created (daily performance data)
+  - ✅ Pydantic models for all tables (app/models/backtest.py)
+  - ✅ Backtester enhanced with new metrics:
+    - Max Drawdown: 6.86% (calculated from daily P&L)
+    - Sharpe Ratio: 4.84 (risk-adjusted returns)
+    - Daily P&L tracking: 52 days logged
+    - Largest Win/Loss: $1,647.81 / -$1,616.17
+  - ✅ Tested with 90-day backtest: 914 trades, 57% win rate, +100% return
+  - **Completion Date:** March 5, 2026
+  
+- **Phase 2:** Calibration Engine (3-4 hours) 🔄 IN PROGRESS
+  - ⏳ Generate recommendations from backtest results
+  - ⏳ AI-assisted reasoning and confidence scores
+  - ⏳ Map recommendations to UI sliders
+  - **Started:** March 5, 2026
+  
+- **Phase 3:** Frontend Calibration UI (3-4 hours)
+  - Remove "AI Optimize" button
+  - Add "Calibrate from Backtest" button
+  - Build CalibrationModal component
+  - Remove Backtesting sub-tab (make it a main tab)
+  
+- **Phase 4:** Performance Dashboard (4-5 hours)
+  - Timeline chart with portfolio value + config change markers
+  - Paper vs Live comparison
+  - Config change history table
+  - Attribution analysis
+  
+- **Phase 5:** Attribution & Analysis (2-3 hours)
+  - Calculate performance impact of config changes
+  - AI analysis of Paper vs Live differences
+  - Background jobs for daily snapshots
+
+**Completion Criteria:**
+✅ "Calibrate from Backtest" button runs 90-day backtest and shows recommendations  
+✅ Recommendations map to Strategy Config sliders (100% coverage)  
+✅ User can approve/reject individual recommendations  
+✅ All backtest reports saved with 1-year retention  
+✅ Performance Dashboard shows portfolio timeline + config changes  
+✅ Paper vs Live comparison identifies execution issues  
+✅ Config change history shows performance impact  
+✅ Daily portfolio snapshots captured automatically  
 
 ---
 
@@ -1518,17 +1588,37 @@ CREATE TABLE global_defaults (
     - `backend/models/improvement_proposal.py`
     - `backend/api/proposals.py`
 
-- [ ] **5.5 User Approval Workflow**
-  - [ ] Build proposal presentation API
-  - [ ] Implement approve/reject/modify handlers
-  - [ ] Create backtest proposal feature
-  - [ ] Add automatic implementation on approval
+- [x] **5.5 User Approval Workflow** ✅ PARTIALLY COMPLETE (Backtesting)
+  - [x] Build proposal presentation API ✅ Backtest API complete
+  - [ ] Implement approve/reject/modify handlers (for improvement proposals)
+  - [x] Create backtest proposal feature ✅ COMPLETE (Dec 2025)
+    - ✅ `backend/services/backtester.py` (579 lines)
+    - ✅ `backend/api/backtest.py` (312 lines)
+    - ✅ Quick backtest presets (30d, 90d, 1y)
+    - ✅ Custom configuration API
+    - ✅ Status polling and results endpoints
+  - [ ] Add automatic implementation on approval (for learning proposals)
+  - **Files created:**
+    - ✅ `backend/services/backtester.py` (NEW - 579 lines)
+    - ✅ `backend/api/backtest.py` (NEW - 312 lines)
   - **Files to modify:**
-    - `backend/api/proposals.py`
-    - `backend/services/backtester.py` (new)
+    - `backend/api/proposals.py` (for learning proposals)
 
 #### Frontend Tasks
-- [ ] **5.6 Learning & Analytics Tab**
+- [x] **5.6 Backtesting UI** ✅ COMPLETE (Dec 2025)
+  - [x] Build backtesting component ✅ 588 lines
+  - [x] Create quick backtest buttons (30d, 90d, 1y) ✅
+  - [x] Build custom configuration form ✅
+  - [x] Display summary metrics (win rate, profit factor, etc.) ✅
+  - [x] Show trade history table ✅
+  - [x] Add best/worst trade panels ✅
+  - [x] Implement real-time status polling ✅
+  - **Files created:**
+    - ✅ `frontend/src/components/Backtesting.js` (NEW - 588 lines)
+  - **Files modified:**
+    - ✅ `frontend/src/App.js` (added backtesting tab)
+
+- [ ] **5.7 Learning & Analytics Tab**
   - [ ] Build trade history table with filters
   - [ ] Create trade detail modal with full rationale
   - [ ] Display outcome analysis
@@ -1539,85 +1629,10 @@ CREATE TABLE global_defaults (
     - `frontend/src/components/TradeHistoryTable.js`
     - `frontend/src/components/TradeDetailModal.js`
 
-- [ ] **5.7 Improvement Proposals UI**
+- [ ] **5.8 Improvement Proposals UI**
   - [ ] Build proposals list view
   - [ ] Create proposal card with rationale
   - [ ] Show supporting evidence
   - [ ] Add approve/reject buttons
   - [ ] Display backtest results
-  - **Files to create:**
-    - `frontend/src/components/ImprovementProposals.js`
-    - `frontend/src/components/ProposalCard.js`
-    - `frontend/src/components/BacktestResults.js`
-
-#### Testing & Validation
-- [ ] Test trade logging accuracy
-- [ ] Validate post-trade analysis results
-- [ ] Check pattern recognition reliability
-- [ ] Review improvement proposals for quality
-- [ ] UI tests for learning & analytics tab
-
-**Completion Criteria:**
-✅ All trades logged with full details  
-✅ Post-trade analysis generated automatically  
-✅ Patterns recognized with high accuracy  
-✅ Improvement proposals generated and actionable  
-✅ UI displays all learning insights clearly  
-
----
-
-## 📅 Revised Timeline
-
-| Phase | Description | Status | Human Hours | Real Hours | Completion |
-|-------|-------------|--------|-------------|------------|------------|
-| Infrastructure | Backend + Frontend + DB | ✅ Complete | 840h | 10h | 100% |
-| **Phase 1** | AI Research Engine | ✅ Complete | 336h | 4h | 100% |
-| **Phase 2** | Sell Validation Flow | ✅ Complete | 252h | 3h | 100% |
-| **Phase 3** | Transaction Queue System | ✅ Complete | 336h | 4h | 100% |
-| **Phase 3.5** | Data Persistence & Advanced Tables | 🔄 In Progress | 19h | 19h | 100% |
-| **Phase 4** | Opportunity Scanner | 🔲 Not Started | 420h | 5h | 0% |
-| **Phase 5** | Position Monitor & Rebalancing | 🔲 Not Started | 420h | 5h | 0% |
-| **Phase 6** | Learning Engine | 🔲 Not Started | 336h | 4h | 0% |
-| **TOTAL** | | | **2,940h** | **50h** | **75%** |
-
-**Next Actions:**
-- Complete Phase 3.5 Sub-Phase 2: Backend Watchlist API
-- Begin Phase 4: Opportunity Scanner (after Phase 3.5 testing)
-
-**Notes:**
-- Focus on completing Phase 3.5 testing by January 20, 2026
-- Allocate January 21-27, 2026 for Phase 4 development
-- Reserve January 28-31, 2026 for integration testing and bug fixing
-
----
-
-## 🚀 Immediate Next Steps
-
-1. **Complete Phase 3.5 Testing:**
-   - Test all data persistence features
-   - Validate advanced table functionality
-   - Ensure smooth transition to Phase 4
-
-2. **Prepare for Phase 4: Opportunity Scanner:**
-   - Review and refine market scanning strategies
-   - Optimize opportunity analysis algorithms
-   - Plan for autonomous agent configuration
-
-3. **Continue Monitoring Live Trading:**
-   - Observe AI performance in real-time
-   - Collect data for learning engine
-   - Make incremental improvements based on live data
-
-4. **Engage with Early Users:**
-   - Gather feedback on AI recommendations
-   - Identify areas for improvement
-   - Validate the effectiveness of new features
-
-5. **Document Learnings and Adjust Plan:**
-   - Record insights from live trading and user feedback
-   - Update the implementation plan as needed
-   - Prepare for a successful Phase 4 kickoff
-
----
-
-**End of Document**
+  - 

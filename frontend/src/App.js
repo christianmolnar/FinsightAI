@@ -6,6 +6,7 @@ import StrategyConfig from './components/StrategyConfig';
 import PaperPortfolio from './components/PaperPortfolio';
 import RealPortfolio from './RealPortfolio';
 import TransactionQueue from './components/TransactionQueue';
+import Backtesting from './components/Backtesting';
 import Navbar from './components/Navbar';
 import './index.css';
 
@@ -100,6 +101,16 @@ function App() {
               >
                 Strategy Config
               </button>
+              <button
+                onClick={() => setActiveTab('backtest')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'backtest'
+                    ? 'border-purple-500 text-purple-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Backtesting
+              </button>
             </nav>
           </div>
         </div>
@@ -123,6 +134,10 @@ function App() {
         
         {activeTab === 'config' && (
           <StrategyConfig />
+        )}
+        
+        {activeTab === 'backtest' && (
+          <Backtesting />
         )}
       </main>
     </div>

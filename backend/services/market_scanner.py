@@ -14,6 +14,7 @@ from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 import yfinance as yf
 from sqlalchemy.orm import Session
+from services.universe_builder import UniverseBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -23,23 +24,11 @@ class MarketScanner:
     Autonomous market scanner that finds trading opportunities
     """
     
-    # S&P 500 subset for initial implementation (expand to full 500 later)
-    SCAN_UNIVERSE = [
-        # Tech giants
-        'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA',
-        # Finance
-        'JPM', 'BAC', 'WFC', 'GS', 'MS',
-        # Healthcare
-        'UNH', 'JNJ', 'PFE', 'ABBV', 'TMO',
-        # Consumer
-        'WMT', 'HD', 'MCD', 'NKE', 'SBUX',
-        # Industrials
-        'BA', 'CAT', 'GE', 'HON', 'UPS',
-        # Energy
-        'XOM', 'CVX', 'COP', 'SLB',
-        # Telecom/Media
-        'DIS', 'NFLX', 'CMCSA', 'T', 'VZ'
-    ]
+    # Build universe dynamically from S&P 500, DOW, and NASDAQ-100
+    # Exclude symbols with known data issues
+    _universe_builder = UniverseBuilder()
+    _raw_universe = _universe_builder.build_universe(['SP500', 'DOW', 'NASDAQ100'])
+    SCAN_UNIVERSE = [s for s in _raw_universe if s != 'WBA']  # WBA: Data stopped at 2025-08-27
     
     # Filtering criteria
     MIN_VOLUME = 1_000_000  # Minimum daily volume

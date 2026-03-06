@@ -552,6 +552,14 @@ ELSE:
 
 **Timeline:** 35 real-time hours total (4-5 days at 8h/day, or 18 days at 2h/day, or 35 days at 1h/day)
 
+### Phase 0: Backtesting Engine (Day 0, 6h)
+- ✅ Historical simulation engine
+- ✅ Quick backtest presets (30d, 90d, 1y)
+- ✅ Custom configuration (dates, capital, strategies)
+- ✅ Performance metrics dashboard
+- ✅ Trade-by-trade analysis
+- **Status:** COMPLETE (implemented Dec 2025)
+
 ### Phase 1: AI Research Engine (Day 1, 4h)
 - ✅ Research screen (user-initiated stock research)
 - ✅ Dual AI analysis (OpenAI + Claude verification)
@@ -587,6 +595,162 @@ ELSE:
 - ✅ Pattern recognition
 - ✅ Improvement proposals
 - ✅ Performance analytics
+
+---
+
+## 📺 Screen Designs
+
+### 0. Backtesting Screen (Strategy Validation)
+
+**Purpose:** Test trading strategies against historical data before risking real capital
+
+**Layout:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      BACKTESTING                            │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  🧪 QUICK BACKTESTS                                         │
+│  ┌────────┐ ┌────────┐ ┌────────┐                         │
+│  │ 30 Days│ │ 90 Days│ │ 1 Year │                         │
+│  └────────┘ └────────┘ └────────┘                         │
+│                                                             │
+│  ⚙️ CUSTOM CONFIGURATION                                    │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  Date Range:  [2024-01-01] to [2024-12-31]         │   │
+│  │                                                     │   │
+│  │  Initial Capital: [$100,000___]                    │   │
+│  │  Position Size: [10%] of capital per trade         │   │
+│  │                                                     │   │
+│  │  AI Confidence: [━━━━━●━━━━] 75%                   │   │
+│  │                                                     │   │
+│  │  Strategies:                                        │   │
+│  │  ☑ Breakouts (50-day highs)                        │   │
+│  │  ☑ Earnings Momentum                               │   │
+│  │  ☑ Seasonality Patterns                            │   │
+│  │  ☐ Macro Catalysts                                 │   │
+│  │  ☐ Social Sentiment                                │   │
+│  │                                                     │   │
+│  │  [x] Use AI Analysis                               │   │
+│  │                                                     │   │
+│  │  [Run Custom Backtest]                             │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  📊 RESULTS (Last 90 Days)                                  │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  ┌──────────────┐ ┌──────────────┐ ┌────────────┐  │   │
+│  │  │ Total Return │ │  Win Rate    │ │ Net Profit │  │   │
+│  │  │    +8.7%     │ │     65%      │ │  $8,700    │  │   │
+│  │  └──────────────┘ └──────────────┘ └────────────┘  │   │
+│  │                                                     │   │
+│  │  ┌──────────────┐ ┌──────────────┐ ┌────────────┐  │   │
+│  │  │ Total Trades │ │Profit Factor │ │  Avg Hold  │  │   │
+│  │  │      23      │ │     2.34     │ │   7.3 days │  │   │
+│  │  └──────────────┘ └──────────────┘ └────────────┘  │   │
+│  │                                                     │   │
+│  │  Performance Metrics:                               │   │
+│  │  • Average Win: +12.0% ($1,200)                     │   │
+│  │  • Average Loss: -5.0% ($500)                       │   │
+│  │  • Largest Win: +18.0% ($1,800) - AAPL              │   │
+│  │  • Largest Loss: -5.0% ($500) - TSLA                │   │
+│  │                                                     │   │
+│  │  ┌───────────────────────────────────────────────┐ │   │
+│  │  │ 🏆 BEST TRADE                                 │ │   │
+│  │  │ AAPL: +18.0% (+$1,800) in 7 days              │ │   │
+│  │  │ Entry: $180.00 → Exit: $212.40 (Profit Target)│ │   │
+│  │  └───────────────────────────────────────────────┘ │   │
+│  │                                                     │   │
+│  │  ┌───────────────────────────────────────────────┐ │   │
+│  │  │ 📉 WORST TRADE                                │ │   │
+│  │  │ TSLA: -5.0% (-$500) in 3 days                 │ │   │
+│  │  │ Entry: $250.00 → Exit: $237.50 (Stop Loss)    │ │   │
+│  │  └───────────────────────────────────────────────┘ │   │
+│  │                                                     │   │
+│  │  Trade History (23 trades):                        │   │
+│  │  ┌─────────────────────────────────────────────┐  │   │
+│  │  │Symbol│Entry │Exit  │Days│ P&L  │ Result  │  │   │
+│  │  ├─────────────────────────────────────────────┤  │   │
+│  │  │AAPL  │$180.0│$212.4│ 7  │+$1800│✅ +18.0%│  │   │
+│  │  │MSFT  │$380.0│$418.0│ 10 │+$1000│✅ +10.0%│  │   │
+│  │  │NVDA  │$145.0│$159.5│ 8  │+$1450│✅ +10.0%│  │   │
+│  │  │TSLA  │$250.0│$237.5│ 3  │ -$500│❌  -5.0%│  │   │
+│  │  │GOOGL │$140.0│$133.0│ 5  │ -$700│❌  -5.0%│  │   │
+│  │  │...                                          │  │   │
+│  │  └─────────────────────────────────────────────┘  │   │
+│  │                                                     │   │
+│  │  [Download CSV] [Compare Backtests] [Save Config]  │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**User Flow:**
+1. **Quick Backtest (Fastest)**
+   - User clicks "90 Days" button
+   - System runs backtest with default settings (75% AI threshold, all strategies)
+   - Shows loading animation (30-60 seconds)
+   - Displays results dashboard with summary cards
+   - User reviews win rate, profit factor, and trade list
+
+2. **Custom Backtest (Full Control)**
+   - User selects date range (e.g., 2024-01-01 to 2024-12-31)
+   - Sets initial capital ($50k-$500k)
+   - Chooses position size (5%-20%)
+   - Selects specific strategies (check boxes)
+   - Adjusts AI confidence threshold (50%-95%)
+   - Clicks "Run Custom Backtest"
+   - System polls status every 5 seconds
+   - Shows progress indicator
+   - Displays comprehensive results
+
+3. **Iterative Optimization**
+   - User runs baseline backtest (default settings)
+   - Notes win rate: 65%, profit factor: 2.34
+   - Adjusts AI threshold to 85%
+   - Runs again → win rate: 71%, profit factor: 2.89 ✓
+   - Saves optimal configuration
+   - Applies to agent configuration
+
+**Key Interactions:**
+- **Quick presets:** One-click testing for common periods
+- **Slider control:** Visual AI threshold adjustment
+- **Strategy toggles:** Enable/disable specific strategies
+- **Real-time status:** Updates every 5 seconds while running
+- **Trade drill-down:** Click any trade for full details
+- **Download CSV:** Export results for external analysis
+
+**Performance Metrics Explained:**
+- **Total Return:** % portfolio gain (green if positive)
+- **Win Rate:** % of profitable trades (65% target)
+- **Profit Factor:** Total wins / total losses (>2.0 is excellent)
+- **Avg Hold:** Mean days per trade (helps plan capital requirements)
+- **Best/Worst:** Highlight outliers for learning
+
+**Edge Cases:**
+- **No trades generated:** "No opportunities found matching criteria. Try lowering AI threshold or enabling more strategies."
+- **API timeout:** "Data download taking longer than expected. Retry in 1 minute."
+- **Invalid date range:** "End date must be after start date and within last 5 years."
+- **Concurrent backtests:** Queue additional requests if one is running
+
+**Integration with Agent Config:**
+```
+Backtest (Test) → Agent Config (Apply) → Paper Trading (Validate) → Live Trading (Execute)
+
+Example:
+1. Backtest 90d with 85% AI threshold → 71% win rate ✓
+2. Navigate to Agent Config tab
+3. Click "Apply Backtest Settings"
+4. System auto-fills: 85% threshold, optimal strategies
+5. User enables agent in Paper mode
+6. Monitor live performance vs backtest expectations
+```
+
+**Success Indicators:**
+- Win rate matches backtest ±5%
+- Profit factor within 20% of backtest
+- Trade frequency similar to historical
+- No excessive drawdowns
+- AI signals performing as expected
 
 ---
 

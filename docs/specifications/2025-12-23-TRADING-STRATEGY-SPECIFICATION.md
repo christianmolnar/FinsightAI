@@ -1007,6 +1007,457 @@ def evaluate_ipo_entry(ipo_data, market_conditions):
 
 ---
 
+## Backtesting & Validation Engine
+
+### 🧪 Backtesting System
+
+**Core Principle:** Test before you trade. Validate strategies with historical data.
+
+The Backtesting Engine allows you to simulate trading strategies against historical market data to validate effectiveness before risking real capital.
+
+#### Purpose & Benefits
+
+**Why Backtest?**
+- Validate strategy parameters before live trading
+- Identify optimal entry/exit thresholds
+- Test different strategy combinations
+- Understand historical win rates and profit factors
+- Build confidence in AI-driven decisions
+- Optimize risk management rules
+
+**Key Features:**
+- Simulates complete Scanner → AI Analyzer → Trade Execution workflow
+- Uses real historical price data from yfinance
+- Tests all strategies: Breakouts, Earnings, Seasonality, Macro, Sentiment
+- Applies configurable exit rules: Profit targets, stop losses, max hold time
+- Generates comprehensive performance metrics
+- Provides trade-by-trade analysis
+
+#### Architecture
+
+**Backend Components:**
+```
+backend/services/backtester.py (579 lines)
+├── Backtester Class
+│   ├── run_backtest() - Main execution engine
+│   ├── _get_historical_candidates() - Scanner simulation
+│   ├── _scan_breakouts_historical() - 50-day high detection
+│   ├── _scan_earnings_historical() - Earnings opportunity simulation
+│   ├── _scan_seasonal_historical() - Seasonal pattern detection
+│   ├── _analyze_with_ai() - AI confidence simulation
+│   └── _simulate_trade() - Full trade lifecycle with exit logic
+├── BacktestResult Class - Individual trade container
+└── BacktestMetrics Class - Performance calculator
+
+backend/api/backtest.py (312 lines)
+├── POST /api/backtest/run - Custom backtest
+├── POST /api/backtest/quick/{period} - Quick presets (30d, 90d, 1y)
+├── GET /api/backtest/status/{id} - Status polling
+├── GET /api/backtest/results/{id} - Full results
+├── GET /api/backtest/results/{id}/trades - Paginated trades
+└── GET /api/backtest/list - List all backtests
+```
+
+**Frontend Components:**
+```
+frontend/src/components/Backtesting.js (588 lines)
+├── Quick Backtest Buttons (30d, 90d, 1y)
+├── Custom Configuration Form
+│   ├── Date range pickers
+│   ├── Capital settings
+│   ├── AI confidence threshold slider
+│   ├── Strategy selection checkboxes
+│   └── Use AI toggle
+├── Status Polling (5-second intervals)
+└── Results Dashboard
+    ├── Summary cards (total return, win rate, net profit)
+    ├── Performance metrics (profit factor, avg win/loss)
+    ├── Best/worst trade analysis
+    └── Trade history table
+```
+
+#### How It Works
+
+**Step 1: Historical Data Collection**
+```python
+# Download historical prices for date range
+for date in date_range:
+    historical_prices = yfinance.download(
+        symbols=stock_universe,
+        start=date - lookback_period,
+        end=date
+    )
+```
+
+**Step 2: Scanner Simulation**
+```python
+# Apply scanner strategies to historical data
+candidates = []
+
+# Breakouts: Find stocks breaking 50-day highs
+if 'breakouts' in strategies:
+    breakout_stocks = _scan_breakouts_historical(date, prices)
+    candidates.extend(breakout_stocks)
+
+# Earnings: Simulate earnings opportunities (20% random selection)
+if 'earnings' in strategies:
+    earnings_stocks = _scan_earnings_historical(date, prices)
+    candidates.extend(earnings_stocks)
+
+# Seasonality: Check monthly seasonal patterns
+if 'seasonality' in strategies:
+    seasonal_stocks = _scan_seasonal_historical(date, prices)
+    candidates.extend(seasonal_stocks)
+```
+
+**Step 3: AI Analysis Simulation**
+```python
+if use_ai:
+    # Simulate AI confidence scoring
+    base_confidence = 65.0  # Base score
+    variance = random.uniform(-15, 15)  # Random variance
+    ai_confidence = base_confidence + variance
+    
+    # Filter by threshold
+    if ai_confidence >= confidence_threshold:
+        candidates.append(opportunity)
+```
+
+**Step 4: Trade Execution Simulation**
+```python
+# Enter trade at next day's open price
+entry_price = next_day_open
+position_size = capital * position_size_pct
+
+# Simulate holding period
+for date in future_dates:
+    current_price = historical_prices[date][symbol]
+    
+    # Check exit conditions
+    profit_pct = (current_price - entry_price) / entry_price
+    
+    if profit_pct >= profit_target:  # +10% default
+        exit_trade(reason='PROFIT_TARGET', price=current_price)
+    elif profit_pct <= -stop_loss:  # -5% default
+        exit_trade(reason='STOP_LOSS', price=current_price)
+    elif days_held >= max_hold_days:  # 14 days default
+        exit_trade(reason='MAX_HOLD', price=current_price)
+```
+
+**Step 5: Performance Analysis**
+```python
+# Calculate comprehensive metrics
+metrics = BacktestMetrics(
+    total_trades=len(trades),
+    winning_trades=len([t for t in trades if t.profit_loss > 0]),
+    losing_trades=len([t for t in trades if t.profit_loss < 0]),
+    win_rate=winning_trades / total_trades,
+    total_return=(final_capital - initial_capital) / initial_capital,
+    profit_factor=total_wins / abs(total_losses),
+    avg_win=mean([t.profit_loss for t in winning_trades]),
+    avg_loss=mean([t.profit_loss for t in losing_trades]),
+    avg_hold_days=mean([t.days_held for t in trades]),
+    best_trade=max(trades, key=lambda t: t.profit_loss_pct),
+    worst_trade=min(trades, key=lambda t: t.profit_loss_pct)
+)
+```
+
+#### API Endpoints
+
+**1. POST /api/backtest/run - Custom Backtest**
+```json
+Request:
+{
+  "start_date": "2025-01-01",
+  "end_date": "2025-03-01",
+  "initial_capital": 100000,
+  "position_size_pct": 0.10,
+  "strategies": ["breakouts", "earnings", "seasonality"],
+  "confidence_threshold": 0.75,
+  "use_ai": true
+}
+
+Response:
+{
+  "backtest_id": "bt_20250301_143025",
+  "status": "running",
+  "message": "Backtest started"
+}
+```
+
+**2. POST /api/backtest/quick/{period} - Quick Presets**
+```
+POST /api/backtest/quick/30d  → Last 30 days
+POST /api/backtest/quick/90d  → Last 90 days
+POST /api/backtest/quick/1y   → Last 1 year
+
+Returns: Same as custom backtest
+```
+
+**3. GET /api/backtest/status/{backtest_id} - Poll Status**
+```json
+Response:
+{
+  "backtest_id": "bt_20250301_143025",
+  "status": "completed",
+  "progress": 100,
+  "start_time": "2025-03-01T14:30:25Z",
+  "end_time": "2025-03-01T14:32:18Z"
+}
+```
+
+**4. GET /api/backtest/results/{backtest_id} - Full Results**
+```json
+Response:
+{
+  "backtest_id": "bt_20250301_143025",
+  "status": "completed",
+  "config": { /* original config */ },
+  "summary": {
+    "total_return": 0.087,  // 8.7%
+    "total_return_dollars": 8700.00,
+    "win_rate": 0.65,  // 65%
+    "total_trades": 23,
+    "winning_trades": 15,
+    "losing_trades": 8,
+    "profit_factor": 2.34,
+    "avg_win_pct": 0.12,
+    "avg_loss_pct": -0.05,
+    "avg_hold_days": 7.3,
+    "best_trade": {
+      "symbol": "AAPL",
+      "profit_pct": 0.18,  // +18%
+      "profit_dollars": 1800.00
+    },
+    "worst_trade": {
+      "symbol": "TSLA",
+      "profit_pct": -0.05,  // -5%
+      "profit_dollars": -500.00
+    }
+  },
+  "trades": [ /* array of all trades */ ]
+}
+```
+
+**5. GET /api/backtest/results/{backtest_id}/trades - Paginated Trades**
+```json
+Response:
+{
+  "backtest_id": "bt_20250301_143025",
+  "total_trades": 23,
+  "page": 1,
+  "limit": 10,
+  "trades": [
+    {
+      "symbol": "AAPL",
+      "strategy": "BREAKOUTS",
+      "entry_date": "2025-01-15",
+      "entry_price": 180.00,
+      "exit_date": "2025-01-22",
+      "exit_price": 194.40,
+      "exit_reason": "PROFIT_TARGET",
+      "days_held": 7,
+      "profit_loss": 1440.00,
+      "profit_loss_pct": 0.08
+    },
+    // ...more trades
+  ]
+}
+```
+
+#### Performance Metrics Explained
+
+**Win Rate:** Percentage of profitable trades
+```
+Win Rate = Winning Trades / Total Trades
+Example: 15 wins / 23 total = 65%
+```
+
+**Total Return:** Overall portfolio gain/loss
+```
+Total Return = (Final Capital - Initial Capital) / Initial Capital
+Example: ($108,700 - $100,000) / $100,000 = 8.7%
+```
+
+**Profit Factor:** Ratio of total wins to total losses
+```
+Profit Factor = Total $ Won / Total $ Lost
+Example: $12,500 / $3,800 = 3.29
+(Higher is better; >2.0 is excellent)
+```
+
+**Average Win/Loss:** Mean profit/loss per trade
+```
+Avg Win = Sum of Winning Trade $ / Number of Wins
+Avg Loss = Sum of Losing Trade $ / Number of Losses
+```
+
+**Average Hold Days:** Mean days per trade
+```
+Avg Hold Days = Sum of Days Held / Total Trades
+Example: 168 days / 23 trades = 7.3 days
+```
+
+#### Configuration Options
+
+**Date Range:**
+- Custom: Any historical date range
+- Quick presets: 30d, 90d, 1y
+
+**Capital Settings:**
+- Initial capital: Any amount (default $100,000)
+- Position size: % of capital per trade (default 10%)
+
+**Strategy Selection:**
+- Breakouts: 50-day high detection
+- Earnings: Earnings opportunity simulation
+- Seasonality: Monthly seasonal patterns
+- Can enable any combination
+
+**AI Configuration:**
+- Use AI: Enable/disable AI filtering
+- Confidence threshold: 50%-95% (default 75%)
+
+**Exit Rules (Fixed):**
+- Profit target: +10%
+- Stop loss: -5%
+- Max hold time: 14 days
+
+#### Usage Workflow
+
+**1. Quick Backtest (Fastest)**
+```
+1. Navigate to Backtesting tab
+2. Click "90 Days" button
+3. Wait 30-60 seconds
+4. Review results
+```
+
+**2. Custom Backtest (Full Control)**
+```
+1. Select date range (e.g., 2024-01-01 to 2024-12-31)
+2. Set initial capital ($50,000 - $500,000)
+3. Choose position size (5% - 20%)
+4. Select strategies (check all that apply)
+5. Set AI threshold (50% - 95%)
+6. Click "Run Custom Backtest"
+7. Monitor status (updates every 5 seconds)
+8. Review detailed results
+```
+
+**3. Iterative Optimization**
+```
+1. Run baseline backtest with default settings
+2. Note win rate and profit factor
+3. Adjust one parameter (e.g., AI threshold)
+4. Run again and compare results
+5. Keep better configuration
+6. Repeat with other parameters
+7. Document optimal settings
+```
+
+#### Integration with Agent Configuration
+
+**Workflow: Backtest → Configure → Deploy**
+
+```
+Step 1: Backtest with different thresholds
+- Run with 65% AI threshold → 58% win rate
+- Run with 75% AI threshold → 65% win rate ✓
+- Run with 85% AI threshold → 71% win rate ✓✓
+
+Step 2: Identify optimal settings
+- Best win rate: 85% threshold
+- Best profit factor: 85% threshold
+- Decision: Use 85% for live agent
+
+Step 3: Apply to agent configuration
+- Navigate to Agent Config tab
+- Set AI Confidence Threshold: 85%
+- Enable strategies: Breakouts, Earnings, Seasonality
+- Set position size: 10%
+- Save configuration
+
+Step 4: Monitor live performance
+- Compare live results to backtest
+- Adjust if significant deviation
+- Run new backtests monthly
+```
+
+#### Limitations & Best Practices
+
+**Limitations:**
+- Historical data != future performance
+- Simplified AI confidence simulation (not real AI analysis)
+- No slippage or commissions modeled
+- No market impact (assumes perfect execution)
+- In-memory storage (results lost on restart)
+- Limited stock universe (top 100 by volume)
+
+**Best Practices:**
+- Run multiple time periods (bull, bear, sideways markets)
+- Test parameter sensitivity (don't overfit)
+- Compare to buy-and-hold benchmark
+- Account for survivorship bias
+- Use 90+ day backtests for statistical significance
+- Validate with paper trading before live
+- Rerun backtests quarterly as markets evolve
+
+#### Future Enhancements
+
+**Phase 1 (Current): Basic Backtesting**
+- ✅ Historical price data simulation
+- ✅ Scanner strategy simulation
+- ✅ AI confidence simulation
+- ✅ Fixed exit rules
+- ✅ Performance metrics
+- ✅ React UI with visualizations
+
+**Phase 2: Advanced Analytics**
+- Monthly/quarterly performance breakdowns
+- Strategy-specific win rates
+- Drawdown analysis (max, average)
+- Sharpe ratio calculation
+- Benchmark comparison (SPY)
+- Sector performance analysis
+
+**Phase 3: Real AI Integration**
+- Use actual AI model for analysis
+- Test AI improvements over time
+- A/B test different AI models
+- Confidence calibration
+
+**Phase 4: Database Persistence**
+- Store backtest results in PostgreSQL
+- Historical backtest tracking
+- Compare backtest versions
+- Share backtest results
+
+**Phase 5: Optimization Engine**
+- Auto-optimize parameters
+- Grid search for best settings
+- Walk-forward analysis
+- Monte Carlo simulation
+
+#### Documentation & Testing
+
+**Complete Documentation:**
+- `/docs/implementation/BACKTESTING-COMPLETE.md` - Full technical reference
+- `/docs/implementation/BACKTESTING-QUICKSTART.md` - 5-minute quick start
+
+**Test Script:**
+- `backend/test-backtest.sh` - Automated endpoint testing
+
+**Status:**
+- ✅ Backend complete (891 lines)
+- ✅ Frontend complete (588 lines)
+- ✅ API integrated into main.py
+- ✅ UI integrated into App.js
+- ✅ Documentation complete (900+ lines)
+- ⏳ Pending real-world validation testing
+
+---
+
 ## Learning & Analytics Engine
 
 ### 📊 Trade Learning System

@@ -1,0 +1,319 @@
+"""
+Backtesting API
+
+Endpoints for running backtests and viewing results
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from sqlalchemy.orm import Session
+from typing import List, Optional
+from datetime import datetime, timedelta
+from pydantic import BaseModel
+
+from app.database import get_db
+from services.backtester import get_backtester, BacktestMetrics
+
+
+router = APIRouter(prefix="/api/backtest", tags=["backtest"])
+
+
+# Request/Response Models
+class BacktestRequest(BaseModel):
+    start_date: str  # YYYY-MM-DD
+    end_date: str  # YYYY-MM-DD
+    strategies: Optional[List[str]] = None  # None = all strategies
+    confidence_threshold: float = 0.75
+    use_ai: bool = True
+    initial_capital: float = 10000.0
+    position_size: float = 1000.0
+    max_hold_days: int = 14
+
+
+class BacktestResponse(BaseModel):
+    success: bool
+    backtest_id: Optional[str] = None
+    metrics: Optional[dict] = None
+    trades: Optional[List[dict]] = None
+    config: Optional[dict] = None
+    error: Optional[str] = None
+
+
+# Store backtest results in memory (in production, use database)
+_backtest_results = {}
+_backtest_status = {}
+
+
+@router.post("/run", response_model=BacktestResponse)
+async def run_backtest(
+    request: BacktestRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    Run a backtest on historical data
+    
+    Simulates scanner + AI analyzer over specified date range
+    to validate strategy effectiveness
+    """
+    try:
+        # Validate dates
+        try:
+            start_date = datetime.strptime(request.start_date, '%Y-%m-%d')
+            end_date = datetime.strptime(request.end_date, '%Y-%m-%d')
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+        
+        if start_date >= end_date:
+            raise HTTPException(status_code=400, detail="start_date must be before end_date")
+        
+        if end_date > datetime.now():
+            raise HTTPException(status_code=400, detail="end_date cannot be in the future")
+        
+        # Validate confidence threshold
+        if not 0.0 <= request.confidence_threshold <= 1.0:
+            raise HTTPException(status_code=400, detail="confidence_threshold must be between 0.0 and 1.0")
+        
+        # Generate backtest ID
+        backtest_id = f"backtest_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        # Mark as running
+        _backtest_status[backtest_id] = {
+            'status': 'running',
+            'start_time': datetime.now(),
+            'progress': 0
+        }
+        
+        # Run backtest asynchronously
+        background_tasks.add_task(
+            _run_backtest_task,
+            backtest_id=backtest_id,
+            db=db,
+            request=request,
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        return BacktestResponse(
+            success=True,
+            backtest_id=backtest_id,
+            config={
+                'start_date': request.start_date,
+                'end_date': request.end_date,
+                'strategies': request.strategies or ['all'],
+                'confidence_threshold': request.confidence_threshold,
+                'use_ai': request.use_ai,
+                'initial_capital': request.initial_capital,
+                'position_size': request.position_size,
+                'max_hold_days': request.max_hold_days
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        return BacktestResponse(
+            success=False,
+            error=f"Failed to start backtest: {str(e)}"
+        )
+
+
+async def _run_backtest_task(
+    backtest_id: str,
+    db: Session,
+    request: BacktestRequest,
+    start_date: datetime,
+    end_date: datetime
+):
+    """Background task to run backtest"""
+    try:
+        # Create backtester
+        backtester = get_backtester(
+            db=db,
+            initial_capital=request.initial_capital,
+            position_size=request.position_size,
+            max_hold_days=request.max_hold_days
+        )
+        
+        # Run backtest
+        metrics = await backtester.run_backtest(
+            start_date=start_date,
+            end_date=end_date,
+            strategies=request.strategies,
+            confidence_threshold=request.confidence_threshold,
+            use_ai=request.use_ai
+        )
+        
+        # Store results
+        _backtest_results[backtest_id] = {
+            'metrics': metrics.to_dict(),
+            'trades': [trade.to_dict() for trade in backtester.trades],
+            'config': {
+                'start_date': request.start_date,
+                'end_date': request.end_date,
+                'strategies': request.strategies or ['all'],
+                'confidence_threshold': request.confidence_threshold,
+                'use_ai': request.use_ai,
+                'initial_capital': request.initial_capital,
+                'position_size': request.position_size,
+                'max_hold_days': request.max_hold_days
+            },
+            'completed_at': datetime.now().isoformat()
+        }
+        
+        # Update status
+        _backtest_status[backtest_id] = {
+            'status': 'complete',
+            'completed_at': datetime.now()
+        }
+        
+    except Exception as e:
+        _backtest_status[backtest_id] = {
+            'status': 'failed',
+            'error': str(e),
+            'failed_at': datetime.now()
+        }
+
+
+@router.get("/status/{backtest_id}")
+async def get_backtest_status(backtest_id: str):
+    """Get status of a backtest run"""
+    if backtest_id not in _backtest_status:
+        raise HTTPException(status_code=404, detail="Backtest not found")
+    
+    status = _backtest_status[backtest_id]
+    
+    return {
+        'success': True,
+        'backtest_id': backtest_id,
+        'status': status['status'],
+        'start_time': status.get('start_time').isoformat() if status.get('start_time') else None,
+        'completed_at': status.get('completed_at').isoformat() if status.get('completed_at') else None,
+        'error': status.get('error')
+    }
+
+
+@router.get("/results/{backtest_id}", response_model=BacktestResponse)
+async def get_backtest_results(backtest_id: str):
+    """Get results of a completed backtest"""
+    if backtest_id not in _backtest_results:
+        # Check if it's still running
+        if backtest_id in _backtest_status:
+            status = _backtest_status[backtest_id]
+            if status['status'] == 'running':
+                return BacktestResponse(
+                    success=False,
+                    error="Backtest is still running. Check /status endpoint."
+                )
+            elif status['status'] == 'failed':
+                return BacktestResponse(
+                    success=False,
+                    error=f"Backtest failed: {status.get('error', 'Unknown error')}"
+                )
+        
+        raise HTTPException(status_code=404, detail="Backtest results not found")
+    
+    results = _backtest_results[backtest_id]
+    
+    return BacktestResponse(
+        success=True,
+        backtest_id=backtest_id,
+        metrics=results['metrics'],
+        trades=results['trades'],
+        config=results['config']
+    )
+
+
+@router.get("/results/{backtest_id}/trades")
+async def get_backtest_trades(
+    backtest_id: str,
+    limit: int = 100,
+    offset: int = 0
+):
+    """Get trades from a backtest (paginated)"""
+    if backtest_id not in _backtest_results:
+        raise HTTPException(status_code=404, detail="Backtest results not found")
+    
+    trades = _backtest_results[backtest_id]['trades']
+    
+    # Paginate
+    paginated_trades = trades[offset:offset + limit]
+    
+    return {
+        'success': True,
+        'backtest_id': backtest_id,
+        'total_trades': len(trades),
+        'offset': offset,
+        'limit': limit,
+        'trades': paginated_trades
+    }
+
+
+@router.get("/list")
+async def list_backtests():
+    """List all backtest runs"""
+    backtests = []
+    
+    for backtest_id in _backtest_results.keys():
+        result = _backtest_results[backtest_id]
+        status = _backtest_status.get(backtest_id, {})
+        
+        backtests.append({
+            'backtest_id': backtest_id,
+            'status': status.get('status', 'unknown'),
+            'config': result['config'],
+            'metrics_summary': {
+                'total_trades': result['metrics']['summary']['total_trades'],
+                'win_rate': result['metrics']['summary']['win_rate'],
+                'total_return_pct': result['metrics']['returns']['total_return_pct']
+            },
+            'completed_at': result['completed_at']
+        })
+    
+    return {
+        'success': True,
+        'total_backtests': len(backtests),
+        'backtests': sorted(backtests, key=lambda x: x['completed_at'], reverse=True)
+    }
+
+
+@router.post("/quick/{period}")
+async def run_quick_backtest(
+    period: str,  # '30d', '90d', '1y'
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    confidence_threshold: float = 0.75
+):
+    """
+    Run a quick backtest with preset time periods
+    
+    Options:
+    - 30d: Last 30 days
+    - 90d: Last 90 days
+    - 1y: Last year
+    """
+    # Calculate dates based on period
+    end_date = datetime.now()
+    
+    if period == '30d':
+        start_date = end_date - timedelta(days=30)
+    elif period == '90d':
+        start_date = end_date - timedelta(days=90)
+    elif period == '1y':
+        start_date = end_date - timedelta(days=365)
+    else:
+        raise HTTPException(status_code=400, detail="Invalid period. Use '30d', '90d', or '1y'")
+    
+    # Create request
+    request = BacktestRequest(
+        start_date=start_date.strftime('%Y-%m-%d'),
+        end_date=end_date.strftime('%Y-%m-%d'),
+        strategies=None,  # All strategies
+        confidence_threshold=confidence_threshold,
+        use_ai=True,
+        initial_capital=10000.0,
+        position_size=1000.0,
+        max_hold_days=14
+    )
+    
+    # Run backtest
+    return await run_backtest(request, background_tasks, db)
