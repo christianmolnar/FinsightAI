@@ -112,7 +112,8 @@ class PreferencesService:
                 else:
                     logger.warning(f"Attempted to update unknown preference field: {key}")
             
-            # Timestamp updates automatically via SQLAlchemy
+            # Update timestamp
+            preferences.updated_at = datetime.utcnow()
             
             self.db.commit()
             self.db.refresh(preferences)

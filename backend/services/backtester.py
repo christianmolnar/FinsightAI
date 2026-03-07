@@ -19,6 +19,8 @@ from sqlalchemy.orm import Session
 from services.market_scanner import MarketScanner
 from services.opportunity_analyzer import get_opportunity_analyzer
 from services.historical_data_manager import HistoricalDataManager
+from services.position_sizer import PositionSizer
+from config.config_loader import config
 
 logger = logging.getLogger(__name__)
 
@@ -244,7 +246,7 @@ class Backtester:
         self,
         db: Session,
         initial_capital: float = 10000.0,
-        position_size: float = 1000.0,
+        position_size_pct: Optional[float] = None,  # Now accepts percentage instead of fixed dollars
         max_hold_days: int = 14
     ):
         """
@@ -253,13 +255,22 @@ class Backtester:
         Args:
             db: Database session
             initial_capital: Starting capital for backtest
-            position_size: Dollar amount per position
+            position_size_pct: Position size as percentage (0.10 = 10%), uses config default if None
             max_hold_days: Maximum days to hold a position
         """
         self.db = db
         self.initial_capital = initial_capital
-        self.position_size = position_size
         self.max_hold_days = max_hold_days
+        
+        # Initialize position sizer with compounding logic
+        self.position_sizer = PositionSizer(config)
+        
+        # Override position size if specified
+        if position_size_pct is not None:
+            # Store for use in calculate_position_size calls
+            self.position_size_override = position_size_pct
+        else:
+            self.position_size_override = None
         
         self.scanner = MarketScanner(db)
         self.historical_data = HistoricalDataManager(db)
@@ -569,6 +580,40 @@ class Backtester:
         
         return opportunities
     
+    def _calculate_portfolio_value(self, current_date: datetime) -> float:
+        """
+        Calculate current portfolio value at a specific point in backtest
+        
+        Portfolio value = cash + value of all open positions
+        This enables proper compounding as winners grow the portfolio
+        
+        Args:
+            current_date: Date to calculate portfolio value
+            
+        Returns:
+            float: Total portfolio value at this point in time
+        """
+        # Start with initial capital
+        cash = self.initial_capital
+        open_positions_value = 0.0
+        
+        # Calculate realized P&L from closed trades
+        for trade in self.trades:
+            if trade.exit_date and trade.exit_date <= current_date:
+                # Trade closed before this date - add to cash
+                cash += trade.profit_loss
+            elif not trade.exit_date or (trade.exit_date and trade.exit_date > current_date):
+                # Trade still open at this date - calculate unrealized value
+                # In a real implementation, we'd need to track current prices
+                # For simplicity, we'll use entry value (this is conservative)
+                open_positions_value += trade.entry_price * trade.shares
+                cash -= trade.entry_price * trade.shares
+        
+        total_value = cash + open_positions_value
+        
+        # Ensure we don't go below zero
+        return max(total_value, self.initial_capital * 0.01)  # Keep at least 1% of initial
+    
     async def _simulate_trade(
         self,
         opportunity: Dict,
@@ -589,8 +634,16 @@ class Backtester:
         symbol = opportunity['symbol']
         entry_price = opportunity['price']
         
-        # Calculate position size
-        shares = int(self.position_size / entry_price)
+        # Calculate current portfolio value (for compounding)
+        portfolio_value = self._calculate_portfolio_value(entry_date)
+        
+        # Calculate position size using PositionSizer (enables compounding)
+        shares = self.position_sizer.calculate_position_size(
+            portfolio_value=portfolio_value,
+            current_price=entry_price,
+            override_pct=self.position_size_override
+        )
+        
         if shares == 0:
             return None
         
@@ -600,7 +653,7 @@ class Backtester:
             if universe_data and symbol in universe_data:
                 all_data = universe_data[symbol]
                 # Filter to future dates only (convert entry_date to date for comparison)
-                entry_date_only = entry_date.date() if isinstance(entry_date, datetime) else entry_date
+                entry_date_only = entry_date.date() if isinstance(entry_date, pd.Timestamp) else entry_date
                 future_data = all_data[all_data.index > entry_date_only]
             else:
                 # Fallback: fetch from database
@@ -689,11 +742,11 @@ _backtester: Optional[Backtester] = None
 def get_backtester(
     db: Session,
     initial_capital: float = 10000.0,
-    position_size: float = 1000.0,
+    position_size_pct: Optional[float] = None,  # Now percentage-based (0.10 = 10%)
     max_hold_days: int = 14
 ) -> Backtester:
     """Get or create singleton backtester instance"""
     global _backtester
     if _backtester is None:
-        _backtester = Backtester(db, initial_capital, position_size, max_hold_days)
+        _backtester = Backtester(db, initial_capital, position_size_pct, max_hold_days)
     return _backtester

@@ -4,7 +4,6 @@ import MarketStatus from './MarketStatus';
 import RiskManagementPanel from './RiskManagementPanel';
 import TechnicalFiltersPanel from './TechnicalFiltersPanel';
 import { 
-  Brain, 
   Target, 
   TrendingUp, 
   Calendar, 
@@ -18,7 +17,6 @@ import {
   AlertTriangle,
   CheckCircle,
   Lightbulb,
-  RefreshCw,
   Save,
   Play,
   Pause,
@@ -31,7 +29,6 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const StrategyConfig = () => {
   const [activeStrategy, setActiveStrategy] = useState('earnings');
   const [activePanel, setActivePanel] = useState('strategies'); // strategies, risk, technical, backtest
-  const [isAIOptimizing, setIsAIOptimizing] = useState(false);
   const [strategies, setStrategies] = useState({
     earnings: {
       enabled: true,
@@ -117,92 +114,6 @@ const StrategyConfig = () => {
     green: 'bg-green-500 text-white border-green-500',
     purple: 'bg-purple-500 text-white border-purple-500',
     orange: 'bg-orange-500 text-white border-orange-500'
-  };
-
-  const handleAIOptimization = async (strategyType) => {
-    setIsAIOptimizing(true);
-    
-    try {
-      // Get current strategy parameters
-      const currentStrategy = strategies[strategyType];
-      const currentParams = Object.keys(currentStrategy.params).reduce((acc, key) => {
-        acc[key] = currentStrategy.params[key].value;
-        return acc;
-      }, {});
-
-      // Call AI optimization endpoint
-      const response = await axios.post(`${API_BASE_URL}/api/v1/ai/optimize-strategy`, {
-        strategy_type: strategyType,
-        current_parameters: currentParams,
-        user_risk_tolerance: "moderate",
-        optimization_goal: "risk_adjusted_return",
-        ai_model: "openai-gpt4"
-      });
-
-      const optimization = response.data;
-      
-      // Update strategy parameters with AI recommendations
-      setStrategies(prev => ({
-        ...prev,
-        [strategyType]: {
-          ...prev[strategyType],
-          params: {
-            ...prev[strategyType].params,
-            ...Object.keys(optimization.optimized_parameters).reduce((acc, key) => {
-              if (prev[strategyType].params[key]) {
-                acc[key] = {
-                  ...prev[strategyType].params[key],
-                  value: optimization.optimized_parameters[key]
-                };
-              }
-              return acc;
-            }, {})
-          }
-        }
-      }));
-
-      // Show AI reasoning (you could display this in a modal or notification)
-      console.log('AI Optimization Result:', {
-        reasoning: optimization.reasoning,
-        market_analysis: optimization.market_analysis,
-        expected_return: optimization.expected_return,
-        confidence: optimization.confidence_score
-      });
-
-    } catch (error) {
-      console.error('AI Optimization failed:', error);
-      
-      // Fallback to mock recommendations if backend fails
-      const aiRecommendations = {
-        earnings: { profitTarget: { value: 14 }, stopLoss: { value: 4.5 } },
-        seasonality: { profitTarget: { value: 18 }, weeksBeforePeak: { value: 4 } },
-        macro: { profitTarget: { value: 9 }, entryTimeframe: { value: 36 } },
-        sentiment: { minSentimentScore: { value: 75 }, volumeMultiplier: { value: 1.8 } }
-      };
-
-      if (aiRecommendations[strategyType]) {
-        setStrategies(prev => ({
-          ...prev,
-          [strategyType]: {
-            ...prev[strategyType],
-            params: {
-              ...prev[strategyType].params,
-              ...Object.keys(aiRecommendations[strategyType]).reduce((acc, key) => {
-                if (prev[strategyType].params[key]) {
-                  acc[key] = {
-                    ...prev[strategyType].params[key],
-                    ...aiRecommendations[strategyType][key]
-                  };
-                }
-                return acc;
-              }, {})
-            }
-          }
-        }));
-      }
-    }
-    
-    setIsAIOptimizing(false);
   };
 
   const ParameterSlider = ({ param, value, onChange, label }) => (
@@ -336,15 +247,6 @@ const StrategyConfig = () => {
                   <BarChart3 className="w-4 h-4" />
                   <span>Technical Filters</span>
                 </button>
-                <button 
-                  onClick={() => setActivePanel('backtest')}
-                  className={`w-full text-left px-3 py-2 text-sm rounded border flex items-center space-x-2 ${
-                    activePanel === 'backtest' ? 'bg-green-100 border-green-300 text-green-800' : 'bg-white hover:bg-gray-100'
-                  }`}
-                >
-                  <Target className="w-4 h-4" />
-                  <span>Backtesting</span>
-                </button>
               </div>
             </div>
           </div>
@@ -386,23 +288,7 @@ const StrategyConfig = () => {
                       />
                       <span className="text-sm font-medium">Enable Strategy</span>
                     </label>
-                    <button
-                      onClick={() => handleAIOptimization(activeStrategy)}
-                      disabled={isAIOptimizing}
-                      className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg transition-all disabled:opacity-50"
-                    >
-                      {isAIOptimizing ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          <span>Optimizing...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Brain className="w-4 h-4" />
-                          <span>AI Optimize</span>
-                        </>
-                      )}
-                    </button>
+                    {/* AI Optimize button removed - replaced with Calibrate from Backtest in backtesting UI */}
                   </div>
                 </div>
               </div>
@@ -484,24 +370,6 @@ const StrategyConfig = () => {
               setTechnicalFilters={setTechnicalFilters}
               onSave={() => console.log('Saving technical filters')}
             />
-          )}
-
-          {activePanel === 'backtest' && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <div className="text-center">
-                <Target className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Backtesting Engine</h2>
-                <p className="text-gray-600 mb-6">
-                  Test your strategies against historical market data
-                </p>
-                <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-                  <p className="text-green-800 font-semibold">🚀 Coming Soon!</p>
-                  <p className="text-green-700 text-sm mt-2">
-                    Advanced backtesting with Monte Carlo simulations, walk-forward analysis, and risk metrics
-                  </p>
-                </div>
-              </div>
-            </div>
           )}
         </div>
       </div>

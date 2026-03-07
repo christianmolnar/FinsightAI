@@ -98,23 +98,68 @@
 
 **Duration:** Estimated 2-3 hours  
 **Started:** March 5, 2026, 9:15 PM  
-**Status:** Ready to begin
+**Status:** Task 3.2 Complete - Modal component built and wired
 
 ### Task Breakdown:
 
-| Task | Status | Est. Time | Notes |
-|------|--------|-----------|-------|
-| 3.1: Remove AI Optimize, Add Calibrate Button | ⏳ Pending | 0.5h | Modify backtest UI |
-| 3.2: Create CalibrationModal Component | ⏳ Pending | 1h | Main UI component |
-| 3.3: Wire Backend API Endpoints | ⏳ Pending | 0.5h | FastAPI routes |
-| 3.4: Apply Recommendations to Config | ⏳ Pending | 0.5h | State management |
-| 3.5: Testing & Polish | ⏳ Pending | 0.5h | End-to-end validation |
+| Task | Status | Est. Time | Actual Time | Notes |
+|------|--------|-----------|-------------|-------|
+| 3.1: Remove AI Optimize, Add Calibrate Button | ✅ Complete | 0.5h | 0.3h | Buttons updated, no errors |
+| 3.2: Create CalibrationModal Component | ✅ Complete | 1h | 0.5h | Full modal with API integration |
+| 3.3: Wire Backend API Endpoints | ✅ Complete | 0.5h | 0.2h | FastAPI routes registered |
+| 3.4: Apply Recommendations to Config | ⏳ Next | 0.5h | - | State management |
+| 3.5: Testing & Polish | ⏳ Pending | 0.5h | - | End-to-end validation |
 
-### Files to Modify/Create:
-- `/frontend/src/components/Backtesting.js` - Add Calibrate button
-- `/frontend/src/components/StrategyConfig.js` - Remove AI Optimize
-- `/frontend/src/components/CalibrationModal.js` - NEW component
-- `/backend/api/calibration.py` - NEW API endpoints
+### Task 3.1 Complete (✅):
+**Files Modified:**
+- `/frontend/src/components/StrategyConfig.js`
+  - Removed "AI Optimize" button
+  - Removed redundant "Backtesting" sidebar button
+  - Removed unused state and functions (84 lines)
+  - Removed unused imports: Brain, RefreshCw icons
+- `/frontend/src/components/Backtesting.js`
+  - Added "Calibrate from Backtest" button after summary cards
+  - Added `showCalibrationModal` state
+  - Added `handleCalibrate()` function
+  - No errors in either file
+
+### Task 3.2 Complete (✅):
+**Files Created:**
+- `/frontend/src/components/CalibrationModal.js` (292 lines)
+  - Full modal UI with loading/error states
+  - Fetches recommendations from backend API
+  - Displays recommendations with checkboxes
+  - Shows current vs suggested values
+  - AI reasoning display
+  - Apply/Reject buttons (Apply Selected, Apply All, Reject All)
+  - Confidence scores displayed
+  - Beautiful indigo/purple gradient styling
+
+**Files Modified:**
+- `/frontend/src/components/Backtesting.js`
+  - Imported CalibrationModal component
+  - Added `handleApplyRecommendations()` function
+  - Rendered modal with proper props
+  - Pass backtest results to modal
+
+### Task 3.3 Complete (✅):
+**Files Created:**
+- `/backend/api/calibration.py` (178 lines)
+  - POST `/api/calibration/analyze` - Generate recommendations
+  - GET `/api/calibration/reports/{report_id}` - Retrieve report
+  - GET `/api/calibration/reports` - List recent reports
+  - POST `/api/calibration/reports/{report_id}/apply` - Mark applied
+  - Pydantic models for request/response
+  - Error handling with HTTPException
+
+**Files Modified:**
+- `/backend/app/main.py`
+  - Imported calibration_router
+  - Registered router in app
+
+### Files to Modify (Task 3.4):
+- `/frontend/src/components/Backtesting.js` - Pass config update callback
+- `/frontend/src/components/StrategyConfig.js` - Accept recommendations
 
 **Detailed Tracker:** `/docs/implementation/PHASE-3-FRONTEND-CALIBRATION-UI-TRACKER.md`
 

@@ -1,0 +1,149 @@
+# Autonomous Trading Configuration
+# DO NOT PUT SECRETS HERE - Use .env file for API keys
+# This file is committed to git for version control
+
+trading:
+  # Initial capital for paper trading
+  initial_capital: 10000
+  
+  # Position sizing
+  position_size_pct: 0.10  # 10% of portfolio per position
+  
+  # Scanning and monitoring
+  scan_interval: 300  # 5 minutes (in seconds)
+  position_check_interval: 60  # 1 minute (in seconds)
+  
+  # Entry criteria
+  min_confidence: 75  # Minimum confidence score (0-100)
+  
+  # Exit criteria
+  profit_target_pct: 12  # Take profit at 12% gain
+  stop_loss_pct: 5  # Stop loss at 5% loss
+  trailing_stop_enabled: true
+  trailing_stop_pct: 3  # Trail by 3% once in profit
+  
+  # Market hours (Eastern Time)
+  market_open_hour: 9
+  market_open_minute: 30
+  market_close_hour: 16
+  market_close_minute: 0
+  
+  # Paper vs Live trading
+  paper_trading: true  # ALWAYS start with paper trading
+  
+risk:
+  # Position limits
+  max_position_pct: 10  # Maximum 10% per position
+  max_positions: 5  # Maximum 5 open positions
+  min_cash_reserve: 1000  # Keep $1000 cash minimum
+  
+  # Daily risk limits
+  daily_loss_limit_pct: 3  # Pause trading if down 3% in one day
+  max_drawdown_pct: 15  # Pause if portfolio down 15% from peak
+  
+  # Consecutive losses
+  consecutive_loss_limit: 5  # Pause after 5 consecutive losses
+  
+  # Volatility controls
+  vix_threshold: 25  # Reduce position sizes when VIX > 25
+  vix_position_reduction: 0.5  # Reduce position size by 50% when VIX high
+  
+  # Sector diversification
+  max_sector_exposure_pct: 30  # Maximum 30% in any single sector
+  
+  # Pause mechanisms
+  auto_resume_after_pause: false  # Require manual resume after risk pause
+  pause_cooldown_minutes: 60  # Wait 60 min before checking resume conditions
+
+scanner:
+  # Stock universe
+  min_price: 10.0  # Minimum stock price
+  max_price: 1000.0  # Maximum stock price
+  min_volume: 1000000  # Minimum daily volume (1M shares)
+  max_spread_pct: 0.5  # Maximum bid-ask spread (0.5%)
+  
+  # Strategy weights (must sum to 1.0)
+  strategy_weights:
+    earnings: 0.35
+    breakout: 0.30
+    seasonality: 0.20
+    sentiment: 0.15
+
+technical_filters:
+  # Technical confirmation requirements
+  min_required_filters: 3  # Need at least 3 technical confirmations
+  
+  # RSI bounds
+  rsi_min: 40
+  rsi_max: 70
+  
+  # Volume requirements
+  volume_multiplier: 1.2  # Volume must be 1.2x the 20-day average
+  
+  # Moving average filters
+  price_above_ma50: true  # Price must be above 50-day MA
+  ma50_above_ma200: true  # 50-day MA must be above 200-day MA (golden cross)
+  min_distance_above_ma200_pct: 5  # Must be at least 5% above 200-day MA
+
+logging:
+  # Log levels: DEBUG, INFO, WARNING, ERROR
+  console_level: INFO
+  file_level: DEBUG
+  
+  # Log file settings
+  log_dir: logs/autonomous_trader
+  max_log_size_mb: 50
+  max_log_files: 10  # Keep last 10 log files
+  
+  # Trade logging
+  log_all_scans: false  # Don't log every scan (too verbose)
+  log_all_decisions: true  # Log all trading decisions
+  log_all_risk_checks: true  # Log all risk management checks
+
+monitoring:
+  # Status reporting
+  heartbeat_interval: 300  # Send heartbeat every 5 minutes
+  daily_summary_time: "16:30"  # Send daily summary at 4:30 PM ET
+  
+  # Alert thresholds
+  alert_on_pause: true
+  alert_on_daily_loss_pct: 2  # Alert if down 2% in a day
+  alert_on_position_loss_pct: 8  # Alert if single position down 8%
+  
+  # Notification channels (configure in .env)
+  email_enabled: false
+  slack_enabled: false
+  sms_enabled: false
+
+backtesting:
+  # Backtesting defaults
+  default_lookback_days: 365
+  commission_per_trade: 0.0  # Alpaca has $0 commission
+  slippage_pct: 0.1  # Assume 0.1% slippage
+
+# Strategy-specific parameters
+strategies:
+  earnings:
+    enabled: true
+    min_eps_growth: 15  # Minimum 15% EPS growth YoY
+    min_revenue_growth: 10  # Minimum 10% revenue growth YoY
+    days_before_earnings: 5  # Enter 5 days before earnings
+    historical_beat_rate: 70  # 70% historical beat rate
+    
+  breakout:
+    enabled: true
+    min_breakout_volume: 2.0  # 2x average volume on breakout
+    consolidation_days: 20  # 20-day consolidation period
+    breakout_threshold_pct: 2  # 2% above resistance
+    
+  seasonality:
+    enabled: true
+    min_historical_years: 5  # Need 5 years of data
+    min_seasonal_return: 8  # 8% seasonal return required
+    weeks_before_peak: 3  # Enter 3 weeks before peak
+    
+  sentiment:
+    enabled: true
+    min_sentiment_score: 70  # 70% positive sentiment
+    min_news_score: 80  # 80% positive news sentiment
+    search_trend_increase: 50  # 50% increase in search trends

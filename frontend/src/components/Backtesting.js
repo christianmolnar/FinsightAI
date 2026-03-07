@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { PlayCircle, Clock, TrendingUp, TrendingDown, DollarSign, Target, Calendar } from 'lucide-react';
+import { PlayCircle, Clock, TrendingUp, TrendingDown, DollarSign, Target, Calendar, CheckCircle } from 'lucide-react';
+import CalibrationModal from './CalibrationModal';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -9,6 +10,7 @@ const Backtesting = () => {
   const [backtestId, setBacktestId] = useState(null);
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
+  const [showCalibrationModal, setShowCalibrationModal] = useState(false);
 
   // Form state
   const [startDate, setStartDate] = useState('2025-01-01');
@@ -72,18 +74,42 @@ const Backtesting = () => {
 
       try {
         const statusResponse = await fetch(`${API_BASE_URL}/api/backtest/status/${id}`);
+        
+        if (!statusResponse.ok) {
+          console.error('[Backtesting] Status check failed:', statusResponse.status);
+          if (attempts >= maxAttempts) {
+            clearInterval(poll);
+            setError('Status check timed out');
+            setLoading(false);
+          }
+          return; // Keep polling
+        }
+
         const statusData = await statusResponse.json();
+        console.log('[Backtesting] Poll attempt', attempts, 'status:', statusData.status);
 
         if (statusData.status === 'complete') {
           clearInterval(poll);
           
           // Get full results
           const resultsResponse = await fetch(`${API_BASE_URL}/api/backtest/results/${id}`);
+          
+          if (!resultsResponse.ok) {
+            setError(`Failed to get results: ${resultsResponse.status}`);
+            setLoading(false);
+            return;
+          }
+
           const resultsData = await resultsResponse.json();
+          console.log('[Backtesting] Results received, success:', resultsData.success);
+          console.log('[Backtesting] Results data:', JSON.stringify(resultsData).substring(0, 200));
 
           if (resultsData.success) {
             setResults(resultsData);
+            setError(null);
+            console.log('[Backtesting] ✅ Results set successfully!');
           } else {
+            console.error('[Backtesting] Results success=false:', resultsData.error);
             setError(resultsData.error || 'Failed to get results');
           }
           setLoading(false);
@@ -93,13 +119,17 @@ const Backtesting = () => {
           setLoading(false);
         } else if (attempts >= maxAttempts) {
           clearInterval(poll);
-          setError('Backtest timed out');
+          setError('Backtest timed out after 5 minutes');
           setLoading(false);
         }
       } catch (err) {
-        clearInterval(poll);
-        setError('Failed to check status');
-        setLoading(false);
+        console.error('[Backtesting] Polling error:', err);
+        // Don't stop polling on network errors, only on timeout
+        if (attempts >= maxAttempts) {
+          clearInterval(poll);
+          setError(`Failed to check status: ${err.message}`);
+          setLoading(false);
+        }
       }
     }, 5000); // Check every 5 seconds
   };
@@ -127,6 +157,17 @@ const Backtesting = () => {
       setError(err.message);
       setLoading(false);
     }
+  };
+
+  const handleCalibrate = () => {
+    setShowCalibrationModal(true);
+  };
+
+  const handleApplyRecommendations = (recommendations) => {
+    console.log('Applying recommendations:', recommendations);
+    // TODO: Update strategy config with recommendations
+    // This will be implemented in Task 3.4
+    alert(`Applied ${recommendations.length} recommendations!\n\nThis will update your Strategy Config in Task 3.4.`);
   };
 
   return (
@@ -276,9 +317,12 @@ const Backtesting = () => {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
             <div className="flex items-center gap-3">
               <Clock className="w-6 h-6 text-blue-600 animate-spin" />
-              <div>
-                <p className="text-blue-900 font-medium">Backtest Running...</p>
-                <p className="text-blue-700 text-sm">This may take 2-5 minutes. Analyzing historical data and simulating trades.</p>
+              <div className="flex-1">
+                <p className="text-blue-900 font-semibold">🚀 Backtest Running...</p>
+                <p className="text-blue-700 text-sm">Analyzing historical data and simulating trades. This usually takes 1-2 minutes.</p>
+                <div className="mt-3 w-full bg-blue-200 rounded-full h-2.5">
+                  <div className="bg-blue-600 h-2.5 rounded-full animate-pulse" style={{width: '70%'}}></div>
+                </div>
               </div>
             </div>
           </div>
@@ -294,6 +338,17 @@ const Backtesting = () => {
         {/* Results */}
         {results && results.metrics && (
           <div>
+            {/* Success Banner */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+                <div>
+                  <p className="text-green-900 font-semibold">✅ Backtest Complete!</p>
+                  <p className="text-green-700 text-sm">Analyzed {results.metrics.summary.total_trades} trades with {results.metrics.summary.win_rate.toFixed(1)}% win rate</p>
+                </div>
+              </div>
+            </div>
+
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
@@ -344,6 +399,17 @@ const Backtesting = () => {
                   <Calendar className="w-8 h-8 text-gray-500" />
                 </div>
               </div>
+            </div>
+
+            {/* Calibrate Button */}
+            <div className="mb-6 flex justify-center">
+              <button
+                onClick={() => handleCalibrate()}
+                className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg transition-all shadow-lg hover:shadow-xl"
+              >
+                <Target className="w-5 h-5" />
+                <span className="font-semibold">Calibrate from Backtest</span>
+              </button>
             </div>
 
             {/* Performance Metrics */}
@@ -416,6 +482,8 @@ const Backtesting = () => {
                       <tr>
                         <th className="px-4 py-2 text-left">Symbol</th>
                         <th className="px-4 py-2 text-left">Strategy</th>
+                        <th className="px-4 py-2 text-right">Shares</th>
+                        <th className="px-4 py-2 text-right">Position $</th>
                         <th className="px-4 py-2 text-left">Entry</th>
                         <th className="px-4 py-2 text-left">Exit</th>
                         <th className="px-4 py-2 text-right">Return %</th>
@@ -429,6 +497,12 @@ const Backtesting = () => {
                         <tr key={idx} className="border-t border-gray-200 hover:bg-gray-50">
                           <td className="px-4 py-2 font-medium">{trade.symbol}</td>
                           <td className="px-4 py-2 text-gray-600">{trade.strategy.replace('_', ' ')}</td>
+                          <td className="px-4 py-2 text-right font-medium text-blue-600">
+                            {trade.shares}
+                          </td>
+                          <td className="px-4 py-2 text-right font-medium text-gray-700">
+                            ${(trade.shares * trade.entry_price).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                          </td>
                           <td className="px-4 py-2">
                             <div className="text-xs text-gray-500">{trade.entry_date}</div>
                             <div>${trade.entry_price.toFixed(2)}</div>
@@ -455,6 +529,14 @@ const Backtesting = () => {
           </div>
         )}
       </div>
+
+      {/* Calibration Modal */}
+      <CalibrationModal
+        isOpen={showCalibrationModal}
+        onClose={() => setShowCalibrationModal(false)}
+        backtestResults={results}
+        onApply={handleApplyRecommendations}
+      />
     </div>
   );
 };

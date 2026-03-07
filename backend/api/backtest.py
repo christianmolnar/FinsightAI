@@ -127,10 +127,14 @@ async def _run_backtest_task(
     """Background task to run backtest"""
     try:
         # Create backtester
+        # Convert position_size (dollars) to position_size_pct (percentage)
+        # If user specified $1000 with $10k capital, that's 10% = 0.10
+        position_size_pct = request.position_size / request.initial_capital
+        
         backtester = get_backtester(
             db=db,
             initial_capital=request.initial_capital,
-            position_size=request.position_size,
+            position_size_pct=position_size_pct,  # Now using percentage
             max_hold_days=request.max_hold_days
         )
         
