@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import './Research.css';
 
 const Research = () => {
-  const [symbol, setSymbol] = useState('');
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
   const [loading, setLoading] = useState(false);
   const [research, setResearch] = useState(null);
   const [error, setError] = useState(null);
@@ -20,7 +20,7 @@ const Research = () => {
     setResearch(null);
 
     try {
-      const response = await fetch(`http://localhost:8000/api/research/stock/${symbol.toUpperCase()}`, {
+      const response = await fetch(`${API_BASE_URL}/api/research/stock/${symbol.toUpperCase()}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

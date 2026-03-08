@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import './SellValidation.css';
 
 const SellValidation = ({ position, onClose, onConfirmSell }) => {
-  const [loading, setLoading] = useState(false);
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
   const [validation, setValidation] = useState(null);
   const [error, setError] = useState(null);
   const [selectedReason, setSelectedReason] = useState('');
@@ -35,7 +35,7 @@ const SellValidation = ({ position, onClose, onConfirmSell }) => {
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/research/sell-validation/${position.symbol}`,
+        `${API_BASE_URL}/api/research/sell-validation/${position.symbol}`,
         {
           method: 'POST',
           headers: {

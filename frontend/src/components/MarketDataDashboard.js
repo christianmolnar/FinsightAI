@@ -15,7 +15,7 @@ const MarketDataDashboard = () => {
   const [refreshInterval, setRefreshInterval] = useState(60); // seconds
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  const API_BASE = 'http://localhost:8000/api/market';
+  const API_BASE = `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/market`;
 
   // Auto-fetch quotes on component mount
   useEffect(() => {

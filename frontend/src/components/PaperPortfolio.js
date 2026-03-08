@@ -273,7 +273,7 @@ const PaperPortfolio = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:8000/api/v1/paper/trade', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/paper/trade`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
