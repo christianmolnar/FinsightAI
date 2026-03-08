@@ -42,7 +42,7 @@ const Backtesting = () => {
           start_date: startDate,
           end_date: endDate,
           strategies: selectedStrategies.length === 3 ? null : selectedStrategies,
-          confidence_threshold: confidenceThreshold,
+          confidence_threshold: confidenceThreshold / 100,
           use_ai: useAI,
           initial_capital: initialCapital,
           position_size: positionSize,
@@ -143,7 +143,7 @@ const Backtesting = () => {
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/backtest/quick/${period}?confidence_threshold=${confidenceThreshold}`,
+        `${API_BASE_URL}/api/backtest/quick/${period}?confidence_threshold=${confidenceThreshold / 100}`,
         { method: 'POST' }
       );
 
