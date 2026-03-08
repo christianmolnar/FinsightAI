@@ -10,8 +10,8 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.6
 schwabdev==2.5.1
+alpaca-py==0.43.2
 yfinance==0.2.28
 pytz==2024.1
 openai==2.26.0
 anthropic==0.84.0
-twilio==8.10.0
