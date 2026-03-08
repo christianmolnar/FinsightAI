@@ -25,8 +25,9 @@ class BacktestRequest(BaseModel):
     confidence_threshold: float = 0.75
     use_ai: bool = True
     initial_capital: float = 10000.0
-    position_size: float = 1000.0
+    position_size: float = 1000.0  # Fixed dollar amount per trade
     max_hold_days: int = 14
+    enable_compounding: bool = True  # DEFAULT: Position size grows with portfolio (RECOMMENDED)
 
 
 class BacktestResponse(BaseModel):
@@ -127,15 +128,23 @@ async def _run_backtest_task(
     """Background task to run backtest"""
     try:
         # Create backtester
-        # Convert position_size (dollars) to position_size_pct (percentage)
-        # If user specified $1000 with $10k capital, that's 10% = 0.10
-        position_size_pct = request.position_size / request.initial_capital
+        # Handle position sizing mode:
+        # - If compounding enabled: Convert dollar amount to percentage
+        # - If compounding disabled: Keep as fixed percentage of INITIAL capital
+        if request.enable_compounding:
+            # Compounding mode: Position size grows with portfolio
+            position_size_pct = request.position_size / request.initial_capital
+        else:
+            # Fixed mode: Position size stays constant relative to INITIAL capital
+            # This ensures $3000 position size stays $3000 regardless of portfolio growth
+            position_size_pct = request.position_size / request.initial_capital
         
         backtester = get_backtester(
             db=db,
             initial_capital=request.initial_capital,
             position_size_pct=position_size_pct,  # Now using percentage
-            max_hold_days=request.max_hold_days
+            max_hold_days=request.max_hold_days,
+            enable_compounding=request.enable_compounding  # Pass compounding flag
         )
         
         # Run backtest

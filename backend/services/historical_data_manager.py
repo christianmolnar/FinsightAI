@@ -234,9 +234,8 @@ class HistoricalDataManager:
             )
         ).order_by(HistoricalPrice.date).all()
         
-        # Check if cache is complete (using effective end date)
-        effective_end_datetime = datetime.combine(effective_end_date, datetime.min.time())
-        if cached and self._cache_is_complete(cached, start_date, effective_end_datetime):
+        # Convert cached data to DataFrame (ALWAYS use cache, never download during backtesting)
+        if cached:
             # Convert to DataFrame
             df = pd.DataFrame([
                 {
@@ -252,19 +251,9 @@ class HistoricalDataManager:
             df.set_index('Date', inplace=True)
             return df
         
-        # Cache miss or incomplete - download using Alpaca
-        logger.info(f"Cache miss for {symbol} - downloading...")
-        hist = self.alpaca_service.get_historical_bars_single(
-            symbol=symbol,
-            start=start_date,
-            end=end_date,
-            timeframe="1Day"
-        )
-        
-        if not hist.empty:
-            self._save_to_cache(symbol, hist)
-        
-        return hist
+        # No cached data - return empty DataFrame (backtesting should use existing data only)
+        logger.warning(f"No cached data for {symbol} in requested range")
+        return pd.DataFrame()
     
     def get_batch_historical_data(
         self,

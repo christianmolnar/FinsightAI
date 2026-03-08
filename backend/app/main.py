@@ -41,12 +41,14 @@ from app.api.portfolio import router as portfolio_router
 from app.api.market import router as market_router
 from app.api.auth import router as auth_router
 from app.api.strategy_parameters import router as strategy_parameters_router
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from api.research import router as research_router
 from api.queue import router as queue_router
 from api.scanner import router as scanner_router
 from api.agent import router as agent_router
 from api.backtest import router as backtest_router
-from api.calibration import router as calibration_router
+# from api.calibration import router as calibration_router  # Incomplete - requires openai module
 from utils.market_hours import get_market_status
 # Commented out optional routers that may not exist in deployment
 # from api.ai_optimizer import router as ai_optimizer_router
@@ -61,7 +63,7 @@ app.include_router(queue_router)
 app.include_router(scanner_router)
 app.include_router(agent_router)
 app.include_router(backtest_router)
-app.include_router(calibration_router)
+# app.include_router(calibration_router)  # Incomplete - requires openai module
 # app.include_router(ai_optimizer_router, prefix="/api/v1/ai", tags=["AI Optimization"])
 # app.include_router(paper_trading_router, prefix="/api/v1", tags=["Paper Trading"])
 

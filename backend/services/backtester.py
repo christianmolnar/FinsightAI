@@ -40,7 +40,9 @@ class BacktestResult:
         exit_reason: str,
         scanner_score: float,
         ai_confidence: float,
-        ai_reasoning: str
+        ai_reasoning: str,
+        portfolio_value: float = 0.0,
+        cash_available: float = 0.0
     ):
         self.symbol = symbol
         self.strategy = strategy
@@ -53,11 +55,14 @@ class BacktestResult:
         self.scanner_score = scanner_score
         self.ai_confidence = ai_confidence
         self.ai_reasoning = ai_reasoning
+        self.portfolio_value = portfolio_value
+        self.cash_available = cash_available
         
         # Calculate metrics
         self.profit_loss = (exit_price - entry_price) * shares
         self.return_pct = ((exit_price - entry_price) / entry_price) * 100
         self.hold_days = (exit_date - entry_date).days
+        self.position_size_pct = ((entry_price * shares) / portfolio_value * 100) if portfolio_value > 0 else 0
         
     def to_dict(self) -> Dict:
         """Convert to dictionary"""
@@ -75,7 +80,10 @@ class BacktestResult:
             'ai_reasoning': self.ai_reasoning,
             'profit_loss': round(self.profit_loss, 2),
             'return_pct': round(self.return_pct, 2),
-            'hold_days': self.hold_days
+            'hold_days': self.hold_days,
+            'portfolio_value': round(self.portfolio_value, 2),
+            'position_size_pct': round(self.position_size_pct, 2),
+            'cash_available': round(self.cash_available, 2)
         }
 
 
@@ -247,7 +255,8 @@ class Backtester:
         db: Session,
         initial_capital: float = 10000.0,
         position_size_pct: Optional[float] = None,  # Now accepts percentage instead of fixed dollars
-        max_hold_days: int = 14
+        max_hold_days: int = 14,
+        enable_compounding: bool = True  # DEFAULT: True (recommended for realistic growth)
     ):
         """
         Initialize backtester
@@ -257,10 +266,13 @@ class Backtester:
             initial_capital: Starting capital for backtest
             position_size_pct: Position size as percentage (0.10 = 10%), uses config default if None
             max_hold_days: Maximum days to hold a position
+            enable_compounding: If True, position size compounds with portfolio (RECOMMENDED)
+                               If False, position size stays fixed based on initial_capital
         """
         self.db = db
         self.initial_capital = initial_capital
         self.max_hold_days = max_hold_days
+        self.enable_compounding = enable_compounding
         
         # Initialize position sizer with compounding logic
         self.position_sizer = PositionSizer(config)
@@ -324,7 +336,7 @@ class Backtester:
             
             if not candidates:
                 logger.debug(f"   No candidates found")
-                current_date += timedelta(days=7)
+                current_date += timedelta(days=7)  # Calendar days - but trades only execute on market days
                 continue
             
             logger.info(f"   Found {len(candidates)} candidates")
@@ -349,7 +361,7 @@ class Backtester:
                     daily_pnl[exit_date_str] += trade.profit_loss
             
             # Move to next scan date
-            current_date += timedelta(days=7)
+            current_date += timedelta(days=7)  # Calendar days - next scan in 7 days
         
         # Calculate metrics with daily P&L
         metrics = BacktestMetrics(self.trades, self.initial_capital, daily_pnl)
@@ -580,39 +592,71 @@ class Backtester:
         
         return opportunities
     
-    def _calculate_portfolio_value(self, current_date: datetime) -> float:
+    def _calculate_portfolio_value(
+        self,
+        current_date: datetime,
+        universe_data: Optional[Dict[str, pd.DataFrame]] = None
+    ) -> tuple[float, float]:
         """
-        Calculate current portfolio value at a specific point in backtest
+        Calculate current portfolio value and available cash at a specific point in backtest
         
-        Portfolio value = cash + value of all open positions
-        This enables proper compounding as winners grow the portfolio
+        Portfolio value = cash + value of all open positions AT CURRENT PRICES
+        This enables accurate compounding as winners grow the portfolio
         
         Args:
             current_date: Date to calculate portfolio value
+            universe_data: Pre-loaded price data for all symbols (for performance)
             
         Returns:
-            float: Total portfolio value at this point in time
+            tuple: (total_portfolio_value, cash_available)
         """
         # Start with initial capital
         cash = self.initial_capital
         open_positions_value = 0.0
         
+        # Normalize current_date to date object for comparison
+        if isinstance(current_date, datetime):
+            current_date_only = current_date.date()
+        elif isinstance(current_date, pd.Timestamp):
+            current_date_only = current_date.date()
+        else:
+            current_date_only = current_date
+        
         # Calculate realized P&L from closed trades
         for trade in self.trades:
+            # Skip trades that entered on the same day (they haven't been "committed" yet)
+            if trade.entry_date.date() == current_date_only:
+                continue
+                
             if trade.exit_date and trade.exit_date <= current_date:
-                # Trade closed before this date - add to cash
+                # Trade closed before this date - add P&L to cash
                 cash += trade.profit_loss
             elif not trade.exit_date or (trade.exit_date and trade.exit_date > current_date):
-                # Trade still open at this date - calculate unrealized value
-                # In a real implementation, we'd need to track current prices
-                # For simplicity, we'll use entry value (this is conservative)
-                open_positions_value += trade.entry_price * trade.shares
-                cash -= trade.entry_price * trade.shares
+                # Trade still open at this date - calculate unrealized value using CURRENT price
+                cash -= trade.entry_price * trade.shares  # Deduct initial cost
+                
+                # Get current market price for accurate valuation
+                current_price = trade.entry_price  # Fallback to entry price
+                
+                if universe_data and trade.symbol in universe_data:
+                    # Use pre-loaded data for performance
+                    symbol_data = universe_data[trade.symbol]
+                    # Find price at or before current_date
+                    relevant_data = symbol_data[symbol_data.index <= current_date_only]
+                    if not relevant_data.empty:
+                        # Use 'Close' column (capital C) from historical data
+                        current_price = float(relevant_data.iloc[-1]['Close'])
+                
+                # Add current market value of position
+                open_positions_value += current_price * trade.shares
         
         total_value = cash + open_positions_value
         
-        # Ensure we don't go below zero
-        return max(total_value, self.initial_capital * 0.01)  # Keep at least 1% of initial
+        # Ensure we don't go below zero (safety check)
+        total_value = max(total_value, self.initial_capital * 0.01)
+        cash = max(cash, 0.0)  # Cash can't be negative
+        
+        return total_value, cash
     
     async def _simulate_trade(
         self,
@@ -634,12 +678,17 @@ class Backtester:
         symbol = opportunity['symbol']
         entry_price = opportunity['price']
         
-        # Calculate current portfolio value (for compounding)
-        portfolio_value = self._calculate_portfolio_value(entry_date)
+        # Calculate current portfolio value AND available cash (for compounding + cash check)
+        portfolio_value, cash_available = self._calculate_portfolio_value(entry_date, universe_data)
+        
+        # Determine which portfolio value to use for position sizing:
+        # - If compounding ENABLED: Use current portfolio value (grows with portfolio)
+        # - If compounding DISABLED: Use initial capital (fixed position sizes)
+        sizing_base = portfolio_value if self.enable_compounding else self.initial_capital
         
         # Calculate position size using PositionSizer (enables compounding)
         shares = self.position_sizer.calculate_position_size(
-            portfolio_value=portfolio_value,
+            portfolio_value=sizing_base,  # Use appropriate base
             current_price=entry_price,
             override_pct=self.position_size_override
         )
@@ -647,13 +696,27 @@ class Backtester:
         if shares == 0:
             return None
         
+        # CRITICAL CHECK: Verify we have enough cash available to buy these shares
+        position_cost = entry_price * shares
+        if position_cost > cash_available:
+            # Not enough cash - skip this trade
+            return None
+        
+        # Calculate actual remaining cash after THIS trade
+        cash_after_trade = cash_available - position_cost
+        
         # Get future data for exit simulation
         try:
             # Use pre-downloaded data if available
             if universe_data and symbol in universe_data:
                 all_data = universe_data[symbol]
                 # Filter to future dates only (convert entry_date to date for comparison)
-                entry_date_only = entry_date.date() if isinstance(entry_date, pd.Timestamp) else entry_date
+                if isinstance(entry_date, datetime):
+                    entry_date_only = entry_date.date()
+                elif isinstance(entry_date, pd.Timestamp):
+                    entry_date_only = entry_date.date()
+                else:
+                    entry_date_only = entry_date
                 future_data = all_data[all_data.index > entry_date_only]
             else:
                 # Fallback: fetch from database
@@ -675,14 +738,18 @@ class Backtester:
             # Simple exit rules:
             # 1. Take profit at +10%
             # 2. Stop loss at -5%
-            # 3. Max hold time
+            # 3. Max hold time (14 calendar days, but only trading days count in loop)
+            
+            # NOTE: This loop iterates through MARKET DATA which only contains trading days
+            # (Mon-Fri, no weekends/holidays). So "days_held" counts CALENDAR days but
+            # we only check prices on actual trading days.
             
             for date_idx in future_data.index:
                 date = pd.Timestamp(date_idx)
                 row = future_data.loc[date_idx]
                 price = row['Close']
                 return_pct = ((price - entry_price) / entry_price) * 100
-                days_held = (date - pd.Timestamp(entry_date)).days
+                days_held = (date - pd.Timestamp(entry_date)).days  # Calendar days including weekends
                 
                 # Profit target
                 if return_pct >= 10.0:
@@ -727,7 +794,9 @@ class Backtester:
                 exit_reason=exit_reason,
                 scanner_score=opportunity['score'],
                 ai_confidence=opportunity.get('ai_confidence', 0.0),
-                ai_reasoning=opportunity.get('ai_reasoning', opportunity['reason'])
+                ai_reasoning=opportunity.get('ai_reasoning', opportunity['reason']),
+                portfolio_value=portfolio_value,
+                cash_available=cash_after_trade  # Fixed: Shows actual cash AFTER this trade
             )
             
         except Exception as e:
@@ -743,10 +812,11 @@ def get_backtester(
     db: Session,
     initial_capital: float = 10000.0,
     position_size_pct: Optional[float] = None,  # Now percentage-based (0.10 = 10%)
-    max_hold_days: int = 14
+    max_hold_days: int = 14,
+    enable_compounding: bool = False  # NEW: Controls fixed vs compounding sizing
 ) -> Backtester:
     """Get or create singleton backtester instance"""
     global _backtester
     if _backtester is None:
-        _backtester = Backtester(db, initial_capital, position_size_pct, max_hold_days)
+        _backtester = Backtester(db, initial_capital, position_size_pct, max_hold_days, enable_compounding)
     return _backtester
