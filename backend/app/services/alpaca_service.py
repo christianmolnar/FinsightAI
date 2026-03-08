@@ -23,9 +23,11 @@ import logging
 from pathlib import Path
 import pandas as pd
 
-# Load .env from project root (one level up from backend/)
+# Load .env from project root (one level up from backend/) if it exists
+# In production (Railway), environment variables are set directly, no .env file needed
 env_path = Path(__file__).parent.parent.parent.parent / '.env'
-load_dotenv(dotenv_path=env_path)
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path)
 logger = logging.getLogger(__name__)
 
 
@@ -46,12 +48,17 @@ class AlpacaService:
             self.api_key = os.getenv("ALPACA_PAPER_API_KEY_ID")
             self.secret_key = os.getenv("ALPACA_PAPER_API_SECRET_KEY")
             key_type = "paper"
+            logger.info(f"Loading paper credentials: api_key={'SET' if self.api_key else 'MISSING'}, secret_key={'SET' if self.secret_key else 'MISSING'}")
         else:
             self.api_key = os.getenv("ALPACA_LIVE_API_KEY_ID")
             self.secret_key = os.getenv("ALPACA_LIVE_API_SECRET_KEY")
             key_type = "live"
+            logger.info(f"Loading live credentials: api_key={'SET' if self.api_key else 'MISSING'}, secret_key={'SET' if self.secret_key else 'MISSING'}")
         
         if not self.api_key or not self.secret_key:
+            # Log available Alpaca env vars for debugging
+            alpaca_vars = {k: 'SET' for k, v in os.environ.items() if 'ALPACA' in k and v}
+            logger.error(f"Available ALPACA env vars: {alpaca_vars}")
             raise ValueError(
                 f"Alpaca {key_type} trading API credentials not found. "
                 f"Set ALPACA_{key_type.upper()}_API_KEY_ID and ALPACA_{key_type.upper()}_API_SECRET_KEY in .env"
