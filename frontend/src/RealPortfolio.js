@@ -37,46 +37,26 @@ const RealPortfolio = () => {
   const [showNotification, setShowNotification] = useState(false);
   const [notificationConfig, setNotificationConfig] = useState({});
 
-  const fetchPortfolioData = async (tryAlternatePorts = true) => {
-    const portsToTry = tryAlternatePorts ? [8000, 8001] : [8000];
-    
-    for (const port of portsToTry) {
-      try {
-        setError(null);
-        const baseUrl = `http://localhost:${port}`;
-        const response = await fetch(`${baseUrl}/api/v1/alpaca/live/portfolio`, {
-          signal: AbortSignal.timeout(5000) // 5 second timeout
-        });
-        const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data.detail || 'Failed to fetch portfolio data');
-        }
-        
-        setPortfolioData(data);
-        setRetryCount(0);
-        setLoading(false);
-        setRefreshing(false);
-        return; // Success, exit function
-      } catch (err) {
-        // If this was the last port to try, set the error
-        if (port === portsToTry[portsToTry.length - 1]) {
-          const isConnectionRefused = err.message.includes('fetch') || err.name === 'TypeError';
-          if (isConnectionRefused) {
-            setError('Cannot connect to backend server. Please ensure the backend is running on port 8000 or 8001.');
-          } else if (err.name === 'TimeoutError') {
-            setError('Backend server is not responding. Please check if it\'s running.');
-          } else {
-            setError(err.message);
-          }
-        }
-        // Continue to next port
-        continue;
+  const fetchPortfolioData = async () => {
+    try {
+      setError(null);
+      const response = await fetch(`${API_BASE_URL}/api/v1/alpaca/live/portfolio`, {
+        signal: AbortSignal.timeout(10000)
+      });
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to fetch portfolio data');
       }
+      
+      setPortfolioData(data);
+      setRetryCount(0);
+    } catch (err) {
+      setError(err.message || 'Failed to connect to backend server.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-    
-    setLoading(false);
-    setRefreshing(false);
   };
 
   useEffect(() => {
@@ -366,7 +346,7 @@ const RealPortfolio = () => {
               <ol className="text-left list-decimal list-inside space-y-1">
                 <li>Make sure the backend server is running</li>
                 <li>Check terminal for any backend errors</li>
-                <li>Try restarting the backend: <code className="bg-gray-200 px-1 rounded">uvicorn app.main:app --reload --port 8000</code></li>
+                <li>Try restarting the backend: <code className="bg-gray-200 px-1 rounded">uvicorn app.main:app --reload</code></li>
               </ol>
             </div>
           )}
