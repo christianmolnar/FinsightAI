@@ -60,11 +60,15 @@ class NtfyService:
             return False
 
         url = f"{self.base_url}/{self.topic}"
+        # HTTP headers must be latin-1 safe — encode non-ASCII chars as UTF-8 then
+        # use the RFC 5987 workaround: just strip/replace emojis in the Title header
+        # and keep them in the message body instead.
+        safe_title = title.encode("ascii", errors="ignore").decode("ascii").strip() or "f.Insight.AI Alert"
         headers = {
             "Authorization": f"Bearer {self.token}",
-            "Title": title,
+            "Title": safe_title,
             "Priority": priority,
-            "Content-Type": "text/plain",
+            "Content-Type": "text/plain; charset=utf-8",
         }
 
         if tags:

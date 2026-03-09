@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/alerts", tags=["Alerts"])
 
 
-DEFAULT_TEST_MESSAGE = "🧪 Test alert from f.Insight.AI — notifications are working!"
+DEFAULT_TEST_MESSAGE = "🧪 Test alert from f.Insight.AI — notifications are working! 🎉"
 
 
 @router.post("/test")
@@ -33,7 +33,7 @@ async def send_test_alert(
             )
 
         sent = ntfy.send(
-            title="🧪 f.Insight.AI Test Alert",
+            title="f.Insight.AI Test Alert",
             message=DEFAULT_TEST_MESSAGE,
             priority="default",
             tags=["white_check_mark"],
