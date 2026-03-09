@@ -23,14 +23,21 @@ SECRET_KEY = os.getenv("JWT_SECRET_KEY", "CHANGE_ME_IN_PRODUCTION_USE_RAILWAY_EN
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "1440"))  # 24 hours
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__truncate_error=False,  # silently truncate at 72 bytes instead of raising
+)
 
 
 # --- Password utilities ---
 
 def _safe_password(plain: str) -> str:
-    """Bcrypt max is 72 bytes — truncate to avoid hard error."""
-    return plain.encode("utf-8")[:72].decode("utf-8", errors="ignore")
+    """Bcrypt hard limit is 72 bytes — pre-truncate so passlib never sees oversized input."""
+    encoded = plain.encode("utf-8")
+    if len(encoded) <= 72:
+        return plain
+    return encoded[:72].decode("utf-8", errors="ignore")
 
 def hash_password(plain: str) -> str:
     return pwd_context.hash(_safe_password(plain))
