@@ -78,13 +78,25 @@ def check_connection():
     Returns True if successful, False otherwise.
     """
     from sqlalchemy import text
-    
-    try:
-        db = SessionLocal()
-        db.execute(text("SELECT 1"))
-        db.close()
+    import threading
+
+    result = [False]
+    error = [None]
+
+    def _check():
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            result[0] = True
+        except Exception as e:
+            error[0] = e
+
+    t = threading.Thread(target=_check, daemon=True)
+    t.start()
+    t.join(timeout=8)  # Give up after 8 seconds — never block the app
+
+    if not t.is_alive() and result[0]:
         return True
-    except Exception as e:
-        print(f"Database connection failed: {e}")
-        return False
+    print(f"Database connection failed or timed out: {error[0]}")
+    return False
 

@@ -98,6 +98,18 @@ async def startup_event():
     logger.info("✓ Using Alpaca for trading (paper + live)")
 
 
+@app.get("/api/debug")
+async def debug_info():
+    """Non-DB debug endpoint to confirm deployed code version"""
+    from app.database import DATABASE_URL
+    masked = DATABASE_URL[:30] + "..." if DATABASE_URL else "NOT SET"
+    return {
+        "code_version": "ssl-fix-v4",
+        "db_url_prefix": masked,
+        "sslmode_present": "sslmode" in (DATABASE_URL or ""),
+    }
+
+
 @app.get("/")
 async def root():
     """Root endpoint with system status"""
