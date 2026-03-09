@@ -37,6 +37,7 @@ engine = create_engine(
     echo=False,
     connect_args={
         "connect_timeout": 10,
+        "sslmode": "require",
     }
 )
 
