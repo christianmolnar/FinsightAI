@@ -2,23 +2,29 @@
 **AI Trading Agent Development Roadmap - Full v1.0 Delivery**
 
 **Date Created:** December 22, 2025  
-**Last Updated:** March 7, 2026 - V1.0 Backtesting Foundation Complete ✅  
-**Project Status:** Infrastructure + Broker + Phases 1-3 + V1.0 Backtesting Complete  
-**Current Phase:** Phase 4 - Opportunity Scanner (ACTIVE - March 7-9, 2026)  
-**Next Phase:** Phase 5 - Position Monitor → Phase 6 - Auto-Execute → Live Trading Monday 3/10
+**Last Updated:** March 8, 2026 - Cloud Deployment Complete ✅  
+**Project Status:** Full stack deployed to cloud. Frontend on Vercel, Backend on Railway. Scanner cron running.  
+**Current Phase:** Phase 5A - Position Monitor  
+**Next Phase:** Phase 6A - Auto-Execute Logic → Live Trading
 
-**Overall Progress:** ~60% complete (Infrastructure + Broker + Phases 1-3 + V1.0 Backtest)
+**Overall Progress:** ~70% complete (Phases 1-4B complete, cloud deployed, needs Phase 5-6)
 
-> **Latest Update (March 7, 2026):** 
-> - ✅ **V1.0 Backtesting Foundation Complete:** Full backtest engine with compounding (4h)
->   - Percentage-based position sizing with optional compounding
->   - Portfolio equity curves and daily position tracking
->   - Risk metrics: Sharpe ratio (4.84), Max drawdown (6.86%)
->   - 2020-2026 validated: 914 trades, 57% win rate, +100% return
->   - Comprehensive analysis document with 6 critical improvements identified
->   - Git tag v1.0.0 pushed to GitHub
-> - 🔄 **Phase 4 In Progress:** Opportunity Scanner - Weekend Build (18h estimated)
-> - ⏳ **Live Trading Target:** Monday March 10, 2026 at 9:30 AM ET
+> **Latest Update (March 8, 2026):**
+> - ✅ **DEPLOYED TO CLOUD:** Frontend on Vercel, Backend on Railway (fully cloud-hosted)
+>   - Frontend: https://finsightai.vercel.app (or similar Vercel URL)
+>   - Backend: https://finsightai-production-442e.up.railway.app
+>   - Database: Railway PostgreSQL (always-on)
+>   - PC can be OFF - system runs 24/7 in cloud
+> - ✅ **Phase 4A Complete:** Market Scanner (pre-existing, fully featured)
+>   - 3 strategies: breakouts, earnings plays, seasonality
+>   - S&P 500 + DOW + NASDAQ-100 universe
+>   - REST API endpoints registered and working
+> - ✅ **Phase 4B Complete:** Background Scheduler + SMS Alerts
+>   - Railway cron: every 15 min during market hours (9:30-4 ET, M-F)
+>   - SMS via Twilio when opportunities found
+>   - run_scanner.py CLI deployed to Railway
+> - 🔄 **Phase 5A In Progress:** Position Monitor (next)
+> - ⏳ **Phase 6A Planned:** Auto-Execute Logic
 
 ---
 
@@ -55,17 +61,20 @@
 ### Current Status Summary
 
 - ✅ **Infrastructure Phase:** Complete (Backend, Frontend, Database)
+- ✅ **Cloud Deployment:** Complete (Vercel + Railway, fully cloud-hosted)
 - ✅ **Broker Integration:** Complete (Alpaca migration done)
 - ✅ **Phase 1:** AI Research Engine - COMPLETE
-- ✅ **Phase 2:** Sell Validation Flow - COMPLETE  
+- ✅ **Phase 2:** Sell Validation Flow - COMPLETE
 - ✅ **Phase 3:** Transaction Queue System - COMPLETE
-- ✅ **V1.0 Backtesting:** Foundation Complete - COMPLETE (March 7, 2026)
-- 🔄 **Phase 4:** Opportunity Scanner - IN PROGRESS (March 7-9, 2026)
-- ⏳ **Phase 5:** Position Monitor - PLANNED (March 8-9, 2026)
-- ⏳ **Phase 6:** Auto-Execute & Risk Controls - PLANNED (March 9, 2026)
-- 🔲 **Phases 7-8:** Learning engine, deployment optimization
+- ✅ **V1.0 Backtesting:** Foundation Complete (March 7, 2026) - git tag v1.0.0
+- ✅ **Phase 4A:** Market Scanner Service - COMPLETE (pre-existing, 3 strategies)
+- ✅ **Phase 4B:** Background Scheduler + SMS Alerts - COMPLETE (Railway cron deployed)
+- 🔄 **Phase 5A:** Position Monitor - IN PROGRESS (next task)
+- ⏳ **Phase 6A:** Auto-Execute Logic - PLANNED
+- ⏳ **Phase 6B:** Risk Controls & Circuit Breakers - PLANNED
+- 🔲 **Phase 7:** End-to-End Testing & Go-Live - PLANNED
 
-**Next Action:** Build Phase 4 - Opportunity Scanner (starting now)
+**Next Action:** Build Phase 5A - Position Monitor (creates exit proposals for open positions)
 
 ---
 
