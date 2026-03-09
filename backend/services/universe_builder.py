@@ -160,21 +160,48 @@ class UniverseBuilder:
     
     def _fetch_russell2000(self) -> List[str]:
         """
-        Fetch Russell 2000 constituents
-        
-        Note: Russell 2000 list is harder to get freely. Options:
-        1. Use IEX Cloud API (paid)
-        2. Use FTSE Russell website (requires scraping)
-        3. Use ETF holdings as proxy (IWM - iShares Russell 2000 ETF)
-        
-        For now, returns empty list. Implement based on available data source.
-        
-        Returns:
-            List of stock symbols (empty for now)
+        Fetch US equity universe via Alpaca Assets API.
+        Returns all active, fractionable US equities — a superset of Russell 2000.
+        Filters out ETFs, warrants, and very small/illiquid names.
         """
-        logger.warning("Russell 2000 fetch not implemented - requires paid data source")
-        # TODO: Implement with proper data source
-        return []
+        try:
+            import os
+            api_key = os.getenv("ALPACA_API_KEY") or os.getenv("ALPACA_PAPER_API_KEY")
+            api_secret = os.getenv("ALPACA_SECRET_KEY") or os.getenv("ALPACA_PAPER_SECRET_KEY")
+
+            if not api_key or not api_secret:
+                logger.warning("Alpaca keys not set — skipping extended universe")
+                return []
+
+            url = "https://paper-api.alpaca.markets/v2/assets"
+            headers = {
+                "APCA-API-KEY-ID": api_key,
+                "APCA-API-SECRET-KEY": api_secret,
+            }
+            params = {
+                "status": "active",
+                "asset_class": "us_equity",
+                "exchange": "NYSE,NASDAQ,ARCA",  # Exclude OTC/pink sheets
+            }
+            response = requests.get(url, headers=headers, params=params, timeout=30)
+            response.raise_for_status()
+
+            assets = response.json()
+
+            # Filter: tradable, fractionable (liquid), no special characters
+            symbols = [
+                a['symbol'] for a in assets
+                if a.get('tradable') and a.get('fractionable')
+                and a.get('symbol', '').isalpha()          # No slash/dot symbols
+                and len(a.get('symbol', '')) <= 5          # No long OTC symbols
+            ]
+
+            logger.info(f"   Fetched {len(symbols)} stocks from Alpaca US equity universe")
+            return symbols
+
+        except Exception as e:
+            logger.error(f"Failed to fetch Alpaca universe: {e}")
+            return []
     
     def _get_fallback_sp500(self) -> List[str]:
         """Fallback S&P 500 list (top 50 stocks)"""

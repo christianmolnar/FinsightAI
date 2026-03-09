@@ -251,8 +251,29 @@ class HistoricalDataManager:
             df.set_index('Date', inplace=True)
             return df
         
-        # No cached data - return empty DataFrame (backtesting should use existing data only)
-        logger.warning(f"No cached data for {symbol} in requested range")
+        # No cached data - fall back to Alpaca API download
+        logger.info(f"No cached data for {symbol}, downloading from Alpaca...")
+        try:
+            bars_dict = self.alpaca_service.get_historical_bars(
+                symbols=[symbol],
+                start=start_date,
+                end=end_date,
+                timeframe="1Day"
+            )
+            df = bars_dict.get(symbol, pd.DataFrame())
+            if not df.empty:
+                # Rename columns to match expected format (Open/High/Low/Close/Volume)
+                df.index.name = 'Date'
+                df.columns = [c.capitalize() for c in df.columns]
+                # Cache for future use
+                try:
+                    self._save_to_cache(symbol, bars_dict[symbol])
+                except Exception:
+                    pass  # Cache save failure is non-fatal
+                return df
+        except Exception as e:
+            logger.warning(f"Alpaca download failed for {symbol}: {e}")
+
         return pd.DataFrame()
     
     def get_batch_historical_data(

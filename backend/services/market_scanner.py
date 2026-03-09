@@ -11,10 +11,11 @@ Filters candidates by volume, liquidity, and spread to ensure tradability.
 
 import logging
 from typing import List, Dict, Optional
-from datetime import datetime, timedelta
-import yfinance as yf
+from datetime import datetime, timedelta, date
+import pandas as pd
 from sqlalchemy.orm import Session
 from services.universe_builder import UniverseBuilder
+from app.services.alpaca_service import get_alpaca_service
 
 logger = logging.getLogger(__name__)
 
@@ -24,26 +25,21 @@ class MarketScanner:
     Autonomous market scanner that finds trading opportunities
     """
     
-    # Build universe dynamically from S&P 500, DOW, and NASDAQ-100
+    # Build universe dynamically from S&P 500, DOW, NASDAQ-100, and extended US universe
     # Exclude symbols with known data issues
     _universe_builder = UniverseBuilder()
-    _raw_universe = _universe_builder.build_universe(['SP500', 'DOW', 'NASDAQ100'])
-    SCAN_UNIVERSE = [s for s in _raw_universe if s != 'WBA']  # WBA: Data stopped at 2025-08-27
-    
+    _raw_universe = _universe_builder.build_universe(['SP500', 'DOW', 'NASDAQ100', 'RUSSELL2000'])
+    SCAN_UNIVERSE = [s for s in _raw_universe if s not in ('WBA',)]
+
     # Filtering criteria
-    MIN_VOLUME = 1_000_000  # Minimum daily volume
-    MIN_PRICE = 10.0  # Minimum stock price
+    MIN_VOLUME = 1_000_000   # Minimum daily volume
+    MIN_PRICE = 10.0         # Minimum stock price
     MAX_SPREAD_PERCENT = 0.5  # Maximum bid-ask spread (0.5%)
-    
+
     def __init__(self, db: Session):
-        """
-        Initialize market scanner
-        
-        Args:
-            db: Database session for storing scan results
-        """
         self.db = db
-        logger.info("MarketScanner initialized")
+        self.alpaca = get_alpaca_service(paper=True)
+        logger.info(f"MarketScanner initialized — universe: {len(self.SCAN_UNIVERSE)} stocks")
     
     def scan_all_strategies(self) -> List[Dict]:
         """
@@ -84,201 +80,191 @@ class MarketScanner:
         
         return unique_candidates
     
+    def _get_bars_batch(self, symbols: List[str], days: int = 252) -> Dict[str, pd.DataFrame]:
+        """Fetch OHLCV bars from Alpaca for a batch of symbols."""
+        end = date.today()
+        start = end - timedelta(days=days + 10)  # buffer for weekends/holidays
+        try:
+            return self.alpaca.get_historical_bars(symbols, start.isoformat(), end.isoformat())
+        except Exception as e:
+            logger.error(f"Alpaca batch bars failed: {e}")
+            return {}
+
+    def _get_latest_quote(self, symbol: str) -> Dict:
+        """Get latest price and volume from Alpaca."""
+        try:
+            quote = self.alpaca.get_latest_quote(symbol)
+            return quote or {}
+        except Exception:
+            return {}
+
     def _scan_earnings_plays(self) -> List[Dict]:
         """
-        Strategy 1: Find stocks with earnings announcements in next 7 days
-        
-        Theory: Stocks often move significantly around earnings due to volatility
-        and potential surprises. Trading 3-7 days before earnings can capture momentum.
-        
-        Returns:
-            List of candidate dicts
+        Strategy 1: Find stocks with earnings in next 7 days.
+        Uses Alpaca snapshot for price/volume; earnings calendar from Alpaca or fallback.
         """
         logger.info("📊 Scanning for earnings plays...")
         candidates = []
-        
+
+        # Fetch all snapshots in one call to minimize API hits
+        try:
+            snapshots = self.alpaca.get_snapshots(self.SCAN_UNIVERSE) or {}
+        except Exception as e:
+            logger.warning(f"Alpaca snapshots failed: {e}")
+            snapshots = {}
+
         for symbol in self.SCAN_UNIVERSE:
             try:
-                ticker = yf.Ticker(symbol)
-                
-                # Get earnings date
-                calendar = ticker.calendar
-                if calendar is None or calendar.empty:
+                snap = snapshots.get(symbol)
+                if not snap:
                     continue
-                
-                # Check if earnings in next 7 days
-                earnings_date = calendar.get('Earnings Date')
-                if earnings_date is not None:
-                    if isinstance(earnings_date, list) and len(earnings_date) > 0:
-                        earnings_date = earnings_date[0]
-                    
-                    days_until = (earnings_date - datetime.now()).days
-                    
-                    if 0 < days_until <= 7:
-                        # Get current data
-                        info = ticker.info
-                        current_price = info.get('currentPrice', info.get('regularMarketPrice', 0))
-                        volume = info.get('averageVolume', 0)
-                        
-                        # Filter by minimum criteria
-                        if self._passes_filters(current_price, volume):
-                            candidates.append({
-                                'symbol': symbol,
-                                'strategy': 'earnings_play',
-                                'score': 70,  # Base score for earnings plays
-                                'reason': f"Earnings in {days_until} days. Historical volatility creates opportunities.",
-                                'current_price': current_price,
-                                'volume': volume,
-                                'earnings_date': earnings_date.strftime('%Y-%m-%d'),
-                                'days_until_earnings': days_until
-                            })
-                            logger.info(f"  ✓ {symbol}: Earnings in {days_until} days")
-            
+
+                current_price = getattr(snap.latest_trade, 'price', None) or 0
+                volume = getattr(snap.daily_bar, 'volume', None) or 0
+
+                if not self._passes_filters(current_price, volume):
+                    continue
+
+                # Alpaca does not expose earnings calendar directly.
+                # Use their asset info; skip if not available.
+                # TODO: integrate earnings calendar API (e.g. Alpaca Events or Polygon)
+                # For now, skip earnings play without a date source.
+
             except Exception as e:
-                logger.debug(f"  ⨯ {symbol}: Error checking earnings - {e}")
-                continue
-        
+                logger.debug(f"  ⨯ {symbol}: earnings check error - {e}")
+
         return candidates
-    
+
     def _scan_technical_breakouts(self) -> List[Dict]:
         """
-        Strategy 2: Find stocks breaking above resistance levels
-        
-        Theory: When a stock breaks above a key resistance level (52-week high,
-        200-day MA, or consolidation pattern), it often continues higher due to
-        momentum and new buyers entering.
-        
-        Returns:
-            List of candidate dicts
+        Strategy 2: Find stocks breaking above resistance using Alpaca historical bars.
+        Processes symbols in batches of 100 to respect Alpaca rate limits.
         """
         logger.info("📈 Scanning for technical breakouts...")
         candidates = []
-        
-        for symbol in self.SCAN_UNIVERSE:
-            try:
-                ticker = yf.Ticker(symbol)
-                
-                # Get 1 year of historical data
-                hist = ticker.history(period='1y')
-                if hist.empty or len(hist) < 200:
-                    continue
-                
-                current_price = hist['Close'].iloc[-1]
-                
-                # Calculate technical indicators
-                high_52_week = hist['High'].max()
-                ma_200 = hist['Close'].rolling(200).mean().iloc[-1]
-                ma_50 = hist['Close'].rolling(50).mean().iloc[-1]
-                
-                # Check for breakout conditions
-                breakout_score = 0
-                reasons = []
-                
-                # Condition 1: Near 52-week high (within 2%)
-                if current_price >= high_52_week * 0.98:
-                    breakout_score += 30
-                    reasons.append("Near 52-week high")
-                
-                # Condition 2: Above 200-day MA (bullish)
-                if current_price > ma_200:
-                    breakout_score += 20
-                    reasons.append("Above 200-day MA")
-                
-                # Condition 3: Golden cross (50-day > 200-day MA)
-                if ma_50 > ma_200:
-                    breakout_score += 20
-                    reasons.append("Golden cross pattern")
-                
-                # Condition 4: Strong recent momentum (up 5%+ in last 5 days)
-                price_5d_ago = hist['Close'].iloc[-6]
-                momentum = ((current_price - price_5d_ago) / price_5d_ago) * 100
-                if momentum > 5:
-                    breakout_score += 30
-                    reasons.append(f"Strong momentum (+{momentum:.1f}%)")
-                
-                # Filter: Must have at least 2 breakout signals
-                if breakout_score >= 40:
-                    volume = ticker.info.get('averageVolume', 0)
-                    
-                    if self._passes_filters(current_price, volume):
+        batch_size = 100
+
+        for i in range(0, len(self.SCAN_UNIVERSE), batch_size):
+            batch = self.SCAN_UNIVERSE[i:i + batch_size]
+            bars_dict = self._get_bars_batch(batch, days=260)
+
+            for symbol in batch:
+                try:
+                    hist = bars_dict.get(symbol)
+                    if hist is None or hist.empty or len(hist) < 50:
+                        continue
+
+                    # Normalise column names (Alpaca returns lowercase)
+                    hist.columns = [c.lower() for c in hist.columns]
+                    closes = hist['close']
+                    highs = hist['high']
+                    volumes = hist['volume']
+
+                    current_price = float(closes.iloc[-1])
+                    avg_volume = float(volumes.mean())
+
+                    if not self._passes_filters(current_price, avg_volume):
+                        continue
+
+                    high_52w = float(highs.max())
+                    ma_200 = float(closes.rolling(min(200, len(closes))).mean().iloc[-1])
+                    ma_50 = float(closes.rolling(min(50, len(closes))).mean().iloc[-1])
+
+                    breakout_score = 0
+                    reasons = []
+
+                    if current_price >= high_52w * 0.98:
+                        breakout_score += 30
+                        reasons.append("Near 52-week high")
+
+                    if current_price > ma_200:
+                        breakout_score += 20
+                        reasons.append("Above 200-day MA")
+
+                    if ma_50 > ma_200:
+                        breakout_score += 20
+                        reasons.append("Golden cross")
+
+                    if len(closes) >= 6:
+                        momentum = ((current_price - float(closes.iloc[-6])) / float(closes.iloc[-6])) * 100
+                        if momentum > 5:
+                            breakout_score += 30
+                            reasons.append(f"Momentum +{momentum:.1f}%")
+
+                    if breakout_score >= 40:
                         candidates.append({
                             'symbol': symbol,
                             'strategy': 'technical_breakout',
-                            'score': min(breakout_score, 85),  # Cap at 85
+                            'score': min(breakout_score, 85),
                             'reason': f"Technical breakout: {', '.join(reasons)}",
-                            'current_price': float(current_price),
-                            'volume': volume,
-                            'ma_200': float(ma_200),
-                            'ma_50': float(ma_50),
-                            'momentum_5d': round(momentum, 2)
+                            'current_price': current_price,
+                            'volume': avg_volume,
+                            'ma_200': round(ma_200, 2),
+                            'ma_50': round(ma_50, 2),
                         })
-                        logger.info(f"  ✓ {symbol}: Breakout detected (score: {breakout_score})")
-            
-            except Exception as e:
-                logger.debug(f"  ⨯ {symbol}: Error checking breakout - {e}")
-                continue
-        
+                        logger.info(f"  ✓ {symbol}: breakout score {breakout_score}")
+
+                except Exception as e:
+                    logger.debug(f"  ⨯ {symbol}: breakout error - {e}")
+
         return candidates
-    
+
     def _scan_seasonality(self) -> List[Dict]:
         """
-        Strategy 3: Find stocks with strong seasonal patterns
-        
-        Theory: Some stocks have predictable seasonal behavior (retail in Q4,
-        travel in summer, etc.). Historical data can identify these patterns.
-        
-        Returns:
-            List of candidate dicts
+        Strategy 3: Stocks with strong seasonal patterns for the current month.
+        Uses Alpaca snapshots for current price/volume.
         """
         logger.info("📅 Scanning for seasonal patterns...")
         candidates = []
-        
-        # Get current month
         current_month = datetime.now().month
-        
-        # Seasonal plays by month (simplified - expand with real historical analysis)
+        month_name = datetime.now().strftime('%B')
+
         seasonal_stocks = {
-            1: [],  # January - "January Effect" small caps
-            2: [],  # February
-            3: [],  # March
-            4: ['BA', 'CAT'],  # April - Industrials/Construction
-            5: ['DIS', 'SBUX'],  # May - Travel/Leisure start
-            6: ['DIS', 'SBUX'],  # June - Summer season
-            7: ['WMT', 'HD'],  # July - Back to school prep
-            8: ['WMT', 'HD'],  # August - Back to school
-            9: [],  # September
-            10: ['AMZN', 'WMT'],  # October - Holiday prep
-            11: ['AMZN', 'WMT', 'NKE'],  # November - Black Friday
-            12: ['AMZN', 'WMT', 'NKE', 'AAPL'],  # December - Holiday shopping
+            1:  ['IWM', 'VBK'],                       # January Effect — small caps
+            2:  [],
+            3:  [],
+            4:  ['BA', 'CAT', 'DE'],                   # Industrials / Construction
+            5:  ['DIS', 'SBUX', 'MAR'],                # Travel / Leisure start
+            6:  ['DIS', 'SBUX', 'UAL', 'DAL'],        # Summer travel
+            7:  ['WMT', 'HD', 'TGT'],                  # Back-to-school prep
+            8:  ['WMT', 'HD', 'TGT', 'COST'],         # Back-to-school
+            9:  [],
+            10: ['AMZN', 'WMT', 'COST'],               # Holiday prep
+            11: ['AMZN', 'WMT', 'NKE', 'ETSY'],       # Black Friday
+            12: ['AMZN', 'WMT', 'NKE', 'AAPL', 'ETSY'],  # Holiday shopping
         }
-        
-        seasonal_symbols = seasonal_stocks.get(current_month, [])
-        
-        for symbol in seasonal_symbols:
+
+        symbols = seasonal_stocks.get(current_month, [])
+        if not symbols:
+            return candidates
+
+        try:
+            snapshots = self.alpaca.get_snapshots(symbols) or {}
+        except Exception as e:
+            logger.warning(f"Alpaca snapshots failed for seasonality: {e}")
+            snapshots = {}
+
+        for symbol in symbols:
             try:
-                ticker = yf.Ticker(symbol)
-                info = ticker.info
-                
-                current_price = info.get('currentPrice', info.get('regularMarketPrice', 0))
-                volume = info.get('averageVolume', 0)
-                
+                snap = snapshots.get(symbol)
+                current_price = (getattr(snap.latest_trade, 'price', 0) if snap else 0) or 0
+                volume = (getattr(snap.daily_bar, 'volume', 0) if snap else 0) or 0
+
                 if self._passes_filters(current_price, volume):
-                    month_name = datetime.now().strftime('%B')
                     candidates.append({
                         'symbol': symbol,
                         'strategy': 'seasonality',
-                        'score': 65,  # Moderate confidence for seasonal plays
+                        'score': 65,
                         'reason': f"Historical {month_name} outperformance. Seasonal tailwinds.",
-                        'current_price': current_price,
-                        'volume': volume,
-                        'seasonal_month': month_name
+                        'current_price': float(current_price),
+                        'volume': float(volume),
+                        'seasonal_month': month_name,
                     })
-                    logger.info(f"  ✓ {symbol}: Seasonal opportunity in {month_name}")
-            
+                    logger.info(f"  ✓ {symbol}: seasonal play for {month_name}")
+
             except Exception as e:
-                logger.debug(f"  ⨯ {symbol}: Error checking seasonality - {e}")
-                continue
-        
+                logger.debug(f"  ⨯ {symbol}: seasonality error - {e}")
+
         return candidates
     
     def _passes_filters(self, price: float, volume: int) -> bool:

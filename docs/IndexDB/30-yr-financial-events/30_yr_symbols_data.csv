@@ -1,0 +1,57 @@
+SYMBOL,NAME,TYPE,FULL_NAME,UNIT,information
+^GDAXI,DAX Index,Market Index,Deutsche Boerse DAX Index Germany,Index Points
+^DJI,Dow Jones,Market Index,Dow Jones Industrial Average,Index Points
+^FTSE,FTSE 100,Market Index,FTSE 100 Great Britain,Index Points
+^HSI,Hang Seng Index,Market Index,Hang Seng Index Hong Kong,Index Points
+^IXIC,Nasdaq,Market Index,Nasdaq Composite,Index Points
+^NYA,NYSE Composite,Market Index,NYSE Composite Index,Index Points
+^GSPC,S&P500,Market Index,S&P500,Index Points
+^VIX,CBOE Volitility,Market Indicator,CBOE Volitility Index,Percentage
+AMZN,Amazon,Equity: Stock,Amazon.com Incorporated,USD
+AAPL,Apple,Equity: Stock,Apple Incorporated,USD
+BRK-B,Berkshire Hathaway,Equity: Stock,Berkshire Hathaway Incorporated,USD
+AVGO,BroadCom,Equity: Stock,BroadCom Incorporated,USD
+XOM,Exxon,Equity: Stock,Exxon Mobil Corporation,USD
+GE,General Electric,Equity: Stock,General Electric Company,USD
+GOOGL,Google,Equity: Stock,Alphabet Incorporated,USD
+IBM,IBM,Equity: Stock,International Business Machines Corporation,USD
+JPM,JP Morgan Chase,Equity: Stock,JPMorgan Chase & Company,USD
+MA,MasterCard,Equity: Stock,Mastercard Incorporated,USD
+META,Meta,Equity: Stock,Meta Platform Incorporated,USD
+MSFT,Microsoft,Equity: Stock,Microsoft Corporation,USD
+NVDA,Nvidia,Equity: Stock,Nvidia Corporation,USD
+TSLA,Tesla,Equity: Stock,Tesla Incorporated,USD
+WMT,Walmart,Equity: Stock,Walmart Incorporated,USD
+NUGT,Gold Miners Index,Equity: ETF,Direxion Daily Gold Miners 2X Index,USD
+SPY,S&P 500 ETF,Equity: ETF,SPDR S&P 500 ETF,USD
+FSENX,Fidelity Energy Portfolio,Equity: Mutual Fund,Fidelity Select Energy Portfolio,USD
+FBGRX,Fidelity Growth Fund,Equity: Mutual Fund,Fidelity Blue Chip Growth Fund,USD
+BTC-USD,Bitcoin,Currency,Bitcoin CryptoCurrency,USD
+ETH-USD,Ethereum,Currency,Ethereum CryptoCurrency,USD
+^XDE,Euro Currency Index,Currency,Euro Currency Index,EURO
+^XDN,Japanese Yen,Currency,Japanese Yen Index,Yen
+DX-Y.NYB,US Dollar,Currency,US Dollar Index,USD
+CC=F,Cocoa,Commodity: Agriculture,Cocoa Futures,GBP per Tonne
+KC=F,Coffee,Commodity: Agriculture,Coffee Futures,USD per Pound
+ZC=F,Corn,Commodity: Agriculture,Corn Futures,USD per Bushel
+CT=F,Cotton,Commodity: Agriculture,Cotton Futures,USD per Pound
+LE=F,Live Cattle,Commodity: Agriculture,Live Cattle Futures,USD per Pound
+OJ=F,Orange Juice,Commodity: Agriculture,Orange Juice Futures,USD per Pound
+ZL=F,Soybeans,Commodity: Agriculture,Soybeans Futures,USD per Bushel
+SB=F,Sugar,Commodity: Agriculture,Sugar Futures,USD per Pound
+ZW=F,Wheat,Commodity: Agriculture,Wheat Futures,USD per Tonne
+BZ=F,Crude Oil-Brent,Commodity: Energy,Crude Oil-Brent Futures,USD per Barrel
+CL=F,Crude Oil-WTI,Commodity: Energy,Crude Oil WTI Futures,USD per Barrel
+EH=F,Ethanol,Commodity: Energy,Ethanol Futures,USD per Gallon
+HO=F,Heating Oil,Commodity: Energy,Heating Oil Futures,USD per 100 Liter
+NG=F,Natural Gas,Commodity: Energy,Natural Gas Futures,USD per MMBtu
+ALI=F,Aluminum,Commodity: Industrial Metals,Aluminum Futures,USD per Tonne
+HG=F,Copper,Commodity: Industrial Metals,Copper Futures,USD per Tonne
+GC=F,Gold,Commodity: Precious Metals,Gold Futures,USD per Troy Ounce
+PA=F,Palladium,Commodity: Precious Metals,Palladium Futures,USD per Troy Ounce
+PL=F,Platinum,Commodity: Precious Metals,Platinum Futures,USD per Troy Ounce
+SI=F,Silver,Commodity: Precious Metals,Silver Futures,USD per Troy Ounce
+^IRX,T-Bill 13 Week,U.S. Treasury Bonds,Treasury Bill 13 Week,Yield Percentage,T-bills mature in 1 year or less
+^FVX,T-Note 5 Years,U.S. Treasury Bonds,Treasury Note 5 Years,Yield Percentage,T-notes mature in 2-10 years
+^TNX,T-Note 10 Years,U.S. Treasury Bonds,Treasury Note 10 Years,Yield Percentage,T-notes mature in 2-10 years
+^TYX,T-Bond 30 Years,U.S. Treasury Bonds,Treasury Bond 30 Years,Yield Percentage,T-bonds mature in 20-30 years
