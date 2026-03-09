@@ -102,12 +102,42 @@ async def startup_event():
 async def debug_info():
     """Non-DB debug endpoint to confirm deployed code version"""
     from app.database import DATABASE_URL
-    masked = DATABASE_URL[:30] + "..." if DATABASE_URL else "NOT SET"
+    masked = DATABASE_URL[:40] + "..." if DATABASE_URL else "NOT SET"
     return {
-        "code_version": "ssl-fix-v4",
+        "code_version": "ssl-fix-v5",
         "db_url_prefix": masked,
         "sslmode_present": "sslmode" in (DATABASE_URL or ""),
     }
+
+
+@app.get("/api/debug/db")
+async def debug_db():
+    """Test DB connectivity server-side and return result"""
+    import threading
+    from sqlalchemy import text
+    from app.database import engine, DATABASE_URL
+
+    result = {"connected": False, "error": None, "tables": []}
+
+    def _test():
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+                rows = conn.execute(text(
+                    "SELECT table_name FROM information_schema.tables WHERE table_schema='public'"
+                ))
+                result["tables"] = [r[0] for r in rows]
+                result["connected"] = True
+        except Exception as e:
+            result["error"] = str(e)
+
+    t = threading.Thread(target=_test, daemon=True)
+    t.start()
+    t.join(timeout=10)
+
+    result["timed_out"] = t.is_alive()
+    result["db_url_snippet"] = DATABASE_URL[:50] + "..." if DATABASE_URL else "none"
+    return result
 
 
 @app.get("/")
