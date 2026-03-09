@@ -35,10 +35,7 @@ export default function Register({ onSwitchToLogin }) {
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <img src={logo} alt="f.Insight.AI" className="w-72 mx-auto mb-3" />
-          <p className="text-gray-400 mt-2 text-sm">Autonomous Trading Intelligence</p>
-        </div>
+        <img src={logo} alt="f.Insight.AI" className="w-4/5 mx-auto mb-4 block" />
 
         <div className="bg-gray-800 rounded-2xl shadow-2xl p-8 border border-gray-700">
           <h2 className="text-xl font-semibold text-white mb-6">Create account</h2>
