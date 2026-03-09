@@ -25,22 +25,27 @@ if "+psycopg" in _raw_url and "+psycopg2" not in _raw_url:
 if _raw_url.startswith("postgresql://") and "+psycopg2" not in _raw_url:
     _raw_url = _raw_url.replace("postgresql://", "postgresql+psycopg2://", 1)
 
-# Ensure sslmode=require is in the URL (Railway PostgreSQL requires SSL)
-if "sslmode" not in _raw_url:
-    _raw_url += ("&" if "?" in _raw_url else "?") + "sslmode=require"
+# Strip sslmode from URL — we pass it via connect_args instead (more reliable with psycopg2)
+import re
+_raw_url = re.sub(r'[?&]sslmode=[^&]*', '', _raw_url).rstrip('?').rstrip('&')
 
 DATABASE_URL = _raw_url
 
-# Create engine with optimized settings
+# Create engine — small pool, SSL via connect_args, no pre-ping (we check at startup)
 engine = create_engine(
     DATABASE_URL,
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True,
-    pool_recycle=3600,
+    pool_size=2,
+    max_overflow=5,
+    pool_pre_ping=False,
+    pool_recycle=1800,
     echo=False,
     connect_args={
         "connect_timeout": 10,
+        "sslmode": "require",
+        "keepalives": 1,
+        "keepalives_idle": 5,
+        "keepalives_interval": 2,
+        "keepalives_count": 3,
     }
 )
 
