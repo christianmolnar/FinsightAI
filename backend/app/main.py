@@ -53,6 +53,7 @@ from api.scanner import router as scanner_router
 from api.agent import router as agent_router
 from api.backtest import router as backtest_router
 from api.user_auth import router as user_auth_router
+from api.alerts import router as alerts_router
 from middleware.auth_middleware import get_current_user
 # from api.calibration import router as calibration_router  # Incomplete - requires openai module
 from utils.market_hours import get_market_status
@@ -64,6 +65,7 @@ app.include_router(portfolio_router, dependencies=[Depends(get_current_user)])
 app.include_router(market_router, dependencies=[Depends(get_current_user)])
 app.include_router(auth_router)         # legacy Schwab OAuth — not protected
 app.include_router(user_auth_router)    # JWT user auth — not protected (public login/register)
+app.include_router(alerts_router)       # Alert endpoints — protected
 app.include_router(strategy_parameters_router, dependencies=[Depends(get_current_user)])
 app.include_router(research_router, dependencies=[Depends(get_current_user)])
 app.include_router(queue_router, dependencies=[Depends(get_current_user)])
