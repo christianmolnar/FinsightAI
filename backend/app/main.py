@@ -43,6 +43,7 @@ app.add_middleware(
 # Import routers
 from app.api.portfolio import router as portfolio_router
 from app.api.market import router as market_router
+from app.api.auth import router as auth_router
 from app.api.strategy_parameters import router as strategy_parameters_router
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -55,10 +56,14 @@ from api.user_auth import router as user_auth_router
 from middleware.auth_middleware import get_current_user
 # from api.calibration import router as calibration_router  # Incomplete - requires openai module
 from utils.market_hours import get_market_status
+# Commented out optional routers that may not exist in deployment
+# from api.ai_optimizer import router as ai_optimizer_router
+# from api.paper_trading_db import router as paper_trading_router
 
 app.include_router(portfolio_router, dependencies=[Depends(get_current_user)])
 app.include_router(market_router, dependencies=[Depends(get_current_user)])
-app.include_router(user_auth_router)    # JWT user auth — public (login/register)
+app.include_router(auth_router)         # legacy Schwab OAuth — not protected
+app.include_router(user_auth_router)    # JWT user auth — not protected (public login/register)
 app.include_router(strategy_parameters_router, dependencies=[Depends(get_current_user)])
 app.include_router(research_router, dependencies=[Depends(get_current_user)])
 app.include_router(queue_router, dependencies=[Depends(get_current_user)])
@@ -113,7 +118,7 @@ async def debug_info():
     from app.database import DATABASE_URL
     masked = DATABASE_URL[:40] + "..." if DATABASE_URL else "NOT SET"
     return {
-        "code_version": "auth-fix-v11",
+        "code_version": "bcrypt-3.2.2-v9",
         "db_url_prefix": masked,
         "sslmode_present": "sslmode" in (DATABASE_URL or ""),
     }

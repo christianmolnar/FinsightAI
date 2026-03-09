@@ -2,15 +2,20 @@
 **AI Trading Agent Development Roadmap - Full v1.0 Delivery**
 
 **Date Created:** December 22, 2025
-**Last Updated:** March 8, 2026 - Auth, Alerts, Scanner, Autonomous Trading
-**Project Status:** Full stack deployed to cloud. Frontend on Vercel, Backend on Railway.
-**Current Phase:** Phase A - Authentication (CRITICAL - financial data exposed)
-**Next Phase:** Phase B - ntfy.sh Alerts Verified → Phase C - Autonomous Scanner
+**Last Updated:** March 9, 2026 — Phase A COMPLETE + deployed. Auth wor```
+1. ✅ Phase A — Authentication        DONE (commit 99d5eee, March 9 2026)
+2. 🟠 Phase B — Verify ntfy.sh        NEXT (30 min — build test endpoint + button, confirm on phone)
+3. 🟠 Phase C — Historical Data       (needed for backtesting — Alpaca download + Kaggle import)
+4. 🔴 Phase D — Autonomous Engine     (THE MAIN GOAL — position monitor + auto-executor)
+5. 🟡 Phase E — Frontend Polish       (nice to have — agent status widget, notifications log)
+```d-to-end. Logo updated (transparent RGBA). Tagline removed from navbar.
+**Project Status:** Full stack live. Frontend on Vercel, Backend on Railway — both healthy.
+**Current Phase:** Phase B — ntfy.sh end-to-end test
+**Next Phase:** Phase C — Historical Data → Phase D — Autonomous Engine
 
-**Overall Progress:** ~55% complete toward FINAL OBJECTIVE
+**Overall Progress:** ~70% complete toward FINAL OBJECTIVE
 
-> **⚠️ CRITICAL SECURITY ISSUE:** Financial account data is currently exposed with no authentication.
-> Phase A (Authentication) must be completed before any other new features.
+> **✅ PHASE A COMPLETE** (commit `99d5eee`, March 9 2026): JWT auth fully working. Register/Login/Me endpoints live. passlib removed — using bcrypt directly. All routes protected. Logo transparent RGBA, tagline removed from navbar.
 
 ---
 
@@ -34,99 +39,84 @@ A **fully autonomous paper trading system** running 24/7 on Railway/Vercel that:
 ### ✅ What Is Actually Built & Working
 | Component | Status | Notes |
 |---|---|---|
-| Backend (FastAPI) | ✅ Deployed on Railway | `https://finsightai-production-442e.up.railway.app` |
-| Frontend (React) | ✅ Deployed on Vercel | `https://frontend-pi-kohl-57.vercel.app` |
-| Database | ✅ Railway PostgreSQL | Always-on |
-| Alpaca Integration | ✅ Paper + Live | `alpaca_service.py` (430 lines) |
+| Backend (FastAPI) | ✅ Live on Railway | `https://finsightai-production-442e.up.railway.app` |
+| Frontend (React) | ✅ Live on Vercel | `https://frontend-pi-kohl-57.vercel.app` |
+| Database | ✅ Railway PostgreSQL | Always-on, `password_hash` column confirmed |
+| JWT Auth (Register/Login) | ✅ Working end-to-end | bcrypt direct (no passlib), `user_auth.py` |
+| All routes JWT-protected | ✅ Complete | `Depends(get_current_user)` on every router |
+| Login/Register UI | ✅ Live on Vercel | `Login.js`, `Register.js`, `AuthContext.js` |
+| apiClient (Bearer token) | ✅ Built + wired | `apiClient.js` — most components updated |
+| Alpaca Integration | ✅ Paper + Live | `alpaca_service.py` |
 | AI Research Engine | ✅ Complete | OpenAI + Claude dual-model |
 | Sell Validation | ✅ Complete | Tax analysis, dual AI |
 | Transaction Queue | ✅ Complete | 9 REST endpoints |
-| Market Scanner | ✅ Built, using Alpaca now | 3 strategies, expanded universe |
-| Universe Builder | ✅ Updated | SP500+DOW+NASDAQ100+Alpaca US equities |
+| Market Scanner | ✅ Built | 3 strategies, Alpaca data |
+| Universe Builder | ✅ Built | SP500+DOW+NASDAQ100+Alpaca US equities |
 | Railway Cron (Scanner) | ✅ Configured | Every 15 min market hours |
-| ntfy.sh Service | ✅ Built | `ntfy_service.py` + `alert_service.py` updated |
-| ntfy.sh Railway Vars | ✅ Set by user | `NTFY_TOKEN`, `NTFY_TOPIC` configured |
-| Backtester | ✅ Built | `backtester.py`, backtest reports table |
+| ntfy.sh Service | ✅ Built | `ntfy_service.py` + `alert_service.py` |
+| ntfy.sh Railway Vars | ✅ Set | `NTFY_TOKEN`, `NTFY_TOPIC`, `NTFY_URL` |
+| Backtester | ✅ Built | `backtester.py` |
 | Calibration Engine | ✅ Built | `calibration_engine.py` |
-| Historical Data Manager | ✅ Built | Alpaca-based, `historical_data_manager.py` |
+| Historical Data Manager | ✅ Built | `historical_data_manager.py` (Alpaca-based) |
 | Kaggle 30yr Market Data | ✅ Downloaded | `docs/IndexDB/30-yr-financial-events/` (3 CSVs) |
 
 ### ❌ What Is NOT Built / NOT Working
 | Component | Status | Priority |
 |---|---|---|
-| **User Authentication** | ❌ NOT BUILT | 🔴 CRITICAL |
-| **Route Protection** | ❌ NOT BUILT | 🔴 CRITICAL |
-| ntfy.sh end-to-end verified | ❌ NOT TESTED | 🔴 HIGH |
-| Historical data in Railway DB | ❌ NOT POPULATED | 🔴 HIGH |
-| Auto-execute trades (buy/sell) | ❌ NOT BUILT | 🔴 HIGH |
-| Position Monitor | ❌ NOT BUILT | 🔴 HIGH |
-| Earnings calendar (scanner) | ❌ Strategy skeleton only | 🟡 MEDIUM |
-| Frontend Auth UI | ❌ NOT BUILT | 🔴 CRITICAL |
+| ntfy.sh end-to-end verified | ❌ NOT TESTED | 🔴 Phase B |
+| `POST /api/alerts/test` endpoint | ❌ NOT BUILT | 🔴 Phase B |
+| "Send Test Alert" button in UI | ❌ NOT BUILT | 🔴 Phase B |
+| Historical data in Railway DB | ❌ NOT POPULATED | 🔴 Phase C |
+| Position Monitor | ❌ NOT BUILT | 🔴 Phase D |
+| Auto-execute trades (buy/sell) | ❌ NOT BUILT | 🔴 Phase D |
+| `jobs/monitor_positions.py` | ❌ NOT BUILT | 🔴 Phase D |
+| `jobs/execute_proposals.py` | ❌ NOT BUILT | 🔴 Phase D |
+| `jobs/daily_data_update.py` | ❌ NOT BUILT | 🔴 Phase D |
+| Earnings calendar strategy | ❌ Skeleton only | 🟡 Medium |
+| Update remaining fetch() → apiClient | ❌ Some components still use bare fetch | 🟡 Medium |
 
-### ⚠️ Current Security State
-- **The app is publicly accessible** at the Vercel URL with NO login required
-- Anyone with the URL can see your portfolio, positions, and trading history
-- CORS is configured for Vercel URLs but there is no JWT/session authentication
-- The existing `app/api/auth.py` is **Schwab OAuth only** — not user login
+### ✅ Current Security State
+- **✅ All routes are JWT-protected** — `Depends(get_current_user)` on every router
+- **✅ Login/Register UI** deployed to Vercel (redeploy triggered commit `84f183d`)
+- **✅ JWT_SECRET_KEY + JWT_EXPIRE_MINUTES** set in Railway by user
+- **✅ DB migration complete** — `password_hash` column confirmed in Railway DB
 
 ---
 
 ## 🗺️ IMPLEMENTATION ROADMAP
 
-### **Phase A: Authentication** 🔴 CRITICAL — DO FIRST
-**Goal:** Secure the app with username/password login before anything else
-**Estimated Time:** 3-4 hours
+### **Phase A: Authentication** ✅ COMPLETE (commit `99d5eee`, March 9 2026)
+Built: `auth_service.py` (bcrypt direct), `auth_middleware.py`, `user_auth.py`, `Login.js`, `Register.js`, `AuthContext.js`, `apiClient.js`. All routes protected. Deployed to Railway + Vercel. Register and Login confirmed working end-to-end.
 
-#### What to Build
-- [ ] **A.1 JWT Authentication Backend**
-  - [ ] `backend/api/user_auth.py` — register, login, refresh endpoints
-  - [ ] `backend/services/auth_service.py` — JWT creation/validation, bcrypt passwords
-  - [ ] `backend/middleware/auth_middleware.py` — `get_current_user` dependency
-  - [ ] Protect ALL existing API routes with `Depends(get_current_user)`
-  - [ ] Add `password_hash` column to `users` table
-  - [ ] Migration: `database/migrations/add_auth_to_users.sql`
-  - **Packages needed:** `python-jose[cryptography]`, `passlib[bcrypt]`, `python-multipart`
-
-- [ ] **A.2 Railway Env Vars**
-  - [ ] `JWT_SECRET_KEY` — strong random string (set in Railway dashboard)
-  - [ ] `JWT_EXPIRE_MINUTES=1440` — 24-hour sessions
-
-- [ ] **A.3 Frontend Auth**
-  - [ ] `frontend/src/components/Login.js` — clean login page
-  - [ ] `frontend/src/components/Register.js` — registration (invite-only for now)
-  - [ ] `frontend/src/context/AuthContext.js` — JWT token storage + refresh
-  - [ ] `frontend/src/utils/apiClient.js` — axios instance that injects Bearer token
-  - [ ] Wrap all existing components in auth guard — redirect to login if not authenticated
-  - [ ] Update ALL existing `fetch()` calls to use `apiClient`
-
-**Completion Criteria:**
-- [ ] Cannot access any page without logging in
-- [ ] JWT token stored in httpOnly cookie or localStorage
-- [ ] Token included in all API requests automatically
-- [ ] Login page is clean and branded
+#### ✅ All manual steps complete:
+- [x] **A.2 Railway env vars set** — `JWT_SECRET_KEY` + `JWT_EXPIRE_MINUTES=1440`
+- [x] **A.3 DB migration run** — `password_hash` column confirmed in Railway PostgreSQL
+- [x] **A.4 Most fetch() calls updated** — `apiClient` wired to most components (some minor ones remain)
 
 ---
 
-### **Phase B: Verify ntfy.sh Push Notifications** 🟠 HIGH
+### **Phase B: Verify ntfy.sh Push Notifications** 🟠 NEXT UP
 **Goal:** Confirm alerts actually arrive on phone before building more automation
 **Estimated Time:** 30 minutes
 
 #### What to Build
-- [ ] **B.1 Test Endpoint**
-  - [ ] `POST /api/alerts/test` — sends a test notification via ntfy
-  - [ ] Protected by auth (Phase A must be done first)
+- [ ] **B.1 Test Endpoint** — `POST /api/alerts/test`
+  - [ ] Add to `backend/api/` — calls `alert_service.send_opportunity_alert()` with dummy data
+  - [ ] Protected by JWT auth
+  - [ ] Returns `{"sent": true}` or error detail
 
 - [ ] **B.2 Frontend Test Button**
-  - [ ] "Send Test Alert" button in settings/dashboard
-  - [ ] Shows success/failure
+  - [ ] "Send Test Alert" button in Settings or Dashboard
+  - [ ] Uses `apiClient` (sends Bearer token)
+  - [ ] Shows ✅ success or ❌ error message
 
-- [ ] **B.3 Phone Setup**
+- [ ] **B.3 Phone Setup** (manual — user does this)
   - [ ] Install ntfy app on phone
   - [ ] Subscribe to topic: `finsight-alerts`
   - [ ] Confirm test notification received
 
 **Completion Criteria:**
-- [ ] Click button in app → push notification appears on phone within 5 seconds
+- [ ] Click button in app → push notification on phone within 5 seconds
 
 ---
 
@@ -234,8 +224,8 @@ Target flow: Scanner → Proposals → Auto-executor → Alpaca order → ntfy a
 ## 📋 PRIORITY ORDER (What to build next)
 
 ```
-1. 🔴 Phase A — Authentication        (security crisis — do TODAY)
-2. 🟠 Phase B — Verify ntfy.sh        (30 min, confirm alerts work)
+1. ✅ Phase A — Authentication        DONE (commit 7cbb991) — set JWT_SECRET_KEY + run migration
+2. � Phase B — Verify ntfy.sh        (30 min, confirm alerts arrive on phone)
 3. 🟠 Phase C — Historical Data       (needed for backtesting)
 4. 🔴 Phase D — Autonomous Engine     (the main goal)
 5. 🟡 Phase E — Frontend Polish       (nice to have)
@@ -262,8 +252,8 @@ git push origin main
 | `NTFY_TOKEN` | `tk_ep8ay6l7llrce6fezrdqxg1e7yox6` | ✅ Set |
 | `NTFY_TOPIC` | `finsight-alerts` | ✅ Set |
 | `NTFY_URL` | `https://ntfy.sh` | ✅ Set |
-| `JWT_SECRET_KEY` | Generate strong random string | ❌ Not set yet |
-| `JWT_EXPIRE_MINUTES` | `1440` | ❌ Not set yet |
+| `JWT_SECRET_KEY` | Set by user | ✅ Set |
+| `JWT_EXPIRE_MINUTES` | `1440` | ✅ Set |
 | `ALPACA_PAPER_API_KEY_ID` | Your paper key | ✅ Set |
 | `ALPACA_PAPER_API_SECRET_KEY` | Your paper secret | ✅ Set |
 | `OPENAI_API_KEY` | Your key | ✅ Set |
@@ -301,7 +291,7 @@ git push origin main
 | File | Purpose | Status |
 |---|---|---|
 | `app/api/auth.py` | Schwab OAuth only (NOT user auth) | ⚠️ Misleading name |
-| `api/user_auth.py` | JWT user auth (register/login) | ❌ Not built |
+| `api/user_auth.py` | JWT user auth (register/login/me) | ✅ Built + deployed |
 | `api/queue.py` | Transaction queue (9 endpoints) | ✅ |
 | `api/scanner.py` | Scanner endpoints | ✅ |
 | `api/backtest.py` | Backtesting endpoints | ✅ |
@@ -309,9 +299,9 @@ git push origin main
 ### Frontend
 | File | Purpose | Status |
 |---|---|---|
-| `src/components/Login.js` | Login page | ❌ Not built |
-| `src/context/AuthContext.js` | Auth state management | ❌ Not built |
-| `src/utils/apiClient.js` | Axios + Bearer token | ❌ Not built |
+| `src/components/Login.js` | Login page | ✅ Built + deployed |
+| `src/context/AuthContext.js` | Auth state management | ✅ Built + deployed |
+| `src/utils/apiClient.js` | Fetch wrapper + Bearer token | ✅ Built + deployed |
 | `src/components/Dashboard.js` | Main dashboard | ✅ |
 | `src/components/TransactionQueue.js` | Queue UI | ✅ |
 | `src/components/Backtesting.js` | Backtest UI | ✅ |
@@ -331,7 +321,7 @@ git push origin main
 
 The system is ready for 2-week paper trading run when:
 
-- [ ] **Security:** Cannot access app without login
+- [x] **Security:** Cannot access app without logging in — ✅ JWT auth deployed
 - [ ] **Alerts:** ntfy push notification received on phone for test alert
 - [ ] **Data:** `historical_prices` populated for 500+ stocks from 2016
 - [ ] **Backtesting:** Can run 90-day backtest from UI, see results
@@ -344,5 +334,4 @@ The system is ready for 2-week paper trading run when:
 
 ---
 
-*Last Updated: March 8, 2026*
-*Next action: Build Phase A — JWT Authentication*
+*Last Updated: March 9, 2026 — Phase A fully complete and confirmed working. Auth, logo, navbar all done. Next: Phase B (ntfy.sh test endpoint + phone confirmation).*

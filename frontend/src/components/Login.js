@@ -25,10 +25,10 @@ export default function Login({ onSwitchToRegister }) {
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        {/* Logo above the card — rounded top, bleeds into card */}
-        <img src={logo} alt="f.Insight.AI" className="w-full block rounded-t-2xl" />
+        {/* Logo — flush above card, no gap */}
+        <img src={logo} alt="f.Insight.AI" className="w-full block mb-0" />
 
-        <div className="bg-gray-800 shadow-2xl p-8 border border-gray-700 rounded-b-2xl border-t-0">
+        <div className="bg-gray-800 rounded-2xl shadow-2xl p-8 border border-gray-700">
           <h2 className="text-xl font-semibold text-white mb-6">Sign in to your account</h2>
 
           {error && (
