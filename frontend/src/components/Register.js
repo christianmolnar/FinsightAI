@@ -48,11 +48,13 @@ export default function Register({ onSwitchToLogin }) {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
               <input
                 type="email"
+                name="email"
+                autoComplete="email"
                 required
                 value={email}
                 onChange={e => setEmail(e.target.value)}
@@ -65,6 +67,8 @@ export default function Register({ onSwitchToLogin }) {
               <label className="block text-sm font-medium text-gray-300 mb-1">Username</label>
               <input
                 type="text"
+                name="username"
+                autoComplete="username"
                 required
                 value={username}
                 onChange={e => setUsername(e.target.value)}
@@ -77,6 +81,8 @@ export default function Register({ onSwitchToLogin }) {
               <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
               <input
                 type="password"
+                name="new-password"
+                autoComplete="new-password"
                 required
                 value={password}
                 onChange={e => setPassword(e.target.value)}
@@ -89,6 +95,8 @@ export default function Register({ onSwitchToLogin }) {
               <label className="block text-sm font-medium text-gray-300 mb-1">Confirm Password</label>
               <input
                 type="password"
+                name="confirm-password"
+                autoComplete="new-password"
                 required
                 value={confirm}
                 onChange={e => setConfirm(e.target.value)}
