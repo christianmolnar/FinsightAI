@@ -8,6 +8,7 @@ pytest==7.4.3
 alembic==1.13.1
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
 python-multipart==0.0.6
 schwabdev==2.5.1
 yfinance==0.2.28
