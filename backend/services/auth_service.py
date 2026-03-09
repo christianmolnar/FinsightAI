@@ -12,8 +12,8 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -23,22 +23,20 @@ SECRET_KEY = os.getenv("JWT_SECRET_KEY", "CHANGE_ME_IN_PRODUCTION_USE_RAILWAY_EN
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "1440"))  # 24 hours
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+# --- Password utilities (bcrypt direct — no passlib) ---
 
-# --- Password utilities ---
-
-def _safe_password(plain: str) -> str:
-    """Bcrypt max is 72 bytes — truncate to avoid hard error."""
-    return plain.encode("utf-8")[:72].decode("utf-8", errors="ignore")
+def _safe_bytes(plain: str) -> bytes:
+    """Bcrypt max is 72 bytes — truncate before hashing."""
+    return plain.encode("utf-8")[:72]
 
 
 def hash_password(plain: str) -> str:
-    return pwd_context.hash(_safe_password(plain))
+    return bcrypt.hashpw(_safe_bytes(plain), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(_safe_password(plain), hashed)
+    return bcrypt.checkpw(_safe_bytes(plain), hashed.encode("utf-8"))
 
 
 # --- JWT utilities ---
