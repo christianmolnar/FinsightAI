@@ -7,14 +7,6 @@
   "deploy": {
     "startCommand": "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT",
     "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 10,
-    "cronJobs": [
-      {
-        "name": "opportunity-scanner",
-        "schedule": "*/15 9-16 * * 1-5",
-        "command": "cd backend && python jobs/run_scanner.py",
-        "timezone": "America/New_York"
-      }
-    ]
+    "restartPolicyMaxRetries": 10
   }
 }

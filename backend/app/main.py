@@ -52,21 +52,24 @@ from api.queue import router as queue_router
 from api.scanner import router as scanner_router
 from api.agent import router as agent_router
 from api.backtest import router as backtest_router
+from api.user_auth import router as user_auth_router
+from middleware.auth_middleware import get_current_user
 # from api.calibration import router as calibration_router  # Incomplete - requires openai module
 from utils.market_hours import get_market_status
 # Commented out optional routers that may not exist in deployment
 # from api.ai_optimizer import router as ai_optimizer_router
 # from api.paper_trading_db import router as paper_trading_router
 
-app.include_router(portfolio_router)
-app.include_router(market_router)
-app.include_router(auth_router)
-app.include_router(strategy_parameters_router)
-app.include_router(research_router)
-app.include_router(queue_router)
-app.include_router(scanner_router)
-app.include_router(agent_router)
-app.include_router(backtest_router)
+app.include_router(portfolio_router, dependencies=[Depends(get_current_user)])
+app.include_router(market_router, dependencies=[Depends(get_current_user)])
+app.include_router(auth_router)         # legacy Schwab OAuth — not protected
+app.include_router(user_auth_router)    # JWT user auth — not protected (public login/register)
+app.include_router(strategy_parameters_router, dependencies=[Depends(get_current_user)])
+app.include_router(research_router, dependencies=[Depends(get_current_user)])
+app.include_router(queue_router, dependencies=[Depends(get_current_user)])
+app.include_router(scanner_router, dependencies=[Depends(get_current_user)])
+app.include_router(agent_router, dependencies=[Depends(get_current_user)])
+app.include_router(backtest_router, dependencies=[Depends(get_current_user)])
 # app.include_router(calibration_router)  # Incomplete - requires openai module
 # app.include_router(ai_optimizer_router, prefix="/api/v1/ai", tags=["AI Optimization"])
 # app.include_router(paper_trading_router, prefix="/api/v1", tags=["Paper Trading"])
@@ -222,7 +225,7 @@ def get_real_stock_price(symbol: str) -> float | None:
 
 # Paper Trading Routes (Railway PostgreSQL)
 @app.get("/api/v1/paper/portfolio")
-async def get_paper_portfolio():
+async def get_paper_portfolio(current_user=Depends(get_current_user)):
     """Get paper trading portfolio from Railway PostgreSQL with real-time prices"""
     try:
         import psycopg2  # type: ignore
@@ -310,7 +313,7 @@ async def get_paper_portfolio():
 
 
 @app.get("/api/v1/paper/transactions")
-async def get_paper_transactions():
+async def get_paper_transactions(current_user=Depends(get_current_user)):
     """Get paper trading transaction history from Railway PostgreSQL"""
     try:
         import psycopg2  # type: ignore
@@ -371,7 +374,7 @@ class TradeRequest(BaseModel):
 
 
 @app.post("/api/v1/paper/trade")
-async def paper_trade(trade: TradeRequest):
+async def paper_trade(trade: TradeRequest, current_user=Depends(get_current_user)):
     """Execute paper trade (buy or sell)"""
     try:
         import psycopg2  # type: ignore
@@ -548,7 +551,7 @@ async def get_quote(symbol: str):
 
 
 @app.post("/api/v1/paper/trade/buy")
-async def paper_buy(symbol: str, quantity: float, price: float | None = None):
+async def paper_buy(symbol: str, quantity: float, price: float | None = None, current_user=Depends(get_current_user)):
     """Execute paper buy trade with optional real-time pricing"""
     try:
         import psycopg2  # type: ignore
@@ -627,7 +630,7 @@ async def paper_buy(symbol: str, quantity: float, price: float | None = None):
 
 
 @app.post("/api/v1/paper/reset")
-async def paper_reset():
+async def paper_reset(current_user=Depends(get_current_user)):
     """Reset paper portfolio to $10,000"""
     try:
         import psycopg2  # type: ignore

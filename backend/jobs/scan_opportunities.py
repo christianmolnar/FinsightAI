@@ -22,7 +22,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.database import SessionLocal
 from services.opportunity_analyzer import get_opportunity_analyzer
-from services.alert_service import get_alert_service
 from app.models import TradeProposal
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -102,18 +101,6 @@ class OpportunityScanJob:
                 proposals_created = await self._create_proposals(db, opportunities)
                 self.total_proposals_created += proposals_created
                 logger.info(f"✅ Created {proposals_created} trade proposals")
-                
-                # Step 2.5: Send alert if opportunities found
-                if opportunities:
-                    alert_service = get_alert_service()
-                    top_opp = opportunities[0]  # Highest confidence
-                    alert_service.send_opportunity_alert(
-                        symbol=top_opp['symbol'],
-                        strategy=top_opp['strategy'],
-                        confidence=top_opp['confidence'],
-                        reasoning=top_opp.get('reasoning', 'No reasoning provided'),
-                        count=len(opportunities)
-                    )
             
             # Step 3: Calculate duration
             duration = (datetime.now() - start_time).total_seconds()

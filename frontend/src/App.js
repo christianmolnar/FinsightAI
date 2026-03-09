@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState } from 'react';
 import Dashboard from './components/Dashboard';
 import MarketDataDashboard from './components/MarketDataDashboard';
 import StrategyConfig from './components/StrategyConfig';
@@ -8,43 +7,39 @@ import RealPortfolio from './RealPortfolio';
 import TransactionQueue from './components/TransactionQueue';
 import Backtesting from './components/Backtesting';
 import Navbar from './components/Navbar';
+import Login from './components/Login';
+import Register from './components/Register';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import './index.css';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-
-function App() {
-  const [portfolioData, setPortfolioData] = useState(null);
-  const [trades, setTrades] = useState([]);
-  const [loading, setLoading] = useState(false); // Changed to false - no initial load needed
-  const [error, setError] = useState(null);
+function AppContent() {
+  const { user, loading, logout } = useAuth();
+  const [authView, setAuthView] = useState('login'); // 'login' | 'register'
   const [activeTab, setActiveTab] = useState('live');
 
-  // Removed auto-fetch - each tab manages its own data
-  // useEffect(() => {
-  //   fetchData();
-  //   const interval = setInterval(fetchData, 30000);
-  //   return () => clearInterval(interval);
-  // }, []);
-
-  const refreshData = () => {
-    // Each tab component handles its own refresh
-    window.location.reload();
-  };
-
-  if (loading && !portfolioData) {
+  // Show spinner while restoring session from localStorage
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="loading-skeleton w-8 h-8 rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading FInsightAI...</p>
+          <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-400 text-sm">Loading…</p>
         </div>
       </div>
     );
   }
 
+  // Not authenticated — show login / register
+  if (!user) {
+    if (authView === 'register') {
+      return <Register onSwitchToLogin={() => setAuthView('login')} />;
+    }
+    return <Login onSwitchToRegister={() => setAuthView('register')} />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar onRefresh={refreshData} />
+      <Navbar onRefresh={() => window.location.reload()} onLogout={logout} user={user} />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Tab Navigation */}
@@ -141,6 +136,14 @@ function App() {
         )}
       </main>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
