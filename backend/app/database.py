@@ -10,24 +10,33 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Database URL - use Unix socket to avoid network issues
-# For PostgreSQL on macOS with Homebrew, the socket is in /tmp
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", 
-    "postgresql+psycopg://finsight:finsight123@/finsight?host=/tmp"
+# Database URL
+# Railway provides postgresql:// — normalize to psycopg2 driver prefix
+_raw_url = os.getenv(
+    "DATABASE_URL",
+    "postgresql://finsight:finsight123@localhost:5432/finsight"
 )
 
+# Ensure we use psycopg2 driver (handles both postgresql:// and postgres:// variants)
+if _raw_url.startswith("postgres://"):
+    _raw_url = _raw_url.replace("postgres://", "postgresql://", 1)
+if "+psycopg" in _raw_url and "+psycopg2" not in _raw_url:
+    _raw_url = _raw_url.replace("+psycopg", "+psycopg2", 1)
+if _raw_url.startswith("postgresql://") and "+psycopg2" not in _raw_url:
+    _raw_url = _raw_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+DATABASE_URL = _raw_url
+
 # Create engine with optimized settings
-# Note: pool_pre_ping=False to avoid connection on import
 engine = create_engine(
     DATABASE_URL,
     pool_size=10,
     max_overflow=20,
-    pool_pre_ping=False,  # Don't verify connections on import to avoid hanging
-    pool_recycle=3600,  # Recycle connections after 1 hour
-    echo=False,  # Set to True for SQL query logging
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    echo=False,
     connect_args={
-        "connect_timeout": 5,  # 5 second connection timeout
+        "connect_timeout": 10,
     }
 )
 
