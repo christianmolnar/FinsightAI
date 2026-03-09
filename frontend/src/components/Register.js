@@ -35,9 +35,9 @@ export default function Register({ onSwitchToLogin }) {
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <img src={logo} alt="f.Insight.AI" className="w-full mx-auto mb-2 block" />
+        <img src={logo} alt="f.Insight.AI" className="w-full block rounded-t-2xl" />
 
-        <div className="bg-gray-800 rounded-2xl shadow-2xl p-8 border border-gray-700">
+        <div className="bg-gray-800 shadow-2xl p-8 border border-gray-700 rounded-b-2xl border-t-0">
           <h2 className="text-xl font-semibold text-white mb-6">Create account</h2>
 
           {error && (
