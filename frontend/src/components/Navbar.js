@@ -23,12 +23,7 @@ const Navbar = ({ onRefresh, onLogout, user }) => {
           {/* Logo and title */}
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <img src={logo} alt="f.Insight.AI" className="h-9" />
-            </div>
-            <div className="hidden md:block ml-4">
-              <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                Autonomous Trading Agent
-              </span>
+              <img src={logo} alt="f.Insight.AI" className="h-12" />
             </div>
           </div>
 
