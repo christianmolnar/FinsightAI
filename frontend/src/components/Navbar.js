@@ -1,4 +1,5 @@
 import React from 'react';
+import logo from '../assets/logo.png';
 
 const Navbar = ({ onRefresh, onLogout, user }) => {
   const [lastUpdate, setLastUpdate] = React.useState(new Date());
@@ -22,9 +23,7 @@ const Navbar = ({ onRefresh, onLogout, user }) => {
           {/* Logo and title */}
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <h1 className="text-2xl font-bold text-gray-900">
-                <span className="text-blue-600">F</span>InsightAI
-              </h1>
+              <img src={logo} alt="f.Insight.AI" className="h-9" />
             </div>
             <div className="hidden md:block ml-4">
               <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">

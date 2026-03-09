@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import logo from '../assets/logo.png';
 
 export default function Login({ onSwitchToRegister }) {
   const { login } = useAuth();
@@ -26,7 +27,7 @@ export default function Login({ onSwitchToRegister }) {
       <div className="w-full max-w-md">
         {/* Logo / Title */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white">FInsight<span className="text-indigo-400">AI</span></h1>
+          <img src={logo} alt="f.Insight.AI" className="h-16 mx-auto mb-3" />
           <p className="text-gray-400 mt-2 text-sm">Autonomous Trading Intelligence</p>
         </div>
 
