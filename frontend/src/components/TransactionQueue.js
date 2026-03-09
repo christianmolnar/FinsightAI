@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import MarketStatus from './MarketStatus';
 import { Clock, CheckCircle, XCircle, Edit3, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
-
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+import { apiClient } from '../utils/apiClient';
 
 const TransactionQueue = () => {
   const [transactions, setTransactions] = useState([]);
@@ -29,9 +27,9 @@ const TransactionQueue = () => {
 
   const fetchPortfolios = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/v1/portfolios`);
-      if (response.data) {
-        setPortfolios(response.data);
+      const data = await apiClient.get('/api/v1/portfolios');
+      if (data) {
+        setPortfolios(data);
       }
     } catch (err) {
       console.error('Error fetching portfolios:', err);
@@ -41,35 +39,26 @@ const TransactionQueue = () => {
   const fetchTransactions = async () => {
     try {
       setError(null);
-      const params = {};
+      const params = new URLSearchParams();
+      if (portfolioFilter !== 'all') params.append('portfolio_id', portfolioFilter);
+      if (filter !== 'all') params.append('status', filter);
+
+      const path = `/api/queue/pending${params.toString() ? '?' + params.toString() : ''}`;
+      const data = await apiClient.get(path);
       
-      // Add portfolio filter
-      if (portfolioFilter !== 'all') {
-        params.portfolio_id = portfolioFilter;
-      }
-      
-      // Add status filter
-      if (filter !== 'all') {
-        params.status = filter;
-      }
-      
-      const response = await axios.get(`${API_BASE_URL}/api/queue/pending`, { params });
-      
-      if (response.data.success) {
-        let filtered = response.data.transactions || [];
+      if (data.success) {
+        let filtered = data.transactions || [];
         
-        // Apply symbol filter (frontend filtering)
         if (symbolFilter) {
-          filtered = filtered.filter(t => 
+          filtered = filtered.filter(t =>
             t.symbol.toLowerCase().includes(symbolFilter.toLowerCase())
           );
         }
-        
         setTransactions(filtered);
       }
     } catch (err) {
       console.error('Error fetching transactions:', err);
-      setError(err.response?.data?.detail || 'Failed to fetch transactions');
+      setError(err.message || 'Failed to fetch transactions');
     } finally {
       setLoading(false);
     }
@@ -77,34 +66,32 @@ const TransactionQueue = () => {
 
   const handleApprove = async (transactionId) => {
     try {
-      const response = await axios.put(
-        `${API_BASE_URL}/api/queue/pending/${transactionId}/approve`,
+      const data = await apiClient.put(
+        `/api/queue/pending/${transactionId}/approve`,
         { user_notes: 'Approved from queue UI' }
       );
-      
-      if (response.data.success) {
+      if (data.success) {
         alert('✅ Trade executed successfully!');
         fetchTransactions();
       }
     } catch (err) {
-      alert(`❌ Error approving trade: ${err.response?.data?.detail || err.message}`);
+      alert(`❌ Error approving trade: ${err.message}`);
     }
   };
 
   const handleReject = async (transactionId) => {
     const reason = prompt('Reason for rejection (optional):');
     try {
-      const response = await axios.put(
-        `${API_BASE_URL}/api/queue/pending/${transactionId}/reject`,
+      const data = await apiClient.put(
+        `/api/queue/pending/${transactionId}/reject`,
         { reason: reason || 'Rejected by user' }
       );
-      
-      if (response.data.success) {
+      if (data.success) {
         alert('Transaction rejected');
         fetchTransactions();
       }
     } catch (err) {
-      alert(`Error rejecting trade: ${err.response?.data?.detail || err.message}`);
+      alert(`Error rejecting trade: ${err.message}`);
     }
   };
 
@@ -121,18 +108,17 @@ const TransactionQueue = () => {
 
   const handleModify = async () => {
     try {
-      const response = await axios.put(
-        `${API_BASE_URL}/api/queue/pending/${selectedTransaction.id}/modify`,
+      const data = await apiClient.put(
+        `/api/queue/pending/${selectedTransaction.id}/modify`,
         modifyForm
       );
-      
-      if (response.data.success) {
+      if (data.success) {
         alert('✅ Transaction updated successfully!');
         setShowModifyModal(false);
         fetchTransactions();
       }
     } catch (err) {
-      alert(`❌ Error modifying trade: ${err.response?.data?.detail || err.message}`);
+      alert(`❌ Error modifying trade: ${err.message}`);
     }
   };
 
