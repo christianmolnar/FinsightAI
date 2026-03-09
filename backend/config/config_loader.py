@@ -155,11 +155,19 @@ class Config:
     
     def _load_secrets(self):
         """Load sensitive data from environment variables"""
-        # Alpaca API credentials
-        self.alpaca_paper_api_key = os.getenv('ALPACA_PAPER_API_KEY')
-        self.alpaca_paper_secret_key = os.getenv('ALPACA_PAPER_SECRET_KEY')
-        self.alpaca_live_api_key = os.getenv('ALPACA_LIVE_API_KEY')
-        self.alpaca_live_secret_key = os.getenv('ALPACA_LIVE_SECRET_KEY')
+        # Alpaca API credentials — support both naming conventions
+        self.alpaca_paper_api_key = (
+            os.getenv('ALPACA_PAPER_API_KEY_ID') or os.getenv('ALPACA_PAPER_API_KEY')
+        )
+        self.alpaca_paper_secret_key = (
+            os.getenv('ALPACA_PAPER_API_SECRET_KEY') or os.getenv('ALPACA_PAPER_SECRET_KEY')
+        )
+        self.alpaca_live_api_key = (
+            os.getenv('ALPACA_LIVE_API_KEY_ID') or os.getenv('ALPACA_LIVE_API_KEY')
+        )
+        self.alpaca_live_secret_key = (
+            os.getenv('ALPACA_LIVE_API_SECRET_KEY') or os.getenv('ALPACA_LIVE_SECRET_KEY')
+        )
         
         # Database
         self.database_url = os.getenv('DATABASE_URL')
@@ -184,19 +192,20 @@ class Config:
         self.log_level = os.getenv('LOG_LEVEL', 'INFO')
     
     def _validate(self):
-        """Validate configuration values"""
-        # Check required Alpaca credentials
+        """Validate configuration values — warn on missing keys, never crash."""
+        import logging
+        _log = logging.getLogger(__name__)
         if self.trading.paper_trading:
             if not self.alpaca_paper_api_key or not self.alpaca_paper_secret_key:
-                raise ValueError(
-                    "Paper trading enabled but ALPACA_PAPER_API_KEY and "
-                    "ALPACA_PAPER_SECRET_KEY not found in .env file"
+                _log.warning(
+                    "Paper trading enabled but ALPACA_PAPER_API_KEY_ID / "
+                    "ALPACA_PAPER_API_SECRET_KEY not set — paper trading will fail"
                 )
         else:
             if not self.alpaca_live_api_key or not self.alpaca_live_secret_key:
-                raise ValueError(
-                    "Live trading enabled but ALPACA_LIVE_API_KEY and "
-                    "ALPACA_LIVE_SECRET_KEY not found in .env file"
+                _log.warning(
+                    "Live trading enabled but ALPACA_LIVE_API_KEY_ID / "
+                    "ALPACA_LIVE_API_SECRET_KEY not set — live trading will fail"
                 )
         
         # Validate position sizing
