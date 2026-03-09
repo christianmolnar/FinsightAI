@@ -31,13 +31,14 @@ _raw_url = re.sub(r'[?&]sslmode=[^&]*', '', _raw_url).rstrip('?').rstrip('&')
 
 DATABASE_URL = _raw_url
 
-# Create engine — small pool, SSL via connect_args, no pre-ping (we check at startup)
+# Create engine — small pool, SSL via connect_args, pre-ping to validate connections
 engine = create_engine(
     DATABASE_URL,
     pool_size=2,
     max_overflow=5,
-    pool_pre_ping=False,
-    pool_recycle=1800,
+    pool_pre_ping=True,
+    pool_recycle=300,
+    pool_timeout=15,
     echo=False,
     connect_args={
         "connect_timeout": 10,
@@ -46,6 +47,7 @@ engine = create_engine(
         "keepalives_idle": 5,
         "keepalives_interval": 2,
         "keepalives_count": 3,
+        "options": "-c statement_timeout=8000",
     }
 )
 
@@ -61,9 +63,13 @@ def get_db():
     Dependency to get database session.
     Use with FastAPI Depends() for automatic session management.
     """
+    from fastapi import HTTPException
     db = SessionLocal()
     try:
         yield db
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     finally:
         db.close()
 
