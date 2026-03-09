@@ -70,6 +70,20 @@ app.include_router(queue_router, dependencies=[Depends(get_current_user)])
 app.include_router(scanner_router, dependencies=[Depends(get_current_user)])
 app.include_router(agent_router, dependencies=[Depends(get_current_user)])
 app.include_router(backtest_router, dependencies=[Depends(get_current_user)])
+
+# Global exception handler — ensures CORS headers are present even on 500s
+# (without this, browser sees a CORS error instead of the real error)
+from fastapi import Request
+from fastapi.responses import JSONResponse as _JSONResponse
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    return _JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)},
+        headers={"Access-Control-Allow-Origin": "*"},
+    )
 # app.include_router(calibration_router)  # Incomplete - requires openai module
 # app.include_router(ai_optimizer_router, prefix="/api/v1/ai", tags=["AI Optimization"])
 # app.include_router(paper_trading_router, prefix="/api/v1", tags=["Paper Trading"])
