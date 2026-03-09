@@ -1,17 +1,17 @@
 """
 Alert Service - Send notifications for important events
 
-Delegates to ntfy.sh push notification service.
-Install the ntfy app on your phone and subscribe to your topic.
+Delegates to Pushover push notification service.
+Install the Pushover app on your phone (iOS/Android).
 
 Railway env vars required:
-  NTFY_TOKEN   - Access token from ntfy.sh account settings
-  NTFY_TOPIC   - Your topic name (e.g. "finsight-alerts")
+  PUSHOVER_TOKEN     - API token from pushover.net/apps
+  PUSHOVER_USER_KEY  - Your user key from pushover.net dashboard
 """
 
 import logging
 from typing import Optional
-from services.ntfy_service import get_ntfy_service
+from services.pushover_service import get_pushover_service
 
 logger = logging.getLogger(__name__)
 
@@ -20,11 +20,11 @@ class AlertService:
     """Send alerts for scanner opportunities and trading events"""
 
     def __init__(self):
-        self._ntfy = get_ntfy_service()
+        self._ntfy = get_pushover_service()
         if self._ntfy.enabled:
-            logger.info("✅ Push alerts enabled via ntfy.sh")
+            logger.info("✅ Push alerts enabled via Pushover")
         else:
-            logger.warning("⚠️ Alerts disabled — set NTFY_TOKEN and NTFY_TOPIC in Railway env vars")
+            logger.warning("⚠️ Alerts disabled — set PUSHOVER_TOKEN and PUSHOVER_USER_KEY in Railway env vars")
 
     def send_opportunity_alert(
         self,

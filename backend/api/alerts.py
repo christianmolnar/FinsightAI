@@ -23,13 +23,13 @@ async def send_test_alert(
 ):
     """Send a test push notification via ntfy.sh to confirm alerts are working."""
     try:
-        from services.ntfy_service import get_ntfy_service
-        ntfy = get_ntfy_service()
+        from services.pushover_service import get_pushover_service
+        ntfy = get_pushover_service()
 
         if not ntfy.enabled:
             raise HTTPException(
                 status_code=503,
-                detail="ntfy.sh not configured — set NTFY_TOKEN and NTFY_TOPIC in Railway env vars",
+                detail="Pushover not configured — set PUSHOVER_TOKEN and PUSHOVER_USER_KEY in Railway env vars",
             )
 
         sent = ntfy.send(
