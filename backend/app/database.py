@@ -17,13 +17,17 @@ _raw_url = os.getenv(
     "postgresql://finsight:finsight123@localhost:5432/finsight"
 )
 
-# Ensure we use psycopg2 driver (handles both postgresql:// and postgres:// variants)
+# Normalize driver prefix (Railway provides postgresql://, SQLAlchemy needs psycopg2)
 if _raw_url.startswith("postgres://"):
     _raw_url = _raw_url.replace("postgres://", "postgresql://", 1)
 if "+psycopg" in _raw_url and "+psycopg2" not in _raw_url:
     _raw_url = _raw_url.replace("+psycopg", "+psycopg2", 1)
 if _raw_url.startswith("postgresql://") and "+psycopg2" not in _raw_url:
     _raw_url = _raw_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+# Ensure sslmode=require is in the URL (Railway PostgreSQL requires SSL)
+if "sslmode" not in _raw_url:
+    _raw_url += ("&" if "?" in _raw_url else "?") + "sslmode=require"
 
 DATABASE_URL = _raw_url
 
@@ -37,7 +41,6 @@ engine = create_engine(
     echo=False,
     connect_args={
         "connect_timeout": 10,
-        "sslmode": "require",
     }
 )
 
