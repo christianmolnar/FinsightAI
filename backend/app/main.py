@@ -118,7 +118,7 @@ async def debug_info():
     from app.database import DATABASE_URL
     masked = DATABASE_URL[:40] + "..." if DATABASE_URL else "NOT SET"
     return {
-        "code_version": "bcrypt-3.2.2-v9",
+        "code_version": "config-fix-v10",
         "db_url_prefix": masked,
         "sslmode_present": "sslmode" in (DATABASE_URL or ""),
     }
