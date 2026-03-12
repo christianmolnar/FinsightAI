@@ -2,20 +2,22 @@
 **AI Trading Agent Development Roadmap - Full v1.0 Delivery**
 
 **Date Created:** December 22, 2025
-**Last Updated:** March 9, 2026 — Phase A COMPLETE + deployed. Auth wor```
-1. ✅ Phase A — Authentication        DONE (commit 99d5eee, March 9 2026)
-2. 🟠 Phase B — Verify ntfy.sh        NEXT (30 min — build test endpoint + button, confirm on phone)
-3. 🟠 Phase C — Historical Data       (needed for backtesting — Alpaca download + Kaggle import)
-4. 🔴 Phase D — Autonomous Engine     (THE MAIN GOAL — position monitor + auto-executor)
-5. 🟡 Phase E — Frontend Polish       (nice to have — agent status widget, notifications log)
-```d-to-end. Logo updated (transparent RGBA). Tagline removed from navbar.
+**Last Updated:** March 12, 2026 — Phase B COMPLETE. P```
+1. ✅ Phase A — Authentication        DONE (commit 99d5eee) — JWT auth, bcrypt, all routes protected
+2. ✅ Phase B — Push Notifications    DONE (commit 5b9741e) — Pushover, badge+sound+banner confirmed
+3. 🔴 Phase C — Historical Data       CURRENT (needed for backtesting)
+4. 🔴 Phase D — Autonomous Engine     (the main goal)
+5. 🟡 Phase E — Frontend Polish       (nice to have)
+``` push notifications working end-to-end (badge, sound, banner).
 **Project Status:** Full stack live. Frontend on Vercel, Backend on Railway — both healthy.
-**Current Phase:** Phase B — ntfy.sh end-to-end test
-**Next Phase:** Phase C — Historical Data → Phase D — Autonomous Engine
+**Current Phase:** Phase C — Populate Historical Data in Railway DB
+**Next Phase:** Phase D — Autonomous Trading Engine
 
-**Overall Progress:** ~70% complete toward FINAL OBJECTIVE
+**Overall Progress:** ~75% complete toward FINAL OBJECTIVE
 
 > **✅ PHASE A COMPLETE** (commit `99d5eee`, March 9 2026): JWT auth fully working. Register/Login/Me endpoints live. passlib removed — using bcrypt directly. All routes protected. Logo transparent RGBA, tagline removed from navbar.
+
+> **✅ PHASE B COMPLETE** (commit `5b9741e`, March 12 2026): Push notifications working end-to-end. Switched from ntfy.sh (no true push on free tier) to Pushover ($5 one-time). `POST /api/alerts/test` endpoint live. "Send Test Alert" button in navbar gear dropdown. Badge + sound + banner confirmed on phone.
 
 ---
 
@@ -53,8 +55,12 @@ A **fully autonomous paper trading system** running 24/7 on Railway/Vercel that:
 | Market Scanner | ✅ Built | 3 strategies, Alpaca data |
 | Universe Builder | ✅ Built | SP500+DOW+NASDAQ100+Alpaca US equities |
 | Railway Cron (Scanner) | ✅ Configured | Every 15 min market hours |
-| ntfy.sh Service | ✅ Built | `ntfy_service.py` + `alert_service.py` |
-| ntfy.sh Railway Vars | ✅ Set | `NTFY_TOKEN`, `NTFY_TOPIC`, `NTFY_URL` |
+| ntfy.sh Service | ✅ Built (replaced) | Replaced by Pushover — `ntfy_service.py` kept for reference |
+| ntfy.sh Railway Vars | ✅ Set (superseded) | Replaced by `PUSHOVER_TOKEN` + `PUSHOVER_USER_KEY` |
+| Pushover Service | ✅ Built + Working | `pushover_service.py` — true push (badge/sound/banner) |
+| Pushover Railway Vars | ✅ Set | `PUSHOVER_TOKEN`, `PUSHOVER_USER_KEY` |
+| POST /api/alerts/test | ✅ Live | JWT-protected, calls Pushover |
+| Send Test Alert button | ✅ Live | Navbar gear ⚙️ dropdown |
 | Backtester | ✅ Built | `backtester.py` |
 | Calibration Engine | ✅ Built | `calibration_engine.py` |
 | Historical Data Manager | ✅ Built | `historical_data_manager.py` (Alpaca-based) |
@@ -63,9 +69,6 @@ A **fully autonomous paper trading system** running 24/7 on Railway/Vercel that:
 ### ❌ What Is NOT Built / NOT Working
 | Component | Status | Priority |
 |---|---|---|
-| ntfy.sh end-to-end verified | ❌ NOT TESTED | 🔴 Phase B |
-| `POST /api/alerts/test` endpoint | ❌ NOT BUILT | 🔴 Phase B |
-| "Send Test Alert" button in UI | ❌ NOT BUILT | 🔴 Phase B |
 | Historical data in Railway DB | ❌ NOT POPULATED | 🔴 Phase C |
 | Position Monitor | ❌ NOT BUILT | 🔴 Phase D |
 | Auto-execute trades (buy/sell) | ❌ NOT BUILT | 🔴 Phase D |
@@ -95,32 +98,12 @@ Built: `auth_service.py` (bcrypt direct), `auth_middleware.py`, `user_auth.py`, 
 
 ---
 
-### **Phase B: Verify ntfy.sh Push Notifications** 🟠 NEXT UP
-**Goal:** Confirm alerts actually arrive on phone before building more automation
-**Estimated Time:** 30 minutes
-
-#### What to Build
-- [ ] **B.1 Test Endpoint** — `POST /api/alerts/test`
-  - [ ] Add to `backend/api/` — calls `alert_service.send_opportunity_alert()` with dummy data
-  - [ ] Protected by JWT auth
-  - [ ] Returns `{"sent": true}` or error detail
-
-- [ ] **B.2 Frontend Test Button**
-  - [ ] "Send Test Alert" button in Settings or Dashboard
-  - [ ] Uses `apiClient` (sends Bearer token)
-  - [ ] Shows ✅ success or ❌ error message
-
-- [ ] **B.3 Phone Setup** (manual — user does this)
-  - [ ] Install ntfy app on phone
-  - [ ] Subscribe to topic: `finsight-alerts`
-  - [ ] Confirm test notification received
-
-**Completion Criteria:**
-- [ ] Click button in app → push notification on phone within 5 seconds
+### **Phase B: Verify Push Notifications** ✅ COMPLETE (commit `5b9741e`, March 12 2026)
+Built: `pushover_service.py`, updated `alert_service.py`, `POST /api/alerts/test` endpoint, "Send Test Alert" button in navbar gear dropdown. Switched from ntfy.sh (no true push on free tier) to Pushover. Badge + sound + banner confirmed working on phone.
 
 ---
 
-### **Phase C: Populate Historical Data (Railway DB)** 🟠 HIGH
+### **Phase C: Populate Historical Data (Railway DB)** � CURRENT
 **Goal:** Load historical stock data into Railway PostgreSQL for backtesting
 **Estimated Time:** 2-3 hours build + background download time
 
@@ -269,8 +252,8 @@ git push origin main
 | `services/alpaca_service.py` | Broker integration (paper+live) | ✅ |
 | `services/market_scanner.py` | 3-strategy scanner, Alpaca data | ✅ Updated |
 | `services/universe_builder.py` | SP500+DOW+NASDAQ+Alpaca US equities | ✅ Updated |
-| `services/ntfy_service.py` | Push notifications | ✅ New |
-| `services/alert_service.py` | Alert dispatcher → ntfy | ✅ Updated |
+| `services/pushover_service.py` | Push notifications (Pushover) | ✅ Built |
+| `services/alert_service.py` | Alert dispatcher → Pushover | ✅ Updated |
 | `services/historical_data_manager.py` | Alpaca OHLCV download + cache | ✅ |
 | `services/backtester.py` | Strategy backtesting engine | ✅ |
 | `services/calibration_engine.py` | Backtest → strategy recommendations | ✅ |
@@ -322,7 +305,7 @@ git push origin main
 The system is ready for 2-week paper trading run when:
 
 - [x] **Security:** Cannot access app without logging in — ✅ JWT auth deployed
-- [ ] **Alerts:** ntfy push notification received on phone for test alert
+- [x] **Alerts:** Pushover push notification confirmed on phone (badge + sound + banner) ✅
 - [ ] **Data:** `historical_prices` populated for 500+ stocks from 2016
 - [ ] **Backtesting:** Can run 90-day backtest from UI, see results
 - [ ] **Scanning:** Railway cron runs scanner every 15 min market hours ✅ (already works)
@@ -334,4 +317,4 @@ The system is ready for 2-week paper trading run when:
 
 ---
 
-*Last Updated: March 9, 2026 — Phase A fully complete and confirmed working. Auth, logo, navbar all done. Next: Phase B (ntfy.sh test endpoint + phone confirmation).*
+*Last Updated: March 12, 2026 — Phase B complete. Pushover push notifications confirmed working end-to-end. Next: Phase C (populate historical data in Railway DB for backtesting).*
