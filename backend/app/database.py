@@ -31,23 +31,17 @@ _raw_url = re.sub(r'[?&]sslmode=[^&]*', '', _raw_url).rstrip('?').rstrip('&')
 
 DATABASE_URL = _raw_url
 
-# Create engine — small pool, SSL via connect_args, keepalives for Railway long connections
+# Create engine — small pool, SSL via connect_args, no pre-ping (we check at startup)
 engine = create_engine(
     DATABASE_URL,
     pool_size=2,
     max_overflow=5,
-    pool_pre_ping=True,
-    pool_recycle=300,
-    pool_timeout=30,
+    pool_pre_ping=False,
+    pool_recycle=1800,
     echo=False,
     connect_args={
-        "connect_timeout": 30,
+        "connect_timeout": 10,
         "sslmode": "require",
-        "keepalives": 1,
-        "keepalives_idle": 10,
-        "keepalives_interval": 5,
-        "keepalives_count": 5,
-        "options": "-c statement_timeout=15000",
     }
 )
 
@@ -62,20 +56,10 @@ def get_db():
     """
     Dependency to get database session.
     Use with FastAPI Depends() for automatic session management.
-    Retries once on OperationalError (stale pool connection).
     """
-    from sqlalchemy.exc import OperationalError
     db = SessionLocal()
     try:
         yield db
-    except OperationalError as e:
-        db.close()
-        # Retry with a fresh connection
-        db = SessionLocal()
-        try:
-            yield db
-        finally:
-            db.close()
     finally:
         db.close()
 

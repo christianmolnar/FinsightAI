@@ -4,7 +4,6 @@ import { DollarSign, TrendingUp, TrendingDown, Eye, EyeOff, RefreshCw, Plus, Tar
 import MarketStatus from './components/MarketStatus';
 import ConfirmationModal from './components/ConfirmationModal';
 import NotificationModal from './components/NotificationModal';
-import api from './utils/apiClient';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -41,7 +40,15 @@ const RealPortfolio = () => {
   const fetchPortfolioData = async () => {
     try {
       setError(null);
-      const data = await api.get('/api/v1/alpaca/live/portfolio');
+      const response = await fetch(`${API_BASE_URL}/api/v1/alpaca/live/portfolio`, {
+        signal: AbortSignal.timeout(10000)
+      });
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to fetch portfolio data');
+      }
+      
       setPortfolioData(data);
       setRetryCount(0);
     } catch (err) {
@@ -74,8 +81,11 @@ const RealPortfolio = () => {
   const fetchStockPrice = async (symbol) => {
     try {
       setLoadingPrice(true);
-      const data = await api.get(`/api/v1/quotes/${symbol}`);
-      if (data.price) setCurrentPrice(data.price);
+      const response = await fetch(`${API_BASE_URL}/api/v1/quotes/${symbol}`);
+      const data = await response.json();
+      if (response.ok && data.price) {
+        setCurrentPrice(data.price);
+      }
     } catch (error) {
       console.error('Error fetching price:', error);
     } finally {
@@ -85,8 +95,11 @@ const RealPortfolio = () => {
 
   const fetchMarketStatus = async () => {
     try {
-      const data = await api.get('/api/market/status');
-      if (data.success) setMarketStatus(data);
+      const response = await fetch(`${API_BASE_URL}/api/market/status`);
+      const data = await response.json();
+      if (data.success) {
+        setMarketStatus(data);
+      }
     } catch (error) {
       console.error('Error fetching market status:', error);
     }
@@ -94,11 +107,15 @@ const RealPortfolio = () => {
 
   const fetchPendingOrders = async () => {
     try {
-      const data = await api.get('/api/v1/alpaca/live/orders');
-      const pending = (data.orders || []).filter(order =>
-        ['new', 'accepted', 'pending_new', 'partially_filled'].includes(order.status)
-      );
-      setPendingOrders(pending);
+      const response = await fetch(`${API_BASE_URL}/api/v1/alpaca/live/orders`);
+      if (response.ok) {
+        const data = await response.json();
+        // Filter for pending orders (not filled or cancelled)
+        const pending = (data.orders || []).filter(order => 
+          ['new', 'accepted', 'pending_new', 'partially_filled'].includes(order.status)
+        );
+        setPendingOrders(pending);
+      }
     } catch (error) {
       console.error('Error fetching pending orders:', error);
     }
@@ -124,8 +141,10 @@ const RealPortfolio = () => {
     }
 
     try {
-      const data = await api.get(`/api/v1/quotes/${symbol}`);
-      if (data.price) {
+      const response = await fetch(`${API_BASE_URL}/api/v1/quotes/${symbol}`);
+      const data = await response.json();
+      
+      if (response.ok && data.price) {
         const newWatch = {
           symbol,
           price: data.price,
@@ -133,18 +152,32 @@ const RealPortfolio = () => {
           changePercent: data.changePercent || 0,
           lastUpdated: new Date().toISOString()
         };
+        
         const updated = [...watchlist, newWatch];
         saveWatchlist(updated);
         setNewWatchSymbol('');
-        setNotificationConfig({ title: 'Added to Watchlist', message: `${symbol} added successfully`, type: 'success' });
+        
+        setNotificationConfig({
+          title: 'Added to Watchlist',
+          message: `${symbol} added successfully`,
+          type: 'success'
+        });
         setShowNotification(true);
       } else {
-        setNotificationConfig({ title: 'Invalid Symbol', message: 'Invalid symbol or unable to fetch price', type: 'error' });
+        setNotificationConfig({
+          title: 'Invalid Symbol',
+          message: 'Invalid symbol or unable to fetch price',
+          type: 'error'
+        });
         setShowNotification(true);
       }
     } catch (error) {
       console.error('Error adding to watchlist:', error);
-      setNotificationConfig({ title: 'Error', message: 'Error adding symbol to watchlist', type: 'error' });
+      setNotificationConfig({
+        title: 'Error',
+        message: 'Error adding symbol to watchlist',
+        type: 'error'
+      });
       setShowNotification(true);
     }
   };
@@ -191,19 +224,38 @@ const RealPortfolio = () => {
   const executeTradeConfirmed = async () => {
     try {
       setTradeLoading(true);
-      const data = await api.post('/api/v1/alpaca/live/trade', {
-        symbol: tradeForm.symbol,
-        quantity: parseFloat(tradeForm.quantity),
-        side: tradeForm.action,
-        type: tradeForm.orderType
+      const response = await fetch(`${API_BASE_URL}/api/v1/alpaca/live/trade`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol: tradeForm.symbol,
+          quantity: parseFloat(tradeForm.quantity),
+          side: tradeForm.action,
+          type: tradeForm.orderType
+        })
       });
 
-      setNotificationConfig({ title: 'Trade Executed Successfully', message: `Order ID: ${data.order?.id || 'N/A'}`, type: 'success' });
-      setShowNotification(true);
-      setShowTradeModal(false);
-      setTradeForm({ symbol: '', action: 'BUY', quantity: 1, orderType: 'market' });
-      await fetchPortfolioData();
-      await fetchPendingOrders();
+      const data = await response.json();
+
+      if (response.ok) {
+        setNotificationConfig({
+          title: 'Trade Executed Successfully',
+          message: `Order ID: ${data.order?.id || 'N/A'}`,
+          type: 'success'
+        });
+        setShowNotification(true);
+        setShowTradeModal(false);
+        setTradeForm({ symbol: '', action: 'BUY', quantity: 1, orderType: 'market' });
+        await fetchPortfolioData();
+        await fetchPendingOrders();
+      } else {
+        setNotificationConfig({
+          title: 'Trade Failed',
+          message: data.detail || 'Unknown error',
+          type: 'error'
+        });
+        setShowNotification(true);
+      }
     } catch (error) {
       console.error('Error executing trade:', error);
       setNotificationConfig({
@@ -259,7 +311,7 @@ const RealPortfolio = () => {
 
   if (error) {
     // Check if this is an authorization error (paper-only API keys)
-    const isAuthError = error.includes('not authorized') || error.includes('authorization') || error.includes('not configured');
+    const isAuthError = error.includes('not authorized') || error.includes('authorization');
     
     return (
       <div className="p-6">

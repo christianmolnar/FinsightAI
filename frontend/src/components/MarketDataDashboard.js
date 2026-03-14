@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import MarketStatus from './MarketStatus';
-import { apiClient } from '../utils/apiClient';
 
 const MarketDataDashboard = () => {
   const [connectionStatus, setConnectionStatus] = useState('connected');
@@ -15,7 +15,7 @@ const MarketDataDashboard = () => {
   const [refreshInterval, setRefreshInterval] = useState(60); // seconds
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  const API_BASE = '/api/market';
+  const API_BASE = `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/market`;
 
   // Auto-fetch quotes on component mount
   useEffect(() => {
@@ -40,12 +40,12 @@ const MarketDataDashboard = () => {
     setError(null);
     
     try {
-      const data = await apiClient.get(`${API_BASE}/quotes/${symbols}`);
-      setQuotes(data.quotes || {});
+      const response = await axios.get(`${API_BASE}/quotes/${symbols}`);
+      setQuotes(response.data.quotes || {});
       setLastUpdated(new Date());
-      console.log('Quotes received:', data);
+      console.log('Quotes received:', response.data);
     } catch (err) {
-      setError(err.message || 'Failed to get quotes');
+      setError(err.response?.data?.detail || 'Failed to get quotes');
       console.error('Error getting quotes:', err);
     } finally {
       setLoading(false);
@@ -57,11 +57,11 @@ const MarketDataDashboard = () => {
     setError(null);
     
     try {
-      const data = await apiClient.get(`${API_BASE}/accounts`);
-      setAccounts(data.accounts || []);
-      console.log('Accounts received:', data);
+      const response = await axios.get(`${API_BASE}/accounts`);
+      setAccounts(response.data.accounts || []);
+      console.log('Accounts received:', response.data);
     } catch (err) {
-      setError(err.message || 'Failed to get accounts');
+      setError(err.response?.data?.detail || 'Failed to get accounts');
       console.error('Error getting accounts:', err);
     } finally {
       setLoading(false);
@@ -72,33 +72,33 @@ const MarketDataDashboard = () => {
     const symbolList = symbols.split(',').map(s => s.trim()).filter(s => s);
     
     try {
-      const data = await apiClient.post(`${API_BASE}/stream/start`, symbolList);
-      console.log('Streaming started:', data);
+      const response = await axios.post(`${API_BASE}/stream/start`, symbolList);
+      console.log('Streaming started:', response.data);
       alert('Real-time streaming started! Data will be saved to the database.');
     } catch (err) {
-      setError(err.message || 'Failed to start streaming');
+      setError(err.response?.data?.detail || 'Failed to start streaming');
       console.error('Error starting stream:', err);
     }
   };
 
   const stopStreaming = async () => {
     try {
-      const data = await apiClient.post(`${API_BASE}/stream/stop`);
-      console.log('Streaming stopped:', data);
+      const response = await axios.post(`${API_BASE}/stream/stop`);
+      console.log('Streaming stopped:', response.data);
       alert('Real-time streaming stopped.');
     } catch (err) {
-      setError(err.message || 'Failed to stop streaming');
+      setError(err.response?.data?.detail || 'Failed to stop streaming');
       console.error('Error stopping stream:', err);
     }
   };
 
   const getRecentData = async (symbol = 'AAPL') => {
     try {
-      const data = await apiClient.get(`${API_BASE}/data/recent/${symbol}?hours=24`);
-      setRecentData(data.data || []);
-      console.log('Recent data:', data);
+      const response = await axios.get(`${API_BASE}/data/recent/${symbol}?hours=24`);
+      setRecentData(response.data.data || []);
+      console.log('Recent data:', response.data);
     } catch (err) {
-      setError(err.message || 'Failed to get recent data');
+      setError(err.response?.data?.detail || 'Failed to get recent data');
       console.error('Error getting recent data:', err);
     }
   };

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import SellValidation from './SellValidation';
 import MarketStatus from './MarketStatus';
 import ConfirmationModal from './ConfirmationModal';
 import NotificationModal from './NotificationModal';
-import { apiClient } from '../utils/apiClient';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -21,6 +21,8 @@ import {
   ChevronUp,
   Clock
 } from 'lucide-react';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const PaperPortfolio = () => {
   const [portfolio, setPortfolio] = useState(null);
@@ -88,21 +90,36 @@ const PaperPortfolio = () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiClient.get('/api/v1/alpaca/paper/portfolio');
-      const transformedData = {
-        total_value: data.account?.portfolio_value || 0,
-        cash_balance: data.account?.cash || 0,
-        invested_value: data.metrics?.total_market_value || 0,
-        unrealized_pnl: data.metrics?.total_unrealized_pl || 0,
-        positions: data.positions || [],
-        account: data.account,
-        metrics: data.metrics
-      };
-      setPortfolio(transformedData);
-      setError(null);
+      const response = await fetch(`${API_BASE_URL}/api/v1/alpaca/paper/portfolio`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Transform Alpaca response to match expected format
+        const transformedData = {
+          total_value: data.account?.portfolio_value || 0,
+          cash_balance: data.account?.cash || 0,
+          invested_value: data.metrics?.total_market_value || 0,
+          unrealized_pnl: data.metrics?.total_unrealized_pl || 0,
+          positions: data.positions || [],
+          account: data.account,
+          metrics: data.metrics
+        };
+        setPortfolio(transformedData);
+        setError(null);
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to fetch portfolio:', errorData);
+        
+        // Check if it's an authorization error (wrong keys)
+        if (response.status === 401 || response.status === 500) {
+          setError('❌ Paper Trading API keys are invalid or unauthorized. Your current keys appear to be LIVE trading keys (starting with "AK"). Paper trading keys should start with "PK". Please generate proper Paper Trading keys from: https://app.alpaca.markets/paper/dashboard/overview');
+        } else {
+          setError(`Failed to load portfolio: ${errorData.detail || 'Unknown error'}`);
+        }
+      }
     } catch (error) {
       console.error('Error fetching portfolio:', error);
-      setError(error.message || 'Failed to load paper portfolio.');
+      setError('Error connecting to backend. Please ensure the server is running.');
     } finally {
       setLoading(false);
     }
@@ -110,11 +127,15 @@ const PaperPortfolio = () => {
 
   const fetchPendingOrders = async () => {
     try {
-      const data = await apiClient.get('/api/v1/alpaca/paper/orders');
-      const pending = (data.orders || []).filter(order =>
-        ['new', 'accepted', 'pending_new', 'partially_filled'].includes(order.status)
-      );
-      setPendingOrders(pending);
+      const response = await fetch(`${API_BASE_URL}/api/v1/alpaca/paper/orders`);
+      if (response.ok) {
+        const data = await response.json();
+        // Filter for pending statuses
+        const pending = (data.orders || []).filter(order => 
+          ['new', 'accepted', 'pending_new', 'partially_filled'].includes(order.status)
+        );
+        setPendingOrders(pending);
+      }
     } catch (err) {
       console.error('Failed to fetch pending orders:', err);
     }
@@ -135,10 +156,13 @@ const PaperPortfolio = () => {
 
   const fetchStockPrice = async (symbol) => {
     if (!symbol) return;
+    
     setLoadingPrice(true);
     try {
-      const data = await apiClient.get(`/api/v1/quotes/${symbol}`);
-      if (data.price) {
+      const response = await fetch(`${API_BASE_URL}/api/v1/quotes/${symbol}`);
+      const data = await response.json();
+      
+      if (response.ok && data.price) {
         setCurrentPrice(data.price);
       } else {
         setCurrentPrice(null);
@@ -170,9 +194,10 @@ const PaperPortfolio = () => {
     }
 
     try {
-      const data = await apiClient.get(`/api/v1/quotes/${symbol}`);
+      const response = await fetch(`${API_BASE_URL}/api/v1/quotes/${symbol}`);
+      const data = await response.json();
       
-      if (data.price) {
+      if (response.ok && data.price) {
         const newWatch = {
           symbol,
           price: data.price,
@@ -214,8 +239,10 @@ const PaperPortfolio = () => {
     const updated = await Promise.all(
       watchlist.map(async (item) => {
         try {
-          const data = await apiClient.get(`/api/v1/quotes/${item.symbol}`);
-          if (data.price) {
+          const response = await fetch(`${API_BASE_URL}/api/v1/quotes/${item.symbol}`);
+          const data = await response.json();
+          
+          if (response.ok && data.price) {
             return {
               ...item,
               price: data.price,
@@ -246,29 +273,61 @@ const PaperPortfolio = () => {
     }
 
     try {
-      const result = await apiClient.post('/api/v1/paper/trade', {
-        symbol: tradeForm.symbol.toUpperCase(),
-        side: tradeForm.action.toLowerCase(),
-        quantity: parseFloat(tradeForm.quantity),
-        order_type: 'market'
+      const response = await fetch(`${API_BASE_URL}/api/v1/paper/trade`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          symbol: tradeForm.symbol.toUpperCase(),
+          side: tradeForm.action.toLowerCase(),
+          quantity: parseFloat(tradeForm.quantity),
+          order_type: 'market'
+        }),
       });
 
-      if (result.status === 'error') {
-        setNotificationConfig({ title: 'Trade Failed', message: result.message || 'Unknown error', type: 'error' });
+      if (response.ok) {
+        const result = await response.json();
+        
+        // Check if backend returned an error status
+        if (result.status === 'error') {
+          setNotificationConfig({
+            title: 'Trade Failed',
+            message: result.message || 'Unknown error',
+            type: 'error'
+          });
+          setShowNotification(true);
+          return;
+        }
+        
+        // Show success message
+        setNotificationConfig({
+          title: 'Trade Executed',
+          message: result.message || 'Trade executed successfully',
+          type: 'success'
+        });
         setShowNotification(true);
-        return;
+        setShowTradeModal(false);
+        setTradeForm({ symbol: '', action: 'BUY', quantity: 10, strategy_used: 'manual' });
+        fetchPortfolio(); // Refresh portfolio
+        fetchTransactions(); // Refresh transaction history
+        fetchPendingOrders(); // Refresh pending orders
+      } else {
+        const error = await response.json();
+        setNotificationConfig({
+          title: 'Trade Failed',
+          message: error.detail || 'Trade execution failed',
+          type: 'error'
+        });
+        setShowNotification(true);
       }
-
-      setNotificationConfig({ title: 'Trade Executed', message: result.message || 'Trade executed successfully', type: 'success' });
-      setShowNotification(true);
-      setShowTradeModal(false);
-      setTradeForm({ symbol: '', action: 'BUY', quantity: 10, strategy_used: 'manual' });
-      fetchPortfolio();
-      fetchTransactions();
-      fetchPendingOrders();
     } catch (error) {
       console.error('Error executing trade:', error);
-      setNotificationConfig({ title: 'Trade Failed', message: error.message || 'Trade execution failed', type: 'error' });
+      setNotificationConfig({
+        title: 'Error',
+        message: 'Error executing trade',
+        type: 'error'
+      });
       setShowNotification(true);
     }
   };
@@ -283,13 +342,21 @@ const PaperPortfolio = () => {
       confirmButtonClass: 'bg-red-600 hover:bg-red-700',
       onConfirm: async () => {
         try {
-          await apiClient.post('/api/v1/paper/reset');
+          await axios.post(`${API_BASE_URL}/api/v1/paper/reset`);
           await fetchPortfolio();
           await fetchTransactions();
-          setNotificationConfig({ title: 'Portfolio Reset', message: 'Your paper portfolio has been reset to $10,000', type: 'success' });
+          setNotificationConfig({
+            title: 'Portfolio Reset',
+            message: 'Your paper portfolio has been reset to $10,000',
+            type: 'success'
+          });
           setShowNotification(true);
         } catch (err) {
-          setNotificationConfig({ title: 'Reset Failed', message: 'Failed to reset portfolio', type: 'error' });
+          setNotificationConfig({
+            title: 'Reset Failed',
+            message: 'Failed to reset portfolio',
+            type: 'error'
+          });
           setShowNotification(true);
         }
       }

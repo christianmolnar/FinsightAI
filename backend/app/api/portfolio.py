@@ -404,14 +404,11 @@ async def get_alpaca_live_portfolio():
     """Get complete Alpaca live trading portfolio overview"""
     try:
         alpaca = get_alpaca_service(paper=False)
-
-        if not alpaca.api_key or not alpaca.secret_key:
-            raise HTTPException(
-                status_code=503,
-                detail="Live trading not configured — set ALPACA_LIVE_API_KEY_ID and ALPACA_LIVE_API_SECRET_KEY in Railway env vars"
-            )
-
+        
+        # Get account info
         account = alpaca.get_account()
+        
+        # Get all positions
         positions = alpaca.get_positions()
         
         # Calculate metrics
