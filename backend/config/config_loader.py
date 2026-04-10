@@ -185,18 +185,22 @@ class Config:
     
     def _validate(self):
         """Validate configuration values"""
-        # Check required Alpaca credentials
+        import logging
+        _log = logging.getLogger(__name__)
+
+        # Warn (not crash) if Alpaca credentials are missing — app still starts,
+        # trading routes will fail gracefully when called without valid keys.
         if self.trading.paper_trading:
             if not self.alpaca_paper_api_key or not self.alpaca_paper_secret_key:
-                raise ValueError(
-                    "Paper trading enabled but ALPACA_PAPER_API_KEY and "
-                    "ALPACA_PAPER_SECRET_KEY not found in .env file"
+                _log.warning(
+                    "Paper trading enabled but ALPACA_PAPER_API_KEY / "
+                    "ALPACA_PAPER_SECRET_KEY not set — trading features disabled"
                 )
         else:
             if not self.alpaca_live_api_key or not self.alpaca_live_secret_key:
-                raise ValueError(
-                    "Live trading enabled but ALPACA_LIVE_API_KEY and "
-                    "ALPACA_LIVE_SECRET_KEY not found in .env file"
+                _log.warning(
+                    "Live trading enabled but ALPACA_LIVE_API_KEY / "
+                    "ALPACA_LIVE_SECRET_KEY not set — trading features disabled"
                 )
         
         # Validate position sizing
