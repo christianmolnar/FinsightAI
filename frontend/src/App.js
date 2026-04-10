@@ -8,13 +8,11 @@ import TransactionQueue from './components/TransactionQueue';
 import Backtesting from './components/Backtesting';
 import Navbar from './components/Navbar';
 import Login from './components/Login';
-import Register from './components/Register';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import './index.css';
 
 function AppContent() {
   const { user, loading, logout } = useAuth();
-  const [authView, setAuthView] = useState('login'); // 'login' | 'register'
   const [activeTab, setActiveTab] = useState('live');
 
   // Show spinner while restoring session from localStorage
@@ -29,12 +27,9 @@ function AppContent() {
     );
   }
 
-  // Not authenticated — show login / register
+  // Not authenticated — show login
   if (!user) {
-    if (authView === 'register') {
-      return <Register onSwitchToLogin={() => setAuthView('login')} />;
-    }
-    return <Login onSwitchToRegister={() => setAuthView('register')} />;
+    return <Login />;
   }
 
   return (

@@ -33,6 +33,8 @@ app.add_middleware(
         "http://localhost:3000",  # React dev server
         "https://frontend-pqe4851if-christian-molnars-projects.vercel.app",  # Vercel production
         "https://frontend-pi-kohl-57.vercel.app",  # Vercel alias
+        "https://f-insight.ai",           # Custom domain
+        "https://www.f-insight.ai",       # Custom domain www
     ],
     allow_credentials=True,
     allow_methods=["*"],
