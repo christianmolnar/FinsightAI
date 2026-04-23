@@ -1,13 +1,11 @@
 import React from 'react';
 import logo from '../assets/logo.png';
 import { apiClient } from '../utils/apiClient';
-import ChangePasswordModal from './ChangePasswordModal';
 
 const Navbar = ({ onRefresh, onLogout, user }) => {
   const [lastUpdate, setLastUpdate] = React.useState(new Date());
   const [showSettings, setShowSettings] = React.useState(false);
   const [alertStatus, setAlertStatus] = React.useState(null); // null | 'sending' | 'sent' | 'error'
-  const [showChangePassword, setShowChangePassword] = React.useState(false);
   const settingsRef = React.useRef(null);
 
   React.useEffect(() => {
@@ -126,13 +124,6 @@ const Navbar = ({ onRefresh, onLogout, user }) => {
                         {alertStatus === 'sending' ? 'Sending...' : alertStatus === 'sent' ? 'Alert sent!' : alertStatus === 'error' ? 'Send failed' : 'Send Test Alert'}
                       </span>
                     </button>
-                    <button
-                      onClick={() => { setShowSettings(false); setShowChangePassword(true); }}
-                      className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-3 hover:bg-gray-50 text-gray-700"
-                    >
-                      <span className="text-lg">🔑</span>
-                      <span>Change Password</span>
-                    </button>
                   </div>
                 </div>
               )}
@@ -141,9 +132,6 @@ const Navbar = ({ onRefresh, onLogout, user }) => {
         </div>
       </div>
     </nav>
-      {showChangePassword && (
-        <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
-      )}
     </>
   );
 };

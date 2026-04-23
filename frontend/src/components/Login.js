@@ -8,8 +8,6 @@ export default function Login({ onSwitchToRegister }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showForgot, setShowForgot] = useState(false);
-
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
@@ -21,34 +19,6 @@ export default function Login({ onSwitchToRegister }) {
     } finally {
       setLoading(false);
     }
-  }
-
-  if (showForgot) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
-        <div className="w-full max-w-md">
-          <img src={logo} alt="f.Insight.AI" className="w-full block mb-0" />
-          <div className="bg-gray-800 rounded-2xl shadow-2xl p-8 border border-gray-700">
-            <h2 className="text-xl font-semibold text-white mb-2">Reset Password</h2>
-            <p className="text-gray-400 text-sm mb-6">
-              This app doesn't send reset emails. To reset your password, run the following command on the server:
-            </p>
-            <div className="bg-gray-900 rounded-lg p-4 mb-6 font-mono text-xs text-green-400 border border-gray-700 select-all">
-              cd backend && python reset_password.py
-            </div>
-            <p className="text-gray-500 text-xs mb-6">
-              Once logged in, you can also change your password from the <span className="text-gray-300">Settings ⚙️</span> menu in the top-right corner.
-            </p>
-            <button
-              onClick={() => setShowForgot(false)}
-              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 rounded-lg transition-colors text-sm"
-            >
-              ← Back to Sign In
-            </button>
-          </div>
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -82,16 +52,7 @@ export default function Login({ onSwitchToRegister }) {
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm font-medium text-gray-300">Password</label>
-                <button
-                  type="button"
-                  onClick={() => setShowForgot(true)}
-                  className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                >
-                  Forgot password?
-                </button>
-              </div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
               <input
                 type="password"
                 name="password"
