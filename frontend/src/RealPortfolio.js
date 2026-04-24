@@ -4,8 +4,7 @@ import { DollarSign, TrendingUp, TrendingDown, Eye, EyeOff, RefreshCw, Plus, Tar
 import MarketStatus from './components/MarketStatus';
 import ConfirmationModal from './components/ConfirmationModal';
 import NotificationModal from './components/NotificationModal';
-
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+import { apiClient } from './utils/apiClient';
 
 const RealPortfolio = () => {
   const [portfolioData, setPortfolioData] = useState(null);
@@ -40,15 +39,7 @@ const RealPortfolio = () => {
   const fetchPortfolioData = async () => {
     try {
       setError(null);
-      const response = await fetch(`${API_BASE_URL}/api/v1/alpaca/live/portfolio`, {
-        signal: AbortSignal.timeout(10000)
-      });
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.detail || 'Failed to fetch portfolio data');
-      }
-      
+      const data = await apiClient.get('/api/v1/alpaca/live/portfolio');
       setPortfolioData(data);
       setRetryCount(0);
     } catch (err) {
@@ -81,9 +72,8 @@ const RealPortfolio = () => {
   const fetchStockPrice = async (symbol) => {
     try {
       setLoadingPrice(true);
-      const response = await fetch(`${API_BASE_URL}/api/v1/quotes/${symbol}`);
-      const data = await response.json();
-      if (response.ok && data.price) {
+      const data = await apiClient.get(`/api/v1/quotes/${symbol}`);
+      if (data.price) {
         setCurrentPrice(data.price);
       }
     } catch (error) {
@@ -95,8 +85,7 @@ const RealPortfolio = () => {
 
   const fetchMarketStatus = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/market/status`);
-      const data = await response.json();
+      const data = await apiClient.get('/api/market/status');
       if (data.success) {
         setMarketStatus(data);
       }
@@ -107,15 +96,12 @@ const RealPortfolio = () => {
 
   const fetchPendingOrders = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/alpaca/live/orders`);
-      if (response.ok) {
-        const data = await response.json();
-        // Filter for pending orders (not filled or cancelled)
-        const pending = (data.orders || []).filter(order => 
-          ['new', 'accepted', 'pending_new', 'partially_filled'].includes(order.status)
-        );
-        setPendingOrders(pending);
-      }
+      const data = await apiClient.get('/api/v1/alpaca/live/orders');
+      // Filter for pending orders (not filled or cancelled)
+      const pending = (data.orders || []).filter(order => 
+        ['new', 'accepted', 'pending_new', 'partially_filled'].includes(order.status)
+      );
+      setPendingOrders(pending);
     } catch (error) {
       console.error('Error fetching pending orders:', error);
     }
@@ -141,10 +127,9 @@ const RealPortfolio = () => {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/quotes/${symbol}`);
-      const data = await response.json();
+      const data = await apiClient.get(`/api/v1/quotes/${symbol}`);
       
-      if (response.ok && data.price) {
+      if (data.price) {
         const newWatch = {
           symbol,
           price: data.price,
@@ -224,38 +209,23 @@ const RealPortfolio = () => {
   const executeTradeConfirmed = async () => {
     try {
       setTradeLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/v1/alpaca/live/trade`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          symbol: tradeForm.symbol,
-          quantity: parseFloat(tradeForm.quantity),
-          side: tradeForm.action,
-          type: tradeForm.orderType
-        })
+      const data = await apiClient.post('/api/v1/alpaca/live/trade', {
+        symbol: tradeForm.symbol,
+        quantity: parseFloat(tradeForm.quantity),
+        side: tradeForm.action,
+        type: tradeForm.orderType
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setNotificationConfig({
-          title: 'Trade Executed Successfully',
-          message: `Order ID: ${data.order?.id || 'N/A'}`,
-          type: 'success'
-        });
-        setShowNotification(true);
-        setShowTradeModal(false);
-        setTradeForm({ symbol: '', action: 'BUY', quantity: 1, orderType: 'market' });
-        await fetchPortfolioData();
-        await fetchPendingOrders();
-      } else {
-        setNotificationConfig({
-          title: 'Trade Failed',
-          message: data.detail || 'Unknown error',
-          type: 'error'
-        });
-        setShowNotification(true);
-      }
+      setNotificationConfig({
+        title: 'Trade Executed Successfully',
+        message: `Order ID: ${data.order?.id || 'N/A'}`,
+        type: 'success'
+      });
+      setShowNotification(true);
+      setShowTradeModal(false);
+      setTradeForm({ symbol: '', action: 'BUY', quantity: 1, orderType: 'market' });
+      await fetchPortfolioData();
+      await fetchPendingOrders();
     } catch (error) {
       console.error('Error executing trade:', error);
       setNotificationConfig({

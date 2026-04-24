@@ -4,6 +4,7 @@ import SellValidation from './SellValidation';
 import MarketStatus from './MarketStatus';
 import ConfirmationModal from './ConfirmationModal';
 import NotificationModal from './NotificationModal';
+import { apiClient } from '../utils/apiClient';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -21,8 +22,6 @@ import {
   ChevronUp,
   Clock
 } from 'lucide-react';
-
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const PaperPortfolio = () => {
   const [portfolio, setPortfolio] = useState(null);
