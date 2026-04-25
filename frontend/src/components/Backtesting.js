@@ -1,9 +1,139 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { PlayCircle, Clock, TrendingUp, TrendingDown, DollarSign, Target, Calendar, CheckCircle } from 'lucide-react';
+import { PlayCircle, Clock, TrendingUp, TrendingDown, DollarSign, Target, Calendar, CheckCircle, Database, Download } from 'lucide-react';
 import CalibrationModal from './CalibrationModal';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
+// Data Progress Monitor Component
+const DataProgressMonitor = () => {
+  const [dataProgress, setDataProgress] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Initial fetch
+    fetchProgress();
+    
+    // Auto-refresh every 10 seconds
+    const interval = setInterval(fetchProgress, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchProgress = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/data/progress`);
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        setDataProgress(result.data);
+      }
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to fetch data progress:', error);
+      setLoading(false);
+    }
+  };
+
+  if (loading || !dataProgress) {
+    return (
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-200 p-6 mb-6">
+        <div className="flex items-center gap-3">
+          <Database className="w-6 h-6 text-blue-600 animate-pulse" />
+          <span className="text-gray-600">Loading data status...</span>
+        </div>
+      </div>
+    );
+  }
+
+  const { total_bars, total_symbols, target_symbols, target_bars, percent_complete, earliest_date, latest_date } = dataProgress;
+  const isDownloading = percent_complete < 100;
+
+  return (
+    <div className={`rounded-lg shadow-sm border p-6 mb-6 ${
+      isDownloading 
+        ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-300' 
+        : 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300'
+    }`}>
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <div className="flex items-center gap-3 mb-4">
+            {isDownloading ? (
+              <>
+                <Download className="w-7 h-7 text-orange-600 animate-bounce" />
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">📥 Historical Data Downloading...</h3>
+                  <p className="text-gray-600 text-sm">Building comprehensive 10-year dataset for backtesting</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <Database className="w-7 h-7 text-green-600" />
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">✅ Historical Data Ready</h3>
+                  <p className="text-gray-600 text-sm">Full dataset available for backtesting</p>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Progress Bar */}
+          <div className="mb-4">
+            <div className="flex justify-between text-sm mb-2">
+              <span className="font-semibold text-gray-700">Progress: {total_symbols} / {target_symbols} symbols</span>
+              <span className="font-bold text-gray-900">{percent_complete}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+              <div 
+                className={`h-full rounded-full transition-all duration-500 ${
+                  isDownloading ? 'bg-gradient-to-r from-yellow-500 to-orange-500' : 'bg-gradient-to-r from-green-500 to-emerald-500'
+                }`}
+                style={{ width: `${percent_complete}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white/70 backdrop-blur rounded-lg p-3 border border-gray-200">
+              <div className="text-xs text-gray-600 mb-1">Data Points</div>
+              <div className="text-xl font-bold text-gray-900">{total_bars?.toLocaleString() || '0'}</div>
+              <div className="text-xs text-gray-500">{((total_bars / target_bars) * 100).toFixed(1)}% of target</div>
+            </div>
+            
+            <div className="bg-white/70 backdrop-blur rounded-lg p-3 border border-gray-200">
+              <div className="text-xs text-gray-600 mb-1">Symbols</div>
+              <div className="text-xl font-bold text-gray-900">{total_symbols || 0}</div>
+              <div className="text-xs text-gray-500">S&P 100 + ETFs</div>
+            </div>
+            
+            <div className="bg-white/70 backdrop-blur rounded-lg p-3 border border-gray-200">
+              <div className="text-xs text-gray-600 mb-1">Date Range</div>
+              <div className="text-sm font-bold text-gray-900">{earliest_date}</div>
+              <div className="text-xs text-gray-500">to {latest_date}</div>
+            </div>
+            
+            <div className="bg-white/70 backdrop-blur rounded-lg p-3 border border-gray-200">
+              <div className="text-xs text-gray-600 mb-1">Status</div>
+              <div className="text-sm font-bold text-gray-900">
+                {isDownloading ? '⚙️ Downloading' : '✅ Complete'}
+              </div>
+              <div className="text-xs text-gray-500">
+                {isDownloading ? `${target_symbols - total_symbols} remaining` : 'Ready to use'}
+              </div>
+            </div>
+          </div>
+
+          {isDownloading && (
+            <div className="mt-4 flex items-center gap-2 text-sm text-gray-600">
+              <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+              <span>Auto-refreshing every 10 seconds • ETA: ~{Math.ceil((target_symbols - total_symbols) * 0.1)} minutes</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const Backtesting = () => {
   const [loading, setLoading] = useState(false);
@@ -180,6 +310,9 @@ const Backtesting = () => {
           <h1 className="text-4xl font-bold text-gray-900 mb-2">📊 Strategy Backtesting</h1>
           <p className="text-gray-600">Test your strategies against historical data before going live</p>
         </div>
+
+        {/* Data Progress Monitor */}
+        <DataProgressMonitor />
 
         {/* Quick Backtest Buttons */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">

@@ -734,6 +734,104 @@ async def paper_reset(current_user=Depends(get_current_user)):
         return {"status": "error", "message": str(e)}
 
 
+@app.get("/api/v1/data/progress")
+async def get_data_progress():
+    """Get historical data download progress"""
+    try:
+        import psycopg2
+    except ImportError:
+        return {"status": "error", "message": "psycopg2 not installed"}
+    
+    db_url = os.getenv('DATABASE_URL')
+    
+    try:
+        conn = psycopg2.connect(db_url)
+        cur = conn.cursor()
+        
+        # Total stats
+        cur.execute("""
+            SELECT 
+                COUNT(*) as total_bars,
+                COUNT(DISTINCT symbol) as total_symbols,
+                MIN(date) as earliest_date,
+                MAX(date) as latest_date
+            FROM historical_prices
+        """)
+        total_bars, total_symbols, earliest, latest = cur.fetchone()
+        
+        # Download progress by symbol
+        cur.execute("""
+            SELECT 
+                dp.symbol,
+                dp.status,
+                dp.last_date,
+                dp.error_message,
+                dp.updated_at,
+                COUNT(hp.id) as bar_count
+            FROM download_progress dp
+            LEFT JOIN historical_prices hp ON dp.symbol = hp.symbol
+            GROUP BY dp.symbol, dp.status, dp.last_date, dp.error_message, dp.updated_at
+            ORDER BY dp.updated_at DESC
+            LIMIT 50
+        """)
+        
+        progress_list = []
+        for row in cur.fetchall():
+            progress_list.append({
+                "symbol": row[0],
+                "status": row[1],
+                "last_date": str(row[2]) if row[2] else None,
+                "error_message": row[3],
+                "updated_at": str(row[4]) if row[4] else None,
+                "bar_count": row[5] or 0
+            })
+        
+        # Count by status
+        cur.execute("""
+            SELECT status, COUNT(*) 
+            FROM download_progress 
+            GROUP BY status
+        """)
+        status_counts = {row[0]: row[1] for row in cur.fetchall()}
+        
+        # Top symbols by bar count
+        cur.execute("""
+            SELECT symbol, COUNT(*) as bars
+            FROM historical_prices
+            GROUP BY symbol
+            ORDER BY bars DESC
+            LIMIT 10
+        """)
+        top_symbols = [{"symbol": row[0], "bars": row[1]} for row in cur.fetchall()]
+        
+        cur.close()
+        conn.close()
+        
+        # Calculate target (110 symbols × 2592 bars average)
+        target_symbols = 110
+        target_bars = target_symbols * 2592
+        
+        return {
+            "status": "success",
+            "data": {
+                "total_bars": total_bars or 0,
+                "total_symbols": total_symbols or 0,
+                "earliest_date": str(earliest) if earliest else None,
+                "latest_date": str(latest) if latest else None,
+                "target_symbols": target_symbols,
+                "target_bars": target_bars,
+                "percent_complete": round((total_symbols / target_symbols) * 100, 1) if total_symbols else 0,
+                "status_counts": status_counts,
+                "recent_progress": progress_list,
+                "top_symbols": top_symbols
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Data progress error: {e}")
+        return {"status": "error", "message": str(e)}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
