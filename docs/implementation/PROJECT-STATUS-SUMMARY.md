@@ -29,21 +29,23 @@
 
 ## 📋 Immediate Next Steps
 
-### 1. Security: API Key Rotation (URGENT)
-**Why**: All API keys exposed in .env file committed to Git
+### ~~1. Security: API Key Rotation~~ ✅ COMPLETE (April 24, 2026)
+**Status**: All API keys rotated and updated in Railway environment variables
+- ✅ Alpaca Live Keys - Rotated
+- ✅ Alpaca Paper Keys - Rotated
+- ✅ OpenAI API Key - Rotated
+- ✅ Anthropic API Key - Rotated
 
-**Action**: Follow `/docs/implementation/API-KEY-ROTATION-GUIDE.md`
+### ~~2. Fix Production Vercel Deployment~~ ✅ COMPLETE (April 24, 2026)
+**Status**: Successfully redeployed to production
+- ✅ Removed "Forgot Password" link (commit 9321f33)
+- ✅ Frontend deployed to https://www.f-insight.ai
+- ✅ Backend connected to Railway (https://finsightai-production-442e.up.railway.app)
+- ✅ Security headers configured
+- ✅ JWT authentication working
+- 📄 Documentation: `/docs/implementation/VERCEL-DEPLOYMENT-2026-04-24.md`
 
-**Priority Order**:
-1. 🔴 **Alpaca Live Keys** (real money account) - CRITICAL
-2. 🔴 **Alpaca Paper Keys** (testing account) - HIGH
-3. 🟡 **OpenAI API Key** - MEDIUM
-4. 🟡 **Anthropic API Key** - MEDIUM
-5. 🟢 **Vercel** (check if needed) - LOW
-
-**Time Required**: ~1 hour
-
-### 2. Phase C: Populate Historical Data
+### 3. Phase C: Populate Historical Data
 **Goal**: Load stock price history into Railway PostgreSQL for backtesting
 
 **What to Build**:
