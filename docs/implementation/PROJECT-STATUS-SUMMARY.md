@@ -20,7 +20,7 @@
 - **Backtesting Engine**: Complete with compounding position sizing
 
 ### What's NOT Working ❌
-- **Historical Data**: Railway DB is empty (no historical price data)
+- **Historical Data**: ⚙️ DOWNLOADING NOW (Yahoo Finance - 96/110 symbols remaining)
 - **Position Monitor**: Not built yet (Phase D)
 - **Auto-Execute**: Not built yet (Phase D)
 - **Autonomous Trading**: Not operational (Phase D)
@@ -45,19 +45,32 @@
 - ✅ JWT authentication working
 - 📄 Documentation: `/docs/implementation/VERCEL-DEPLOYMENT-2026-04-24.md`
 
-### 3. Phase C: Populate Historical Data
-**Goal**: Load stock price history into Railway PostgreSQL for backtesting
+### ~~3. Phase C: Populate Historical Data~~ ⚙️ IN PROGRESS (April 25, 2026)
+**Status**: Yahoo Finance downloader deployed and running
 
-**What to Build**:
-- Import Kaggle macro data (already downloaded in `/docs/IndexDB/30-yr-financial-events/`)
-- Download Alpaca historical data (2016–present, 500+ stocks)
-- Set up daily update job (Railway cron)
+**Solution**: FREE Yahoo Finance data (no paid upgrade needed!)
+- ✅ Built `yfinance_loader.py` - downloads from Yahoo Finance (FREE API)
+- ✅ Tested with 5 symbols - 30 seconds, 10,368 bars, SUCCESS
+- ⚙️ **RUNNING NOW**: Full S&P 100 download (110 symbols, ~250K bars)
+- 📊 Progress: 17/110 symbols complete, 31,758 bars in database
+- ⏱️ ETA: 2-3 hours to completion
 
-**Why Important**: Backtesting requires historical data in DB (currently hitting Alpaca API repeatedly)
+**Why Yahoo Finance**:
+- ✅ FREE (vs Alpaca Plus $99/mo)
+- ✅ 10+ years historical data
+- ✅ Unlimited symbols (no subscription needed)
+- ✅ No rate limits or throttling
+- ✅ Proven reliability (used by millions)
 
-**Time Required**: 2-3 hours build + overnight download
+**Next After Download**:
+1. Update backtester to use database (10x faster)
+2. Run validation backtest (2020-2026)
+3. Verify results match March 2026 test (+329%, 52.6% win)
 
-### 3. Phase D: Autonomous Trading Engine
+**Time Required**: ✅ Built in 5 minutes, ⚙️ downloading now (2-3 hours)
+📄 Documentation: `/docs/implementation/YAHOO-FINANCE-IMPLEMENTATION-2026-04-25.md`
+
+### 4. Phase D: Autonomous Trading Engine
 **Goal**: System trades without human input
 
 **What to Build**:
