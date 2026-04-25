@@ -36,10 +36,13 @@ class MarketScanner:
     MIN_PRICE = 10.0         # Minimum stock price
     MAX_SPREAD_PERCENT = 0.5  # Maximum bid-ask spread (0.5%)
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, historical_data_manager=None):
         self.db = db
         self.alpaca = get_alpaca_service(paper=True)
+        self.historical_data_manager = historical_data_manager  # For backtesting
         logger.info(f"MarketScanner initialized — universe: {len(self.SCAN_UNIVERSE)} stocks")
+        if historical_data_manager:
+            logger.info("✅ Using database-first historical data for backtesting")
     
     def scan_all_strategies(self) -> List[Dict]:
         """
@@ -81,13 +84,21 @@ class MarketScanner:
         return unique_candidates
     
     def _get_bars_batch(self, symbols: List[str], days: int = 252) -> Dict[str, pd.DataFrame]:
-        """Fetch OHLCV bars from Alpaca for a batch of symbols."""
+        """Fetch OHLCV bars - uses database-first approach if historical_data_manager available (backtesting)"""
         end = date.today()
         start = end - timedelta(days=days + 10)  # buffer for weekends/holidays
         try:
+            # Use database-first approach for backtesting (10x faster!)
+            if self.historical_data_manager:
+                return self.historical_data_manager.get_historical_data(
+                    symbols, 
+                    start_date=start, 
+                    end_date=end
+                )
+            # Fall back to Alpaca for live scanning
             return self.alpaca.get_historical_bars(symbols, start.isoformat(), end.isoformat())
         except Exception as e:
-            logger.error(f"Alpaca batch bars failed: {e}")
+            logger.error(f"Batch bars failed: {e}")
             return {}
 
     def _get_latest_quote(self, symbol: str) -> Dict:

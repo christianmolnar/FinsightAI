@@ -62,9 +62,9 @@ def decode_token(token: str) -> Optional[dict]:
 # --- User helpers (used by auth router) ---
 
 def get_user_by_email(db: Session, email: str):
-    """Return User ORM object or None."""
+    """Return User ORM object or None. Case-insensitive email lookup."""
     from app.models.user import User
-    return db.query(User).filter(User.email == email).first()
+    return db.query(User).filter(User.email.ilike(email)).first()
 
 
 def get_user_by_username(db: Session, username: str):
@@ -73,8 +73,8 @@ def get_user_by_username(db: Session, username: str):
 
 
 def authenticate_user(db: Session, email: str, password: str):
-    """Return user if credentials valid, else None."""
-    user = get_user_by_email(db, email)
+    """Return user if credentials valid, else None. Case-insensitive email."""
+    user = get_user_by_email(db, email.lower())  # Normalize to lowercase
     if not user:
         return None
     if not hasattr(user, "password_hash") or not user.password_hash:
@@ -85,10 +85,10 @@ def authenticate_user(db: Session, email: str, password: str):
 
 
 def create_user(db: Session, email: str, username: str, password: str):
-    """Create a new user with hashed password."""
+    """Create a new user with hashed password. Stores email in lowercase."""
     from app.models.user import User
     user = User(
-        email=email,
+        email=email.lower(),  # Always store lowercase
         username=username,
         password_hash=hash_password(password),
     )

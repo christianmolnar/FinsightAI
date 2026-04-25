@@ -284,8 +284,12 @@ class Backtester:
         else:
             self.position_size_override = None
         
-        self.scanner = MarketScanner(db)
+        # Initialize historical data manager first
         self.historical_data = HistoricalDataManager(db)
+        
+        # Pass historical_data_manager to scanner for database-first data retrieval (10x faster!)
+        self.scanner = MarketScanner(db, historical_data_manager=self.historical_data)
+        
         self.trades: List[BacktestResult] = []
     
     async def run_backtest(

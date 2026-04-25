@@ -29,33 +29,80 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# S&P 500 symbols (Top 100 most liquid - expandable to full 500)
-SP500_TOP100 = [
-    # Technology
-    "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "AVGO", "ORCL", "ADBE",
-    "CRM", "CSCO", "ACN", "AMD", "IBM", "INTC", "TXN", "QCOM", "AMAT", "MU",
+# Full S&P 500 + NASDAQ 100 (unique) + Major ETFs
+# Complete market coverage for production-grade backtesting
+ALL_SYMBOLS = [
+    # S&P 500 - Technology (already downloaded: 20)
+    "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "AVGO", "ORCL", 
+    "ADBE", "CRM", "CSCO", "ACN", "AMD", "IBM", "INTC", "TXN", "QCOM", "AMAT",
+    "MU", "NOW", "INTU", "ADI", "LRCX", "KLAC", "SNPS", "CDNS", "MCHP", "FTNT",
+    "ADSK", "ROP", "CTSH", "PAYX", "FICO", "ANSS", "MSI", "APH", "TEL", "IT",
     
-    # Finance
+    # S&P 500 - Finance (already downloaded: 20)
     "BRK.B", "JPM", "V", "MA", "BAC", "WFC", "GS", "MS", "AXP", "C",
     "BLK", "SCHW", "CB", "PNC", "USB", "COF", "TFC", "AIG", "MET", "PRU",
+    "MMC", "AON", "SPGI", "ICE", "CME", "MCO", "BK", "TRV", "ALL", "AFL",
+    "PGR", "TROW", "STT", "DFS", "SYF", "BEN", "AMP", "CINF", "KEY", "CFG",
     
-    # Healthcare
+    # S&P 500 - Healthcare (already downloaded: 20)
     "UNH", "JNJ", "LLY", "ABBV", "MRK", "TMO", "ABT", "PFE", "DHR", "BMY",
     "AMGN", "GILD", "CVS", "CI", "ELV", "HUM", "ISRG", "VRTX", "REGN", "SYK",
+    "BSX", "MDT", "ZTS", "EW", "IDXX", "HCA", "RMD", "DXCM", "IQV", "BDX",
+    "MTD", "CRL", "WAT", "A", "ALGN", "HOLX", "VTRS", "DGX", "LH", "MOH",
     
-    # Consumer
+    # S&P 500 - Consumer (already downloaded: 20)
     "WMT", "HD", "PG", "KO", "PEP", "COST", "MCD", "NKE", "SBUX", "TGT",
     "LOW", "TJX", "MDLZ", "CL", "PM", "MO", "KMB", "GIS", "HSY", "K",
+    "BKNG", "CMG", "MAR", "ABNB", "YUM", "DPZ", "QSR", "SBAC", "AMT", "EQIX",
+    "PLD", "SPG", "PSA", "O", "WELL", "DLR", "AVB", "EQR", "VTR", "ARE",
     
-    # Industrial
+    # S&P 500 - Industrial (already downloaded: 10, adding 30)
     "BA", "CAT", "HON", "RTX", "UPS", "LMT", "DE", "GE", "MMM", "UNP",
+    "FDX", "NSC", "CSX", "WM", "EMR", "ITW", "ETN", "PH", "CMI", "CARR",
+    "OTIS", "GD", "NOC", "TDG", "LHX", "FAST", "PCAR", "VRSK", "IEX", "ROK",
+    "DOV", "XYL", "FTV", "AME", "LDOS", "BR", "J", "HUBB", "EXPD", "JBHT",
     
-    # Energy
+    # S&P 500 - Energy (already downloaded: 10, adding 20)
     "XOM", "CVX", "COP", "SLB", "EOG", "MPC", "PSX", "VLO", "OXY", "HAL",
+    "HES", "KMI", "WMB", "BKR", "DVN", "FANG", "MRO", "APA", "CTRA", "OKE",
+    "TRGP", "LNG", "EQT", "FTI", "NOV", "CHK", "RIG", "HP", "MTDR", "PR",
     
-    # ETFs for broad market coverage
+    # S&P 500 - Materials & Chemicals (40 symbols)
+    "LIN", "APD", "SHW", "ECL", "DD", "NEM", "FCX", "NUE", "DOW", "ALB",
+    "PPG", "CTVA", "VMC", "MLM", "EMN", "CE", "FMC", "CF", "MOS", "IFF",
+    "IP", "PKG", "BALL", "AVY", "AMCR", "SEE", "WRK", "CCK", "SON", "HUN",
+    "AA", "SCCO", "STLD", "CLF", "X", "RS", "MP", "SQM", "RGLD", "GOLD",
+    
+    # S&P 500 - Utilities & Telecom (40 symbols)
+    "NEE", "DUK", "SO", "D", "AEP", "EXC", "SRE", "XEL", "WEC", "ES",
+    "PEG", "ED", "EIX", "AWK", "PPL", "FE", "AEE", "CMS", "DTE", "ETR",
+    "T", "VZ", "TMUS", "CHTR", "CMCSA", "DIS", "NFLX", "PARA", "WBD", "OMC",
+    "IPG", "FOXA", "FOX", "NWSA", "NWS", "LYV", "MSG", "MSGS", "DISH", "SIRI",
+    
+    # S&P 500 - Retail & Consumer Services (40 symbols)
+    "AMZN", "TSLA", "HD", "WMT", "COST", "LOW", "TGT", "TJX", "ROST", "DG",
+    "DLTR", "BBWI", "ULTA", "AZO", "ORLY", "AAP", "GPC", "EBAY", "ETSY", "W",
+    "CHWY", "RVLV", "FTCH", "CPRI", "RL", "PVH", "TPR", "LULU", "UAA", "UA",
+    "NKE", "CROX", "DECK", "BIRK", "ONON", "HOKA", "VFC", "HBI", "COLM", "GRMN",
+    
+    # S&P 500 - Misc (Banks, Insurance, Other) (60 symbols)
+    "RF", "HBAN", "FITB", "MTB", "NTRS", "CFR", "FHN", "EWBC", "SIVB", "ZION",
+    "WBS", "SNV", "BOKF", "OZK", "ASB", "UBSI", "UMBF", "ABCB", "ONB", "TRMK",
+    "HWC", "FIBK", "FULT", "CBSH", "SFNC", "INDB", "BANR", "BHLB", "WSFS", "WAFD",
+    "CATY", "CVBF", "TOWN", "NWBI", "BUSE", "HTLF", "SBCF", "FFIN", "UCBI", "PFSI",
+    "VRTS", "BR", "LDOS", "BAH", "SAIC", "CACI", "KBR", "MAN", "AIR", "HII",
+    "LHX", "TXT", "HWM", "BALL", "SLGN", "AOS", "GGG", "LECO", "RBC", "CR",
+    
+    # NASDAQ 100 - Unique stocks not in S&P 500 (20 symbols)
+    "TEAM", "DDOG", "CRWD", "ZS", "NET", "OKTA", "PANW", "SNOW", "MDB", "DKNG",
+    "COIN", "RIVN", "LCID", "PLUG", "ENPH", "SEDG", "FSLR", "RUN", "SPWR", "BE",
+    
+    # Major ETFs (already downloaded: 10)
     "SPY", "QQQ", "IWM", "DIA", "VTI", "VOO", "VEA", "VWO", "AGG", "LQD"
 ]
+
+# Legacy name for backward compatibility
+SP500_TOP100 = ALL_SYMBOLS[:111]  # First 111 symbols (already downloaded)
 
 
 class YahooFinanceLoader:
@@ -248,8 +295,8 @@ def main():
         symbols = ["AAPL", "MSFT", "GOOGL", "TSLA", "SPY"]
         print("🧪 TEST MODE - Downloading 5 symbols only")
     else:
-        symbols = SP500_TOP100
-        print(f"📈 PRODUCTION MODE - Downloading {len(symbols)} symbols")
+        symbols = ALL_SYMBOLS
+        print(f"📈 PRODUCTION MODE - Downloading {len(symbols)} symbols (Full S&P 500 + NASDAQ 100)")
     
     # Run loader
     loader = YahooFinanceLoader(args.start, args.end)

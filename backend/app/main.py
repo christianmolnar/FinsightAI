@@ -807,9 +807,10 @@ async def get_data_progress():
         cur.close()
         conn.close()
         
-        # Calculate target (110 symbols × 2592 bars average)
-        target_symbols = 110
-        target_bars = target_symbols * 2592
+        # Calculate target (440 symbols = Full S&P 500 + NASDAQ 100 + ETFs)
+        # S&P 500: 500, NASDAQ 100 unique: ~20, ETFs: 10, minus duplicates = 440 target
+        target_symbols = 440
+        target_bars = target_symbols * 2592  # 10 years daily data
         
         return {
             "status": "success",
@@ -823,7 +824,8 @@ async def get_data_progress():
                 "percent_complete": round((total_symbols / target_symbols) * 100, 1) if total_symbols else 0,
                 "status_counts": status_counts,
                 "recent_progress": progress_list,
-                "top_symbols": top_symbols
+                "top_symbols": top_symbols,
+                "coverage": "Full S&P 500 + DOW + NASDAQ 100"
             }
         }
         

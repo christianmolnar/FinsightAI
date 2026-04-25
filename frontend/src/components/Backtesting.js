@@ -9,6 +9,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const DataProgressMonitor = () => {
   const [dataProgress, setDataProgress] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     // Initial fetch
@@ -21,15 +22,27 @@ const DataProgressMonitor = () => {
 
   const fetchProgress = async () => {
     try {
+      console.log('[DataProgressMonitor] Fetching from:', `${API_BASE_URL}/api/v1/data/progress`);
       const response = await fetch(`${API_BASE_URL}/api/v1/data/progress`);
+      console.log('[DataProgressMonitor] Response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const result = await response.json();
+      console.log('[DataProgressMonitor] Result:', result);
       
       if (result.status === 'success') {
         setDataProgress(result.data);
+        setError(null);
+      } else {
+        setError(result.message || 'Unknown error');
       }
       setLoading(false);
-    } catch (error) {
-      console.error('Failed to fetch data progress:', error);
+    } catch (err) {
+      console.error('[DataProgressMonitor] Error:', err);
+      setError(err.message);
       setLoading(false);
     }
   };
@@ -39,7 +52,9 @@ const DataProgressMonitor = () => {
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-200 p-6 mb-6">
         <div className="flex items-center gap-3">
           <Database className="w-6 h-6 text-blue-600 animate-pulse" />
-          <span className="text-gray-600">Loading data status...</span>
+          <span className="text-gray-600">
+            {error ? `Error: ${error}` : 'Loading data status...'}
+          </span>
         </div>
       </div>
     );
