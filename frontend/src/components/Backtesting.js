@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { PlayCircle, Clock, TrendingUp, TrendingDown, DollarSign, Target, Calendar, CheckCircle, Database, Download } from 'lucide-react';
 import CalibrationModal from './CalibrationModal';
+import { useAuth } from '../context/AuthContext';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -151,6 +152,7 @@ const DataProgressMonitor = () => {
 };
 
 const Backtesting = () => {
+  const { token } = useAuth(); // Get JWT token
   const [loading, setLoading] = useState(false);
   const [backtestId, setBacktestId] = useState(null);
   const [results, setResults] = useState(null);
@@ -180,9 +182,14 @@ const Backtesting = () => {
       // Get selected strategies
       const selectedStrategies = Object.keys(strategies).filter(s => strategies[s]);
 
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`${API_BASE_URL}/api/backtest/run`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           start_date: startDate,
           end_date: endDate,
@@ -220,7 +227,12 @@ const Backtesting = () => {
       attempts++;
 
       try {
-        const statusResponse = await fetch(`${API_BASE_URL}/api/backtest/status/${id}`);
+        const headers = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const statusResponse = await fetch(`${API_BASE_URL}/api/backtest/status/${id}`, { headers });
         
         if (!statusResponse.ok) {
           console.error('[Backtesting] Status check failed:', statusResponse.status);
@@ -239,7 +251,7 @@ const Backtesting = () => {
           clearInterval(poll);
           
           // Get full results
-          const resultsResponse = await fetch(`${API_BASE_URL}/api/backtest/results/${id}`);
+          const resultsResponse = await fetch(`${API_BASE_URL}/api/backtest/results/${id}`, { headers });
           
           if (!resultsResponse.ok) {
             setError(`Failed to get results: ${resultsResponse.status}`);
@@ -287,9 +299,21 @@ const Backtesting = () => {
     setResults(null);
 
     try {
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      
+      // Add Authorization header if token exists
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(
         `${API_BASE_URL}/api/backtest/quick/${period}?confidence_threshold=${confidenceThreshold / 100}`,
-        { method: 'POST' }
+        { 
+          method: 'POST',
+          headers
+        }
       );
 
       const data = await response.json();
@@ -318,39 +342,39 @@ const Backtesting = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">📊 Strategy Backtesting</h1>
-          <p className="text-gray-600">Test your strategies against historical data before going live</p>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2">📊 Strategy Backtesting</h1>
+          <p className="text-sm sm:text-base text-gray-600">Test your strategies against historical data before going live</p>
         </div>
 
         {/* Data Progress Monitor */}
         <DataProgressMonitor />
 
         {/* Quick Backtest Buttons */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">🚀 Quick Backtest</h2>
-          <div className="flex gap-4">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-6">
+          <h2 className="text-lg sm:text-xl font-semibold mb-4">🚀 Quick Backtest</h2>
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <button
               onClick={() => runQuickBacktest('30d')}
               disabled={loading}
-              className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
+              className="flex-1 bg-blue-500 text-white px-4 sm:px-6 py-3 rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
             >
               Last 30 Days
             </button>
             <button
               onClick={() => runQuickBacktest('90d')}
               disabled={loading}
-              className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
+              className="flex-1 bg-blue-500 text-white px-4 sm:px-6 py-3 rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
             >
               Last 90 Days
             </button>
             <button
               onClick={() => runQuickBacktest('1y')}
               disabled={loading}
-              className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
+              className="flex-1 bg-blue-500 text-white px-4 sm:px-6 py-3 rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
             >
               Last Year
             </button>

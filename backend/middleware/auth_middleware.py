@@ -9,6 +9,7 @@ Usage:
         ...
 """
 
+import logging
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -16,6 +17,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from services.auth_service import decode_token, get_user_by_email
 
+logger = logging.getLogger(__name__)
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
@@ -34,20 +36,27 @@ async def get_current_user(
     )
 
     if not credentials:
+        logger.warning("🔒 Authentication failed: No credentials provided")
         raise credentials_exception
 
+    logger.debug(f"🔍 Checking token: {credentials.credentials[:20]}...")
     payload = decode_token(credentials.credentials)
     if not payload:
+        logger.warning("🔒 Authentication failed: Invalid token")
         raise credentials_exception
 
     email: str | None = payload.get("sub")
     if not email:
+        logger.warning("🔒 Authentication failed: No email in token")
         raise credentials_exception
 
+    logger.debug(f"🔍 Looking up user: {email}")
     user = get_user_by_email(db, email)
     if not user:
+        logger.warning(f"🔒 Authentication failed: User not found: {email}")
         raise credentials_exception
 
+    logger.info(f"✅ Authenticated: {user.email}")
     return user
 
 

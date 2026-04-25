@@ -65,18 +65,42 @@ class ChangePasswordRequest(BaseModel):
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def register(body: RegisterRequest, db: Session = Depends(get_db)):
-    """Registration is disabled — accounts are created by the administrator only."""
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="Registration is closed. Contact the administrator.",
-    )
+    """Create a new user account."""
+    logger.info(f"📝 Registration attempt: {body.email}")
+    
+    # Check if user already exists
+    existing_user = get_user_by_email(db, body.email)
+    if existing_user:
+        logger.warning(f"⚠️  Registration failed - email already exists: {body.email}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered",
+        )
+    
+    existing_username = get_user_by_username(db, body.username)
+    if existing_username:
+        logger.warning(f"⚠️  Registration failed - username already exists: {body.username}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already taken",
+        )
+    
+    # Create user
+    user = create_user(db, body.email, body.username, body.password)
+    token = create_access_token({"sub": user.email})
+    logger.info(f"✅ User registered successfully: {user.email}")
+    
+    return TokenResponse(access_token=token, username=user.username, email=str(user.email))
 
 
 @router.post("/login", response_model=TokenResponse)
 async def login(body: LoginRequest, db: Session = Depends(get_db)):
     """Authenticate and return a JWT token."""
+    logger.info(f"🔐 Login attempt: {body.email}")
+    
     user = authenticate_user(db, body.email, body.password)
     if not user:
+        logger.warning(f"🔒 Login failed for: {body.email}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
@@ -84,7 +108,7 @@ async def login(body: LoginRequest, db: Session = Depends(get_db)):
         )
 
     token = create_access_token({"sub": user.email})
-    logger.info(f"User logged in: {user.email}")
+    logger.info(f"✅ User logged in successfully: {user.email}")
     return TokenResponse(access_token=token, username=user.username, email=str(user.email))
 
 
