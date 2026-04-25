@@ -26,17 +26,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Configure CORS
+# Configure CORS - Allow all origins for Vercel deployments
+# Vercel generates random URLs for preview deployments, so we allow all origins
+# In production, this is safe because we still validate JWT tokens for auth
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # React dev server
-        "https://frontend-pqe4851if-christian-molnars-projects.vercel.app",  # Vercel production
-        "https://frontend-pi-kohl-57.vercel.app",  # Vercel alias
-        "https://f-insight.ai",           # Custom domain
-        "https://www.f-insight.ai",       # Custom domain www
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],  # Allow all origins (JWT auth still required for protected endpoints)
+    allow_credentials=False,  # Must be False when allow_origins=["*"]
     allow_methods=["*"],
     allow_headers=["*"],
 )
