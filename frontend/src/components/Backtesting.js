@@ -187,20 +187,27 @@ const Backtesting = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
+      const backtestConfig = {
+        start_date: startDate,
+        end_date: endDate,
+        strategies: selectedStrategies.length === 3 ? null : selectedStrategies,
+        confidence_threshold: confidenceThreshold / 100,
+        use_ai: useAI,
+        initial_capital: initialCapital,
+        position_size: positionSize,
+        max_hold_days: 14,
+        enable_compounding: enableCompounding
+      };
+
+      console.log('📤 SENDING BACKTEST REQUEST:');
+      console.log('Initial Capital:', initialCapital, typeof initialCapital);
+      console.log('Position Size:', positionSize, typeof positionSize);
+      console.log('Full config:', backtestConfig);
+
       const response = await fetch(`${API_BASE_URL}/api/backtest/run`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          start_date: startDate,
-          end_date: endDate,
-          strategies: selectedStrategies.length === 3 ? null : selectedStrategies,
-          confidence_threshold: confidenceThreshold / 100,
-          use_ai: useAI,
-          initial_capital: initialCapital,
-          position_size: positionSize,
-          max_hold_days: 14,
-          enable_compounding: enableCompounding  // NEW: Pass compounding preference
-        })
+        body: JSON.stringify(backtestConfig)
       });
 
       const data = await response.json();
@@ -264,6 +271,19 @@ const Backtesting = () => {
           console.log('[Backtesting] Results data:', JSON.stringify(resultsData).substring(0, 200));
 
           if (resultsData.success) {
+            // Debug logging for math verification
+            console.log('📊 BACKTEST MATH DEBUG:');
+            console.log('Initial Capital:', resultsData.metrics.returns.initial_capital);
+            console.log('Final Capital:', resultsData.metrics.returns.final_capital);
+            console.log('Net Profit:', resultsData.metrics.returns.net_profit);
+            console.log('Backend Return %:', resultsData.metrics.returns.total_return_pct);
+            const verifyPct = ((resultsData.metrics.returns.final_capital - resultsData.metrics.returns.initial_capital) 
+              / resultsData.metrics.returns.initial_capital * 100).toFixed(2);
+            console.log('Calculated % (verify):', verifyPct);
+            if (Math.abs(verifyPct - resultsData.metrics.returns.total_return_pct) > 0.1) {
+              console.error('⚠️ MATH MISMATCH! Backend calculation may be wrong!');
+            }
+            
             setResults(resultsData);
             setError(null);
             console.log('[Backtesting] ✅ Results set successfully!');
@@ -410,9 +430,20 @@ const Backtesting = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Initial Capital ($)</label>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={initialCapital}
-                onChange={(e) => setInitialCapital(Number(e.target.value))}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9]/g, '');
+                  setInitialCapital(value === '' ? '' : Number(value));
+                }}
+                onBlur={(e) => {
+                  if (e.target.value === '' || e.target.value === '0') {
+                    setInitialCapital(10000);
+                  }
+                }}
+                placeholder="10000"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
@@ -426,9 +457,20 @@ const Backtesting = () => {
                 </span>
               </label>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={positionSize}
-                onChange={(e) => setPositionSize(Number(e.target.value))}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9]/g, '');
+                  setPositionSize(value === '' ? '' : Number(value));
+                }}
+                onBlur={(e) => {
+                  if (e.target.value === '' || e.target.value === '0') {
+                    setPositionSize(1000);
+                  }
+                }}
+                placeholder="1000"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
@@ -557,8 +599,23 @@ const Backtesting = () => {
                       {results.metrics.returns.total_return_pct >= 0 ? '+' : ''}
                       {results.metrics.returns.total_return_pct.toFixed(2)}%
                     </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      ${results.metrics.returns.initial_capital.toLocaleString()} → ${results.metrics.returns.final_capital.toLocaleString()}
+                    </p>
                   </div>
                   <TrendingUp className="w-8 h-8 text-green-500" />
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-500 text-sm">Net Profit</p>
+                    <p className={`text-2xl font-bold ${results.metrics.returns.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {results.metrics.returns.net_profit >= 0 ? '+' : ''}${Math.abs(results.metrics.returns.net_profit).toLocaleString()}
+                    </p>
+                  </div>
+                  <DollarSign className="w-8 h-8 text-green-500" />
                 </div>
               </div>
 
@@ -571,18 +628,6 @@ const Backtesting = () => {
                     </p>
                   </div>
                   <Target className="w-8 h-8 text-blue-500" />
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-500 text-sm">Net Profit</p>
-                    <p className={`text-2xl font-bold ${results.metrics.returns.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      ${results.metrics.returns.net_profit.toFixed(2)}
-                    </p>
-                  </div>
-                  <DollarSign className="w-8 h-8 text-green-500" />
                 </div>
               </div>
 
