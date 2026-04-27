@@ -165,6 +165,12 @@ const Backtesting = () => {
   const [aiError, setAiError] = useState(null);
   const [aiProvider, setAiProvider] = useState('anthropic'); // 'anthropic' or 'openai'
 
+  // PHASE 5: Optimization state
+  const [optimizing, setOptimizing] = useState(false);
+  const [optimizationId, setOptimizationId] = useState(null);
+  const [optimizationResults, setOptimizationResults] = useState(null);
+  const [optimizationError, setOptimizationError] = useState(null);
+
   // Form state
   const [startDate, setStartDate] = useState('2025-01-01');
   const [endDate, setEndDate] = useState('2026-03-01');
@@ -440,6 +446,129 @@ const Backtesting = () => {
     }
   };
 
+  // PHASE 5: Optimization Functions
+  const runOptimization = async () => {
+    setOptimizing(true);
+    setOptimizationError(null);
+    setOptimizationResults(null);
+
+    try {
+      const selectedStrategies = Object.keys(strategies).filter(s => strategies[s]);
+
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const optimizationConfig = {
+        start_date: startDate,
+        end_date: endDate,
+        strategies: selectedStrategies.length === 3 ? null : selectedStrategies,
+        confidence_threshold: confidenceThreshold,
+        use_ai: useAI,
+        initial_capital: initialCapital,
+        position_size: positionSize,
+        max_hold_days: 14,
+        enable_compounding: enableCompounding,
+        max_iterations: 5,
+        min_improvement_threshold: 0.02,
+        ai_provider: aiProvider
+      };
+
+      console.log('🚀 Starting optimization with config:', optimizationConfig);
+
+      const response = await fetch(`${API_BASE_URL}/api/backtest/optimize`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(optimizationConfig)
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Optimization failed');
+      }
+
+      setOptimizationId(data.optimization_id);
+
+      // Poll for optimization results
+      pollForOptimizationResults(data.optimization_id);
+    } catch (err) {
+      setOptimizationError(err.message);
+      setOptimizing(false);
+    }
+  };
+
+  const pollForOptimizationResults = async (id) => {
+    const maxAttempts = 120; // 10 minutes (optimization takes longer)
+    let attempts = 0;
+
+    const poll = setInterval(async () => {
+      attempts++;
+
+      try {
+        const headers = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const statusResponse = await fetch(`${API_BASE_URL}/api/backtest/status/${id}`, { headers });
+        
+        if (!statusResponse.ok) {
+          console.error('[Optimization] Status check failed:', statusResponse.status);
+          if (attempts >= maxAttempts) {
+            clearInterval(poll);
+            setOptimizationError('Status check timed out');
+            setOptimizing(false);
+          }
+          return;
+        }
+
+        const statusData = await statusResponse.json();
+        console.log('[Optimization] Poll attempt', attempts, 'status:', statusData.status);
+
+        if (statusData.status === 'complete') {
+          clearInterval(poll);
+          
+          // Get full results
+          const resultsResponse = await fetch(`${API_BASE_URL}/api/backtest/results/${id}`, { headers });
+          
+          if (!resultsResponse.ok) {
+            setOptimizationError(`Failed to get results: ${resultsResponse.status}`);
+            setOptimizing(false);
+            return;
+          }
+
+          const resultsData = await resultsResponse.json();
+          console.log('[Optimization] Results received:', resultsData);
+
+          if (resultsData.success) {
+            setOptimizationResults(resultsData);
+            setOptimizationError(null);
+          } else {
+            setOptimizationError(resultsData.error || 'Failed to get results');
+          }
+          setOptimizing(false);
+        } else if (statusData.status === 'failed') {
+          clearInterval(poll);
+          setOptimizationError(statusData.error || 'Optimization failed');
+          setOptimizing(false);
+        } else if (attempts >= maxAttempts) {
+          clearInterval(poll);
+          setOptimizationError('Optimization timed out after 10 minutes');
+          setOptimizing(false);
+        }
+      } catch (err) {
+        console.error('[Optimization] Polling error:', err);
+        if (attempts >= maxAttempts) {
+          clearInterval(poll);
+          setOptimizationError(`Failed to check status: ${err.message}`);
+          setOptimizing(false);
+        }
+      }
+    }, 5000); // Check every 5 seconds
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
@@ -479,6 +608,131 @@ const Backtesting = () => {
             </button>
           </div>
         </div>
+
+        {/* PHASE 5: Optimization Section */}
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg shadow-sm border border-purple-200 p-4 sm:p-6 mb-6">
+          <h2 className="text-lg sm:text-xl font-semibold mb-2 flex items-center gap-2">
+            <span className="text-2xl">🔬</span>
+            AI-Powered Optimization
+          </h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Automatically runs multiple backtests with AI-recommended parameter adjustments to find the optimal configuration (up to 5 iterations)
+          </p>
+          <button
+            onClick={runOptimization}
+            disabled={optimizing || loading}
+            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2"
+          >
+            {optimizing ? (
+              <>
+                <Clock className="w-5 h-5 animate-spin" />
+                Optimizing... (This may take 5-10 minutes)
+              </>
+            ) : (
+              <>
+                <Target className="w-5 h-5" />
+                🚀 Start Optimization Loop
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Optimization Progress */}
+        {optimizing && (
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-6 mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <Clock className="w-6 h-6 text-purple-600 animate-spin" />
+              <div className="flex-1">
+                <p className="text-purple-900 font-semibold">🔄 Optimization in Progress...</p>
+                <p className="text-purple-700 text-sm">Running iterative backtests with AI recommendations. This usually takes 5-10 minutes.</p>
+              </div>
+            </div>
+            <div className="w-full bg-purple-200 rounded-full h-2.5">
+              <div className="bg-purple-600 h-2.5 rounded-full animate-pulse" style={{width: '70%'}}></div>
+            </div>
+          </div>
+        )}
+
+        {/* Optimization Error */}
+        {optimizationError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+            <p className="text-red-900 font-medium">❌ Optimization Error: {optimizationError}</p>
+          </div>
+        )}
+
+        {/* Optimization Results */}
+        {optimizationResults && (
+          <div className="bg-white rounded-lg shadow-sm border border-purple-200 p-6 mb-6">
+            <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <span className="text-2xl">🎉</span>
+              Optimization Complete!
+            </h3>
+            
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
+                <p className="text-sm text-gray-600 mb-1">Initial Return</p>
+                <p className="text-2xl font-bold text-gray-900">{optimizationResults.initial_return_pct?.toFixed(2)}%</p>
+              </div>
+              
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-gray-600 mb-1">Best Return Found</p>
+                <p className="text-2xl font-bold text-blue-600">{optimizationResults.best_return_pct?.toFixed(2)}%</p>
+              </div>
+              
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-4">
+                <p className="text-sm text-gray-600 mb-1">Total Improvement</p>
+                <p className="text-2xl font-bold text-purple-600">+{optimizationResults.total_improvement?.toFixed(2)}%</p>
+              </div>
+            </div>
+
+            {/* Iterations Timeline */}
+            <div className="mb-6">
+              <h4 className="font-semibold mb-3">Optimization Journey ({optimizationResults.total_iterations} iterations)</h4>
+              <div className="space-y-3">
+                {optimizationResults.iterations?.map((iter, idx) => (
+                  <div key={idx} className={`border rounded-lg p-4 ${iter.is_best ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-200'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-semibold text-gray-900">
+                        Iteration {iter.iteration} {iter.is_best && '🏆'}
+                      </span>
+                      <span className={`font-bold ${iter.is_best ? 'text-green-600' : 'text-gray-600'}`}>
+                        {iter.return_pct?.toFixed(2)}%
+                      </span>
+                    </div>
+                    {iter.applied_recommendation && (
+                      <p className="text-sm text-gray-600">
+                        Applied: {iter.applied_recommendation.parameter} → {iter.applied_recommendation.suggested_value}
+                      </p>
+                    )}
+                    {iter.converged && (
+                      <p className="text-sm text-green-600 font-medium mt-2">✅ Converged - optimal parameters found</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Best Configuration */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="font-semibold mb-2">🎯 Best Configuration</h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                <div>
+                  <span className="text-gray-600">Position Size:</span>
+                  <span className="ml-2 font-medium">${optimizationResults.best_config?.position_size}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Confidence:</span>
+                  <span className="ml-2 font-medium">{(optimizationResults.best_config?.confidence_threshold * 100)?.toFixed(0)}%</span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Max Hold Days:</span>
+                  <span className="ml-2 font-medium">{optimizationResults.best_config?.max_hold_days}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Custom Backtest Configuration */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">

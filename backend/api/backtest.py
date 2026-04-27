@@ -485,3 +485,142 @@ async def apply_ai_recommendations(
             "success": False,
             "error": str(e)
         }
+
+
+# PHASE 5: Iterative Optimization Endpoint
+class OptimizationRequest(BaseModel):
+    start_date: str
+    end_date: str
+    strategies: Optional[List[str]] = None
+    confidence_threshold: float = 0.75
+    use_ai: bool = True
+    initial_capital: float = 10000.0
+    position_size: float = 1000.0
+    max_hold_days: int = 14
+    enable_compounding: bool = True
+    max_iterations: int = 5
+    min_improvement_threshold: float = 0.02  # 2% minimum improvement
+    ai_provider: str = 'anthropic'
+
+
+@router.post("/optimize")
+async def optimize_backtest(
+    request: OptimizationRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    PHASE 5: Run iterative optimization loop
+    
+    Automatically runs multiple backtests with AI-recommended parameter
+    adjustments until optimal configuration is found.
+    
+    Returns optimization_id for polling progress.
+    """
+    try:
+        # Validate dates
+        try:
+            start_date = datetime.strptime(request.start_date, '%Y-%m-%d')
+            end_date = datetime.strptime(request.end_date, '%Y-%m-%d')
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+        
+        if start_date >= end_date:
+            raise HTTPException(status_code=400, detail="start_date must be before end_date")
+        
+        # Generate optimization ID
+        optimization_id = f"optimize_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        # Mark as running
+        _backtest_status[optimization_id] = {
+            'status': 'running',
+            'start_time': datetime.now(),
+            'progress': 0,
+            'type': 'optimization'
+        }
+        
+        # Run optimization asynchronously
+        background_tasks.add_task(
+            _run_optimization_task,
+            optimization_id=optimization_id,
+            db=db,
+            request=request,
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        return {
+            "success": True,
+            "optimization_id": optimization_id,
+            "message": "Optimization started",
+            "max_iterations": request.max_iterations
+        }
+    
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+async def _run_optimization_task(
+    optimization_id: str,
+    db: Session,
+    request: OptimizationRequest,
+    start_date: datetime,
+    end_date: datetime
+):
+    """
+    Background task for running optimization loop
+    """
+    try:
+        from services.backtester import Backtester
+        from services.backtest_ai_analyzer import BacktestAIAnalyzer
+        from services.backtest_optimizer import BacktestOptimizer
+        
+        # Initialize services
+        backtester = Backtester(
+            db=db,
+            initial_capital=request.initial_capital,
+            position_size_pct=request.position_size / request.initial_capital,
+            max_hold_days=request.max_hold_days,
+            enable_compounding=request.enable_compounding
+        )
+        ai_analyzer = BacktestAIAnalyzer()
+        optimizer = BacktestOptimizer(backtester, ai_analyzer)
+        
+        # Build initial parameters
+        initial_params = {
+            'start_date': request.start_date,
+            'end_date': request.end_date,
+            'strategies': request.strategies,
+            'confidence_threshold': request.confidence_threshold,
+            'use_ai': request.use_ai,
+            'initial_capital': request.initial_capital,
+            'position_size': request.position_size,
+            'max_hold_days': request.max_hold_days,
+            'enable_compounding': request.enable_compounding
+        }
+        
+        # Run optimization
+        result = await optimizer.optimize(
+            initial_params=initial_params,
+            max_iterations=request.max_iterations,
+            min_improvement_threshold=request.min_improvement_threshold,
+            ai_provider=request.ai_provider
+        )
+        
+        # Store results
+        _backtest_results[optimization_id] = result
+        _backtest_status[optimization_id] = {
+            'status': 'complete',
+            'end_time': datetime.now(),
+            'type': 'optimization'
+        }
+        
+    except Exception as e:
+        _backtest_status[optimization_id] = {
+            'status': 'failed',
+            'error': str(e),
+            'type': 'optimization'
+        }
