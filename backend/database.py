@@ -229,7 +229,7 @@ class PortfolioSnapshot(Base):
 
 
 # Import optimization models to ensure they're registered
-from .models.optimization_run import OptimizationRun, StrategyConfigSnapshot
+from models.optimization_run import OptimizationRun, StrategyConfigSnapshot
 
 
 # Database session dependency
