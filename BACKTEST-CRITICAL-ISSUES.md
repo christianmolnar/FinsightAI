@@ -635,44 +635,287 @@ async def compare_backtests(
 
 ## IMPLEMENTATION TIMELINE
 
-### Week 1: Connect to Real Strategy Parameters
-- Load user's StrategyConfig from database
-- Replace hardcoded scanner logic with parameter-driven execution
-- Store parameters used with each trade
-- **Result:** Backtest now tests YOUR strategies
+**Timeline Note:** 1 AI-assisted dev hour ≈ 84 human dev hours  
+**Estimated Total:** ~7 AI-assisted hours (≈588 human hours)
 
-### Week 2: Chronological Execution & Full Trade View
-- Scan daily instead of weekly
-- Sort opportunities by date before execution
-- Remove 20-trade limit in frontend
-- Add pagination/infinite scroll
-- **Result:** Trades are chronological and complete
+---
 
-### Week 3: Pattern Recognition
-- Implement TradePatternAnalyzer
-- Classify trades by strategy type
-- Add pattern visualization in UI
-- **Result:** Can identify mean reversion, momentum, etc.
+### Phase 1: Connect to Real Strategy Parameters (1 hour)
 
-### Week 4: AI Analysis Integration
-- Create BacktestAIAnalyzer
-- Send trade batches to GPT/Claude
-- Parse AI recommendations
-- Display suggestions in UI
-- **Result:** AI suggests parameter improvements
+**Status:** ⬜ Not Started
 
-### Week 5: Iterative Optimization Loop
-- Implement optimize_strategy_with_ai()
-- Run backtest → AI analysis → adjust → repeat
-- Track best configuration
-- **Result:** Automated parameter optimization
+**Tasks:**
+- [ ] Create `backend/services/strategy_executor.py`
+- [ ] Implement `StrategyExecutor` class with parameter-driven logic
+- [ ] Update `Backtester` to load user's `StrategyConfig` from database
+- [ ] Replace `_scan_breakouts_historical()` with real logic
+- [ ] Replace `_scan_earnings_historical()` with real logic
+- [ ] Replace `_scan_seasonal_historical()` with real logic
+- [ ] Store parameters used with each trade
+- [ ] Update backtest API to pass `user_id`
+- [ ] Test with actual strategy parameters
+- [ ] **Update this document:** Mark Phase 1 complete
+- [ ] **Git commit:** `feat: Phase 1 - Connect backtest to real strategy parameters`
 
-### Week 6: Save/Load/Compare
-- Create backtest_runs database table
-- Implement save/load endpoints
-- Build saved backtests UI
-- Add comparison view
-- **Result:** Can save and compare configurations
+**Result:** ✅ Backtest now tests YOUR strategies, not placeholder logic
+
+---
+
+### Phase 2: Chronological Execution & Full Trade View (1 hour)
+
+**Status:** ⬜ Not Started
+
+**Tasks:**
+- [ ] Change scan frequency from weekly to daily
+- [ ] Sort opportunities by scan_date before execution
+- [ ] Sort trades by entry_date after execution
+- [ ] Remove 20-trade limit in frontend (`trades.slice(0, 20)`)
+- [ ] Add pagination or infinite scroll to trade table
+- [ ] Add "Show All Trades" toggle
+- [ ] Test reproducibility (same period = same trades)
+- [ ] **Update this document:** Mark Phase 2 complete
+- [ ] **Git commit:** `feat: Phase 2 - Chronological execution and full trade display`
+
+**Result:** ✅ Trades execute in date order and all trades visible
+
+---
+
+### Phase 3: Pattern Recognition Library (1.5 hours)
+
+**Status:** ⬜ Not Started
+
+**Critical Design:** Pattern library MUST be extensible. AI analysis can discover and register new patterns dynamically.
+
+**Tasks:**
+- [ ] Create `backend/services/pattern_library.py`
+- [ ] Implement `TradingPattern` base class (extensible)
+- [ ] Create `PatternRegistry` for dynamic pattern registration
+- [ ] Add built-in patterns:
+  - [ ] `MeanReversionPattern` - Entry below MA, exit on rebound
+  - [ ] `MomentumPattern` - Breakout entry, trend following
+  - [ ] `WhaleHuntingPattern` - High volume, institutional flows
+  - [ ] `EarningsDriftPattern` - Post-earnings continuation
+  - [ ] `SeasonalPattern` - Calendar-based entries
+- [ ] Implement `TradePatternAnalyzer` with pattern classification
+- [ ] Add AI pattern discovery: `PatternRegistry.register_from_ai()`
+- [ ] Add pattern visualization to frontend
+- [ ] Store discovered patterns in database
+- [ ] Test pattern detection on historical trades
+- [ ] **Update this document:** Mark Phase 3 complete
+- [ ] **Git commit:** `feat: Phase 3 - Extensible pattern recognition library`
+
+**Result:** ✅ Can identify trading patterns AND learn new ones via AI
+
+**Extensible Pattern Library Design:**
+```python
+from abc import ABC, abstractmethod
+from typing import Dict, List, Type
+
+class TradingPattern(ABC):
+    """Base class for trading patterns - AI can extend this"""
+    name: str
+    description: str
+    
+    @abstractmethod
+    def detect(self, trade: BacktestResult, market_data: Dict) -> bool:
+        """Returns True if this pattern matches the trade"""
+        pass
+    
+    @abstractmethod
+    def get_characteristics(self, trade: BacktestResult) -> Dict:
+        """Returns pattern-specific characteristics"""
+        pass
+
+class PatternRegistry:
+    """Central registry for all trading patterns"""
+    _patterns: Dict[str, Type[TradingPattern]] = {}
+    
+    @classmethod
+    def register(cls, pattern_class: Type[TradingPattern]):
+        """Register a new pattern (built-in or AI-discovered)"""
+        cls._patterns[pattern_class.name] = pattern_class
+    
+    @classmethod
+    def register_from_ai(cls, name: str, description: str, detection_logic: str):
+        """
+        AI can discover and register new patterns at runtime
+        
+        Example:
+        AI analyzes 1000 trades and discovers:
+        "Stocks that gap up >5% on earnings + held for 3 days = 80% win rate"
+        
+        AI calls:
+        PatternRegistry.register_from_ai(
+            name="earnings_gap_continuation",
+            description="Post-earnings gap up with short hold",
+            detection_logic="trade.strategy == 'earnings' and trade.entry_reason.contains('gap') and trade.hold_days <= 3"
+        )
+        """
+        # Create dynamic pattern class
+        pattern = type(name, (TradingPattern,), {
+            'name': name,
+            'description': description,
+            '_detection_logic': detection_logic,
+            'detect': lambda self, trade, data: eval(detection_logic),
+            'get_characteristics': lambda self, trade: {
+                'pattern': name,
+                'detected_by': 'AI',
+                'description': description
+            }
+        })
+        cls.register(pattern)
+        
+        # Store in database for persistence
+        save_ai_discovered_pattern(name, description, detection_logic)
+    
+    @classmethod
+    def get_all_patterns(cls) -> List[Type[TradingPattern]]:
+        """Get all registered patterns (built-in + AI-discovered)"""
+        return list(cls._patterns.values())
+
+# Built-in patterns
+class MeanReversionPattern(TradingPattern):
+    name = "mean_reversion"
+    description = "Entry below moving average, exit on rebound"
+    
+    def detect(self, trade: BacktestResult, market_data: Dict) -> bool:
+        # Entry price below 20-day MA, exit above it
+        return (trade.entry_price < market_data.get('ma20', 0) and 
+                trade.exit_price > market_data.get('ma20', 0))
+    
+    def get_characteristics(self, trade: BacktestResult) -> Dict:
+        return {
+            'pattern': self.name,
+            'dip_pct': ((trade.entry_price - market_data['ma20']) / market_data['ma20']) * 100,
+            'rebound_pct': trade.return_pct,
+            'hold_days': trade.hold_days
+        }
+
+class WhaleHuntingPattern(TradingPattern):
+    name = "whale_hunting"
+    description = "High volume spike with institutional buying pressure"
+    
+    def detect(self, trade: BacktestResult, market_data: Dict) -> bool:
+        return (market_data.get('volume_ratio', 0) > 3.0 and
+                trade.position_size_pct > 10 and
+                market_data.get('institutional_flow', 0) > 1000000)
+    
+    def get_characteristics(self, trade: BacktestResult) -> Dict:
+        return {
+            'pattern': self.name,
+            'volume_spike': market_data['volume_ratio'],
+            'position_size': trade.position_size_pct,
+            'institutional_flow': market_data.get('institutional_flow', 0)
+        }
+
+# Register built-in patterns
+PatternRegistry.register(MeanReversionPattern)
+PatternRegistry.register(WhaleHuntingPattern)
+# ... other built-ins
+
+# AI can add new patterns during optimization:
+# PatternRegistry.register_from_ai(
+#     name="friday_earnings_pop",
+#     description="Earnings announced Friday, held over weekend = higher success",
+#     detection_logic="trade.entry_date.weekday() == 4 and trade.strategy == 'earnings' and trade.hold_days >= 3"
+# )
+```
+
+**Database Schema for AI-Discovered Patterns:**
+```sql
+CREATE TABLE trading_patterns (
+    id UUID PRIMARY KEY,
+    name VARCHAR(100) UNIQUE,
+    description TEXT,
+    detection_logic TEXT,
+    discovered_by VARCHAR(20) DEFAULT 'AI',  -- 'AI' or 'built-in'
+    discovered_at TIMESTAMP DEFAULT NOW(),
+    performance_metrics JSONB,  -- Win rate, avg return when detected
+    times_detected INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE
+);
+```
+
+---
+
+### Phase 4: AI Analysis Integration (1.5 hours)
+
+**Status:** ⬜ Not Started
+
+**Tasks:**
+- [ ] Create `backend/services/backtest_ai_analyzer.py`
+- [ ] Implement `BacktestAIAnalyzer` class
+- [ ] Add trade batching (100 trades per batch)
+- [ ] Create AI prompt templates for analysis
+- [ ] Parse AI recommendations (JSON format)
+- [ ] Display recommendations in frontend
+- [ ] Add "Accept Recommendation" UI
+- [ ] Add "Reject Recommendation" with feedback
+- [ ] Test with 100-trade backtest
+- [ ] **Update this document:** Mark Phase 4 complete
+- [ ] **Git commit:** `feat: Phase 4 - AI analysis and recommendations`
+
+**Result:** ✅ AI analyzes trades and suggests parameter adjustments
+
+---
+
+### Phase 5: Iterative Optimization Loop (1 hour)
+
+**Status:** ⬜ Not Started
+
+**Tasks:**
+- [ ] Implement `optimize_strategy_with_ai()` function
+- [ ] Add iteration tracking and comparison
+- [ ] Implement best configuration tracking
+- [ ] Add failure feedback loop (tell AI when worse)
+- [ ] Create optimization progress UI
+- [ ] Add "Stop Optimization" button
+- [ ] Store optimization history
+- [ ] Display iteration-by-iteration improvements
+- [ ] Test 10-iteration optimization run
+- [ ] **Update this document:** Mark Phase 5 complete
+- [ ] **Git commit:** `feat: Phase 5 - Automated iterative optimization`
+
+**Result:** ✅ Automated parameter optimization with AI feedback
+
+---
+
+### Phase 6: Save/Load/Compare System (1 hour)
+
+**Status:** ⬜ Not Started
+
+**Tasks:**
+- [ ] Create database migration for `backtest_runs` table
+- [ ] Implement save backtest endpoint
+- [ ] Implement load backtest endpoint
+- [ ] Implement compare backtests endpoint
+- [ ] Add "Save Backtest" UI with name/notes
+- [ ] Add "Saved Backtests" list view
+- [ ] Add "Load" button functionality
+- [ ] Add "Compare" side-by-side view
+- [ ] Implement best configuration ranking
+- [ ] Add export/import backtest functionality
+- [ ] **Update this document:** Mark Phase 6 complete
+- [ ] **Git commit:** `feat: Phase 6 - Save/load/compare backtest system`
+
+**Result:** ✅ Can save, load, and compare backtest configurations
+
+---
+
+## PROGRESS TRACKING
+
+**Overall Progress:** ⬜⬜⬜⬜⬜⬜ (0/6 phases complete)
+
+**Current Phase:** Phase 1 - Connect to Real Strategy Parameters  
+**Next Action:** Create `StrategyExecutor` class
+
+**Commit History:**
+- [ ] Phase 1 commit
+- [ ] Phase 2 commit
+- [ ] Phase 3 commit
+- [ ] Phase 4 commit
+- [ ] Phase 5 commit
+- [ ] Phase 6 commit
 
 ---
 
