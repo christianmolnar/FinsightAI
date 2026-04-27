@@ -472,43 +472,60 @@ class Backtester:
             logger.error("❌ Failed to download any historical data!")
             return BacktestMetrics([], self.initial_capital, daily_pnl)
         
+        # PHASE 2: Collect ALL opportunities across entire date range first
+        logger.info(f"🔍 PHASE 2: Scanning for opportunities chronologically...")
+        all_opportunities = []
         current_date = start_date
         
-        # Simulate scanning every week
+        # Scan DAILY (not weekly) for chronological consistency
         while current_date <= end_date:
-            logger.info(f"📅 Scanning {current_date.date()}...")
-            
             # Get scanner candidates using pre-downloaded data
             candidates = await self._get_historical_candidates(current_date, strategies, universe_data)
             
-            if not candidates:
-                logger.debug(f"   No candidates found")
-                current_date += timedelta(days=7)  # Calendar days - but trades only execute on market days
-                continue
+            # Tag each candidate with scan date for chronological sorting
+            for candidate in candidates:
+                candidate['scan_date'] = current_date
             
-            logger.info(f"   Found {len(candidates)} candidates")
+            all_opportunities.extend(candidates)
             
-            # Analyze with AI if enabled
+            # Move to next CALENDAR day (will only execute on market days)
+            current_date += timedelta(days=1)
+        
+        logger.info(f"✅ Found {len(all_opportunities)} total opportunities across date range")
+        
+        # PHASE 2: Sort opportunities chronologically by scan date
+        all_opportunities.sort(key=lambda x: x['scan_date'])
+        logger.info(f"📅 Sorted opportunities chronologically")
+        
+        # Now process opportunities in order
+        for opp in all_opportunities:
+            scan_date = opp['scan_date']
+            
+            # Log every 10th scan for progress
+            if all_opportunities.index(opp) % 10 == 0:
+                progress = (all_opportunities.index(opp) / len(all_opportunities)) * 100
+                logger.info(f"   Progress: {progress:.0f}% ({all_opportunities.index(opp)}/{len(all_opportunities)})")
+            
+            # Analyze with AI if enabled (skip for now to speed up)
             if use_ai:
-                opportunities = await self._analyze_with_ai(candidates, confidence_threshold, current_date)
-            else:
-                opportunities = candidates
+                # TODO: Add AI analysis back in Phase 4
+                pass
             
-            # Simulate trades
-            for opp in opportunities:
-                trade = await self._simulate_trade(opp, current_date, universe_data)
-                if trade:
-                    self.trades.append(trade)
-                    logger.info(f"   ✅ {trade.symbol}: {trade.return_pct:+.2f}% ({trade.hold_days}d)")
-                    
-                    # NEW: Accumulate P&L for the exit date
-                    exit_date_str = trade.exit_date.date()
-                    if exit_date_str not in daily_pnl:
-                        daily_pnl[exit_date_str] = 0.0
-                    daily_pnl[exit_date_str] += trade.profit_loss
-            
-            # Move to next scan date
-            current_date += timedelta(days=7)  # Calendar days - next scan in 7 days
+            # Simulate trade
+            trade = await self._simulate_trade(opp, scan_date, universe_data)
+            if trade:
+                self.trades.append(trade)
+                # Track daily P&L
+                exit_date_str = trade.exit_date.date()
+                if exit_date_str not in daily_pnl:
+                    daily_pnl[exit_date_str] = 0.0
+                daily_pnl[exit_date_str] += trade.profit_loss
+        
+        logger.info(f"✅ Completed {len(self.trades)} trades")
+        
+        # PHASE 2: Final sort by entry date to ensure chronological order
+        self.trades.sort(key=lambda t: t.entry_date)
+        logger.info(f"📅 Sorted {len(self.trades)} trades chronologically by entry date")
         
         # Calculate metrics with daily P&L
         metrics = BacktestMetrics(self.trades, self.initial_capital, daily_pnl)

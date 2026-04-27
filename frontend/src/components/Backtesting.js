@@ -853,7 +853,12 @@ const Backtesting = () => {
             {/* Trade List */}
             {results.trades && results.trades.length > 0 && (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-xl font-semibold mb-4">📋 All Trades</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-semibold">📋 All Trades</h3>
+                  <span className="text-sm text-gray-500">
+                    Showing all {results.trades.length} trades (sorted chronologically by entry date)
+                  </span>
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50">
