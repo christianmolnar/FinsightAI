@@ -20,8 +20,10 @@ from services.market_scanner import MarketScanner
 from services.opportunity_analyzer import get_opportunity_analyzer
 from services.historical_data_manager import HistoricalDataManager
 from services.position_sizer import PositionSizer
+from services.strategy_executor import StrategyExecutor
 from config.config_loader import config
 from config.backtest_config import BACKTEST_DEBUG, EXIT_RULES, get_config
+from app.models.strategy import StrategyConfig
 
 logger = logging.getLogger(__name__)
 
@@ -273,6 +275,8 @@ class BacktestMetrics:
 class Backtester:
     """
     Backtesting engine for strategy validation
+    
+    PHASE 1: Now uses real user strategy parameters via StrategyExecutor
     """
     
     def __init__(
@@ -281,7 +285,9 @@ class Backtester:
         initial_capital: float = 10000.0,
         position_size_pct: Optional[float] = None,  # Now accepts percentage instead of fixed dollars
         max_hold_days: int = 14,
-        enable_compounding: bool = True  # DEFAULT: True (recommended for realistic growth)
+        enable_compounding: bool = True,  # DEFAULT: True (recommended for realistic growth)
+        user_id: Optional[str] = None,  # NEW: Load user's strategy config
+        strategy_config: Optional[Dict] = None  # NEW: Or pass config directly
     ):
         """
         Initialize backtester
@@ -293,11 +299,28 @@ class Backtester:
             max_hold_days: Maximum days to hold a position
             enable_compounding: If True, position size compounds with portfolio (RECOMMENDED)
                                If False, position size stays fixed based on initial_capital
+            user_id: User ID to load strategy configuration from database
+            strategy_config: Or pass strategy config directly (bypasses database)
         """
         self.db = db
         self.initial_capital = initial_capital
         self.max_hold_days = max_hold_days
         self.enable_compounding = enable_compounding
+        
+        # PHASE 1: Load user's strategy configuration
+        if strategy_config:
+            self.strategy_config = strategy_config
+            logger.info("📋 Using provided strategy configuration")
+        elif user_id:
+            self.strategy_config = self._load_user_strategy_config(user_id)
+            logger.info(f"📋 Loaded strategy configuration for user {user_id}")
+        else:
+            # Default configuration (from frontend StrategyConfig.js structure)
+            self.strategy_config = self._get_default_strategy_config()
+            logger.warning("⚠️  No user_id or config provided - using default configuration")
+        
+        # Initialize StrategyExecutor with user's real parameters
+        self.strategy_executor = StrategyExecutor(self.strategy_config)
         
         # Initialize position sizer with compounding logic
         self.position_sizer = PositionSizer(config)
@@ -316,6 +339,80 @@ class Backtester:
         self.scanner = MarketScanner(db, historical_data_manager=self.historical_data)
         
         self.trades: List[BacktestResult] = []
+    
+    def _load_user_strategy_config(self, user_id: str) -> Dict:
+        """
+        Load user's strategy configuration from database
+        
+        Returns dict matching frontend StrategyConfig.js structure
+        """
+        try:
+            from uuid import UUID
+            user_uuid = UUID(user_id) if isinstance(user_id, str) else user_id
+            
+            # Query all active strategy configs for user
+            configs = self.db.query(StrategyConfig).filter(
+                StrategyConfig.user_id == user_uuid,
+                StrategyConfig.is_active == True
+            ).all()
+            
+            if not configs:
+                logger.warning(f"No strategy configs found for user {user_id}, using defaults")
+                return self._get_default_strategy_config()
+            
+            # Combine all strategy configs into single dict
+            strategy_config = {}
+            for config in configs:
+                strategy_name = config.strategy_name.lower()
+                strategy_config[strategy_name] = {
+                    'enabled': True,
+                    'params': config.parameters
+                }
+            
+            logger.info(f"✅ Loaded {len(configs)} strategy configurations from database")
+            return strategy_config
+            
+        except Exception as e:
+            logger.error(f"Failed to load user strategy config: {e}")
+            return self._get_default_strategy_config()
+    
+    def _get_default_strategy_config(self) -> Dict:
+        """
+        Default strategy configuration matching frontend structure
+        """
+        return {
+            'earnings': {
+                'enabled': True,
+                'params': {
+                    'daysBeforeEarnings': {'value': 5},
+                    'minEpsGrowth': {'value': 15},
+                    'minRevenueGrowth': {'value': 10},
+                    'historicalBeatRate': {'value': 70},
+                    'profitTarget': {'value': 12},
+                    'stopLoss': {'value': 5},
+                    'maxPortfolioWeight': {'value': 20}
+                }
+            },
+            'seasonality': {
+                'enabled': True,
+                'params': {
+                    'weeksBeforePeak': {'value': 3},
+                    'minHistoricalYears': {'value': 5},
+                    'minSeasonalReturn': {'value': 8},
+                    'profitTarget': {'value': 15},
+                    'stopLoss': {'value': 7},
+                    'maxPortfolioWeight': {'value': 15}
+                }
+            },
+            'macro': {
+                'enabled': False,
+                'params': {}
+            },
+            'sentiment': {
+                'enabled': False,
+                'params': {}
+            }
+        }
     
     async def run_backtest(
         self,
@@ -478,6 +575,8 @@ class Backtester:
         """
         Get scanner candidates using historical data
         
+        PHASE 1: Now uses StrategyExecutor with real user parameters
+        
         Args:
             scan_date: Date to scan on
             strategies: Strategies to use
@@ -496,18 +595,31 @@ class Backtester:
                 end_date=scan_date
             )
         
-        # Run scanner strategies
+        # Run StrategyExecutor on all symbols
         candidates = []
         
-        if not strategies or 'technical_breakout' in strategies:
-            candidates.extend(self._scan_breakouts_historical(universe_data, scan_date))
+        for symbol, hist_data in universe_data.items():
+            if hist_data.empty or len(hist_data) < 50:
+                continue
+            
+            # Use StrategyExecutor to scan with REAL user parameters
+            opportunities = self.strategy_executor.scan_all_strategies(
+                symbol=symbol,
+                hist_data=hist_data,
+                scan_date=scan_date,
+                market_data={}
+            )
+            
+            # Filter by requested strategies if specified
+            if strategies:
+                opportunities = [
+                    opp for opp in opportunities 
+                    if opp['strategy'] in strategies
+                ]
+            
+            candidates.extend(opportunities)
         
-        if not strategies or 'earnings_play' in strategies:
-            candidates.extend(self._scan_earnings_historical(universe_data, scan_date))
-        
-        if not strategies or 'seasonality' in strategies:
-            candidates.extend(self._scan_seasonal_historical(universe_data, scan_date))
-        
+        logger.info(f"   Found {len(candidates)} candidates using StrategyExecutor")
         return candidates
     
     def _scan_breakouts_historical(self, universe_data: Dict, scan_date: datetime) -> List[Dict]:
@@ -883,10 +995,13 @@ def get_backtester(
     initial_capital: float = 10000.0,
     position_size_pct: Optional[float] = None,  # Now percentage-based (0.10 = 10%)
     max_hold_days: int = 14,
-    enable_compounding: bool = False  # NEW: Controls fixed vs compounding sizing
+    enable_compounding: bool = False,  # NEW: Controls fixed vs compounding sizing
+    user_id: Optional[str] = None  # PHASE 1: Load user's strategy config
 ) -> Backtester:
     """
     Get or create singleton backtester instance
+    
+    PHASE 1: Now loads user's strategy configuration
     
     NOTE: Recreates instance if parameters change to avoid stale config
     """
@@ -894,6 +1009,13 @@ def get_backtester(
     
     # Always create a new instance to avoid stale parameters
     # (Small overhead but ensures correct configuration)
-    _backtester = Backtester(db, initial_capital, position_size_pct, max_hold_days, enable_compounding)
+    _backtester = Backtester(
+        db, 
+        initial_capital, 
+        position_size_pct, 
+        max_hold_days, 
+        enable_compounding,
+        user_id=user_id  # PHASE 1: Pass user_id to load config
+    )
     
     return _backtester

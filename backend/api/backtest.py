@@ -29,6 +29,7 @@ class BacktestRequest(BaseModel):
     position_size: float = 1000.0  # Fixed dollar amount per trade
     max_hold_days: int = 14
     enable_compounding: bool = True  # DEFAULT: Position size grows with portfolio (RECOMMENDED)
+    user_id: Optional[str] = None  # PHASE 1: Load user's strategy config
 
 
 class BacktestResponse(BaseModel):
@@ -145,7 +146,8 @@ async def _run_backtest_task(
             initial_capital=request.initial_capital,
             position_size_pct=position_size_pct,  # Now using percentage
             max_hold_days=request.max_hold_days,
-            enable_compounding=request.enable_compounding  # Pass compounding flag
+            enable_compounding=request.enable_compounding,  # Pass compounding flag
+            user_id=request.user_id  # PHASE 1: Load user's strategy config
         )
         
         # Run backtest
@@ -298,7 +300,8 @@ async def run_quick_backtest(
     confidence_threshold: float = 0.75,
     initial_capital: float = 10000.0,  # Accept from frontend
     position_size: float = 1000.0,     # Accept from frontend
-    enable_compounding: bool = True    # Accept from frontend
+    enable_compounding: bool = True,   # Accept from frontend
+    user_id: Optional[str] = None      # PHASE 1: Load user's strategy config
 ):
     """
     Run a quick backtest with preset time periods
@@ -308,6 +311,7 @@ async def run_quick_backtest(
     - 90d: Last 90 days
     - 1y: Last year
     
+    PHASE 1: Now uses user's strategy configuration
     Now accepts initial_capital and position_size from frontend form!
     """
     # Calculate dates based on period
@@ -332,7 +336,8 @@ async def run_quick_backtest(
         initial_capital=initial_capital,  # Use frontend value
         position_size=position_size,      # Use frontend value
         max_hold_days=14,
-        enable_compounding=enable_compounding  # Use frontend value
+        enable_compounding=enable_compounding,  # Use frontend value
+        user_id=user_id  # PHASE 1: Load user's strategy config
     )
     
     # Run backtest
