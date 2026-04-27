@@ -175,7 +175,7 @@ const Backtesting = () => {
   const [enableCompounding, setEnableCompounding] = useState(true); // NEW: Compounding control
   const [strategies, setStrategies] = useState({
     technical_breakout: true,
-    earnings_play: true,
+    earnings: true,  // Fixed: Backend expects 'earnings' not 'earnings_play'
     seasonality: true
   });
 
