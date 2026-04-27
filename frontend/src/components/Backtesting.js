@@ -329,7 +329,7 @@ const Backtesting = () => {
       }
 
       const response = await fetch(
-        `${API_BASE_URL}/api/backtest/quick/${period}?confidence_threshold=${confidenceThreshold / 100}`,
+        `${API_BASE_URL}/api/backtest/quick/${period}?confidence_threshold=${confidenceThreshold / 100}&initial_capital=${initialCapital}&position_size=${positionSize}&enable_compounding=${enableCompounding}`,
         { 
           method: 'POST',
           headers

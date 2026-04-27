@@ -21,6 +21,7 @@ from services.opportunity_analyzer import get_opportunity_analyzer
 from services.historical_data_manager import HistoricalDataManager
 from services.position_sizer import PositionSizer
 from config.config_loader import config
+from config.backtest_config import BACKTEST_DEBUG, EXIT_RULES, get_config
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,13 @@ class BacktestMetrics:
         self.initial_capital = initial_capital
         self.daily_pnl = daily_pnl or {}  # NEW: {date: daily_profit_loss}
         
+        if BACKTEST_DEBUG:
+            logger.info(f"\n{'='*60}")
+            logger.info(f"🔍 BACKTEST METRICS CALCULATION DEBUG")
+            logger.info(f"{'='*60}")
+            logger.info(f"Initial Capital: ${initial_capital:,.2f}")
+            logger.info(f"Total Trades: {len(trades)}")
+        
         # Calculate aggregate metrics
         self.total_trades = len(trades)
         self.winning_trades = len([t for t in trades if t.profit_loss > 0])
@@ -106,6 +114,14 @@ class BacktestMetrics:
         self.total_loss = abs(sum([t.profit_loss for t in trades if t.profit_loss < 0]))
         self.net_profit = sum([t.profit_loss for t in trades])
         
+        if BACKTEST_DEBUG:
+            logger.info(f"\nProfit/Loss Breakdown:")
+            logger.info(f"  Winning Trades: {self.winning_trades} ({self.win_rate:.1f}%)")
+            logger.info(f"  Losing Trades: {self.losing_trades}")
+            logger.info(f"  Total Profit from Winners: ${self.total_profit:,.2f}")
+            logger.info(f"  Total Loss from Losers: ${self.total_loss:,.2f}")
+            logger.info(f"  Net Profit (Total P&L): ${self.net_profit:,.2f}")
+        
         self.avg_win = (self.total_profit / self.winning_trades) if self.winning_trades > 0 else 0
         self.avg_loss = (self.total_loss / self.losing_trades) if self.losing_trades > 0 else 0
         
@@ -113,6 +129,15 @@ class BacktestMetrics:
         
         self.final_capital = initial_capital + self.net_profit
         self.total_return_pct = ((self.final_capital - initial_capital) / initial_capital) * 100
+        
+        if BACKTEST_DEBUG:
+            logger.info(f"\nCapital Analysis:")
+            logger.info(f"  Starting: ${initial_capital:,.2f}")
+            logger.info(f"  Net P&L: ${self.net_profit:+,.2f}")
+            logger.info(f"  Ending: ${self.final_capital:,.2f}")
+            logger.info(f"  Return: {self.total_return_pct:+.2f}%")
+            logger.info(f"  Calculation: ({self.final_capital:,.2f} - {initial_capital:,.2f}) / {initial_capital:,.2f} * 100")
+            logger.info(f"  Verify: ({self.final_capital - initial_capital}) / {initial_capital} * 100 = {((self.final_capital - initial_capital) / initial_capital) * 100:.2f}%")
         
         # Calculate average hold time
         self.avg_hold_days = sum([t.hold_days for t in trades]) / self.total_trades if self.total_trades > 0 else 0
@@ -316,6 +341,27 @@ class Backtester:
         logger.info(f"🔄 Starting backtest: {start_date.date()} to {end_date.date()}")
         logger.info(f"   Strategies: {strategies or 'ALL'}")
         logger.info(f"   AI Enabled: {use_ai}, Threshold: {confidence_threshold:.0%}")
+        
+        if BACKTEST_DEBUG:
+            logger.info(f"\n{'='*60}")
+            logger.info(f"🚀 BACKTEST RUN STARTED - DEBUG MODE ENABLED")
+            logger.info(f"{'='*60}")
+            logger.info(f"Parameters:")
+            logger.info(f"  Date Range: {start_date.date()} to {end_date.date()}")
+            logger.info(f"  Initial Capital: ${self.initial_capital:,.2f}")
+            if self.position_size_override:
+                logger.info(f"  Position Size: {self.position_size_override*100:.1f}% of portfolio")
+            else:
+                logger.info(f"  Position Size: Using config default")
+            logger.info(f"  Compounding: {self.enable_compounding}")
+            logger.info(f"  Max Hold Days: {self.max_hold_days}")
+            logger.info(f"  Strategies: {strategies or 'ALL'}")
+            logger.info(f"  AI: {use_ai} (threshold: {confidence_threshold:.0%})")
+            logger.info(f"  Exit Rules:")
+            logger.info(f"    - Profit Target: {EXIT_RULES['profit_target_pct']:+.1f}%")
+            logger.info(f"    - Stop Loss: {EXIT_RULES['stop_loss_pct']:+.1f}%")
+            logger.info(f"    - Max Hold Days: {EXIT_RULES['max_hold_days']}")
+            logger.info(f"{'='*60}\n")
         
         self.trades = []
         daily_pnl = {}  # NEW: Track daily P&L for max drawdown calculation
@@ -739,10 +785,15 @@ class Backtester:
             exit_price = None
             exit_reason = None
             
-            # Simple exit rules:
-            # 1. Take profit at +10%
-            # 2. Stop loss at -5%
-            # 3. Max hold time (14 calendar days, but only trading days count in loop)
+            # Exit rules from config
+            profit_target = EXIT_RULES["profit_target_pct"]
+            stop_loss = EXIT_RULES["stop_loss_pct"]
+            max_hold = EXIT_RULES["max_hold_days"]
+            
+            if BACKTEST_DEBUG:
+                logger.info(f"\n   📈 SIMULATING TRADE: {symbol}")
+                logger.info(f"      Entry: ${entry_price:.2f} x {shares} shares = ${entry_price * shares:,.2f}")
+                logger.info(f"      Exit Rules: Profit={profit_target}%, Stop={stop_loss}%, MaxDays={max_hold}")
             
             # NOTE: This loop iterates through MARKET DATA which only contains trading days
             # (Mon-Fri, no weekends/holidays). So "days_held" counts CALENDAR days but
@@ -756,24 +807,30 @@ class Backtester:
                 days_held = (date - pd.Timestamp(entry_date)).days  # Calendar days including weekends
                 
                 # Profit target
-                if return_pct >= 10.0:
+                if return_pct >= profit_target:
                     exit_date = date
                     exit_price = price
                     exit_reason = 'profit_target'
+                    if BACKTEST_DEBUG:
+                        logger.info(f"      ✅ PROFIT TARGET hit on day {days_held}: {return_pct:+.2f}% at ${price:.2f}")
                     break
                 
                 # Stop loss
-                if return_pct <= -5.0:
+                if return_pct <= stop_loss:
                     exit_date = date
                     exit_price = price
                     exit_reason = 'stop_loss'
+                    if BACKTEST_DEBUG:
+                        logger.info(f"      ⛔ STOP LOSS hit on day {days_held}: {return_pct:+.2f}% at ${price:.2f}")
                     break
                 
                 # Max hold time
-                if days_held >= self.max_hold_days:
+                if days_held >= max_hold:
                     exit_date = date
                     exit_price = price
                     exit_reason = 'max_hold_time'
+                    if BACKTEST_DEBUG:
+                        logger.info(f"      ⏰ MAX HOLD TIME reached on day {days_held}: {return_pct:+.2f}% at ${price:.2f}")
                     break
             
             # If no exit triggered, exit at last available date
@@ -785,6 +842,15 @@ class Backtester:
             # Convert pandas timestamps to datetime
             entry_dt = entry_date.to_pydatetime() if isinstance(entry_date, pd.Timestamp) else entry_date
             exit_dt = exit_date.to_pydatetime() if isinstance(exit_date, pd.Timestamp) else exit_date
+            
+            # Calculate P&L for debugging
+            if BACKTEST_DEBUG and exit_price is not None:
+                profit_loss = (exit_price - entry_price) * shares
+                return_pct_final = ((exit_price - entry_price) / entry_price) * 100
+                logger.info(f"      💰 FINAL P&L: ${profit_loss:+,.2f} ({return_pct_final:+.2f}%)")
+                logger.info(f"         Entry: ${entry_price:.2f} × {shares} = ${entry_price * shares:,.2f}")
+                logger.info(f"         Exit: ${exit_price:.2f} × {shares} = ${exit_price * shares:,.2f}")
+                logger.info(f"         Reason: {exit_reason}")
             
             # Create result
             return BacktestResult(
@@ -819,8 +885,15 @@ def get_backtester(
     max_hold_days: int = 14,
     enable_compounding: bool = False  # NEW: Controls fixed vs compounding sizing
 ) -> Backtester:
-    """Get or create singleton backtester instance"""
+    """
+    Get or create singleton backtester instance
+    
+    NOTE: Recreates instance if parameters change to avoid stale config
+    """
     global _backtester
-    if _backtester is None:
-        _backtester = Backtester(db, initial_capital, position_size_pct, max_hold_days, enable_compounding)
+    
+    # Always create a new instance to avoid stale parameters
+    # (Small overhead but ensures correct configuration)
+    _backtester = Backtester(db, initial_capital, position_size_pct, max_hold_days, enable_compounding)
+    
     return _backtester

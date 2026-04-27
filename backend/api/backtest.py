@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from app.database import get_db
 from services.backtester import get_backtester, BacktestMetrics
+from config.backtest_config import enable_debug_mode, disable_debug_mode, BACKTEST_DEBUG
 
 
 router = APIRouter(prefix="/api/backtest", tags=["backtest"])
@@ -294,7 +295,10 @@ async def run_quick_backtest(
     period: str,  # '30d', '90d', '1y'
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    confidence_threshold: float = 0.75
+    confidence_threshold: float = 0.75,
+    initial_capital: float = 10000.0,  # Accept from frontend
+    position_size: float = 1000.0,     # Accept from frontend
+    enable_compounding: bool = True    # Accept from frontend
 ):
     """
     Run a quick backtest with preset time periods
@@ -303,6 +307,8 @@ async def run_quick_backtest(
     - 30d: Last 30 days
     - 90d: Last 90 days
     - 1y: Last year
+    
+    Now accepts initial_capital and position_size from frontend form!
     """
     # Calculate dates based on period
     end_date = datetime.now()
@@ -316,17 +322,39 @@ async def run_quick_backtest(
     else:
         raise HTTPException(status_code=400, detail="Invalid period. Use '30d', '90d', or '1y'")
     
-    # Create request
+    # Create request with user's parameters
     request = BacktestRequest(
         start_date=start_date.strftime('%Y-%m-%d'),
         end_date=end_date.strftime('%Y-%m-%d'),
         strategies=None,  # All strategies
         confidence_threshold=confidence_threshold,
         use_ai=True,
-        initial_capital=10000.0,
-        position_size=1000.0,
-        max_hold_days=14
+        initial_capital=initial_capital,  # Use frontend value
+        position_size=position_size,      # Use frontend value
+        max_hold_days=14,
+        enable_compounding=enable_compounding  # Use frontend value
     )
     
     # Run backtest
     return await run_backtest(request, background_tasks, db)
+
+
+@router.post("/debug/enable")
+async def enable_debug():
+    """Enable debug mode for backtesting"""
+    enable_debug_mode()
+    return {"success": True, "debug_mode": True, "message": "Debug logging enabled"}
+
+
+@router.post("/debug/disable")
+async def disable_debug():
+    """Disable debug mode for backtesting"""
+    disable_debug_mode()
+    return {"success": True, "debug_mode": False, "message": "Debug logging disabled"}
+
+
+@router.get("/debug/status")
+async def get_debug_status():
+    """Get current debug mode status"""
+    from config.backtest_config import BACKTEST_DEBUG
+    return {"success": True, "debug_mode": BACKTEST_DEBUG}
