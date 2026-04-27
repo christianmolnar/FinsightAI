@@ -50,6 +50,7 @@ from api.queue import router as queue_router
 from api.scanner import router as scanner_router
 from api.agent import router as agent_router
 from api.backtest import router as backtest_router
+from api.optimization import router as optimization_router
 from api.user_auth import router as user_auth_router
 from api.alerts import router as alerts_router
 from middleware.auth_middleware import get_current_user
@@ -70,6 +71,7 @@ app.include_router(queue_router, dependencies=[Depends(get_current_user)])
 app.include_router(scanner_router, dependencies=[Depends(get_current_user)])
 app.include_router(agent_router, dependencies=[Depends(get_current_user)])
 app.include_router(backtest_router, dependencies=[Depends(get_current_user)])
+app.include_router(optimization_router, dependencies=[Depends(get_current_user)])
 
 # Global exception handler — ensures CORS headers are present even on 500s
 # (without this, browser sees a CORS error instead of the real error)

@@ -228,6 +228,10 @@ class PortfolioSnapshot(Base):
     portfolio = relationship("Portfolio", back_populates="snapshots")
 
 
+# Import optimization models to ensure they're registered
+from .models.optimization_run import OptimizationRun, StrategyConfigSnapshot
+
+
 # Database session dependency
 def get_db():
     db = SessionLocal()

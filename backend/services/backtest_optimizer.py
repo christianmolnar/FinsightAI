@@ -9,9 +9,11 @@ import asyncio
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 import logging
+from sqlalchemy.orm import Session
 
 from .backtester import Backtester
 from .backtest_ai_analyzer import BacktestAIAnalyzer
+from ..models.optimization_run import OptimizationRun
 
 logger = logging.getLogger(__name__)
 
@@ -26,16 +28,23 @@ class BacktestOptimizer:
     5. Return best configuration found
     """
     
-    def __init__(self, backtester: Backtester, ai_analyzer: BacktestAIAnalyzer):
+    def __init__(
+        self, 
+        backtester: Backtester, 
+        ai_analyzer: BacktestAIAnalyzer,
+        db: Session = None
+    ):
         self.backtester = backtester
         self.ai_analyzer = ai_analyzer
+        self.db = db  # For saving optimization runs
         
     async def optimize(
         self,
         initial_params: Dict[str, Any],
         max_iterations: int = 5,
         min_improvement_threshold: float = 0.02,  # 2% minimum improvement
-        ai_provider: str = 'anthropic'
+        ai_provider: str = 'anthropic',
+        save_to_db: bool = True
     ) -> Dict[str, Any]:
         """
         Run iterative optimization loop.
@@ -171,7 +180,7 @@ class BacktestOptimizer:
         logger.info(f"Iterations: {len(iterations_history)}")
         logger.info(f"Time: {total_time:.1f}s")
         
-        return {
+        result = {
             'success': True,
             'best_config': best_config,
             'best_return_pct': best_return_pct,
@@ -182,6 +191,41 @@ class BacktestOptimizer:
             'total_time_seconds': total_time,
             'converged': iterations_history[-1].get('converged', False) if iterations_history else False
         }
+        
+        # Save optimization run to database
+        if save_to_db and self.db:
+            try:
+                optimization_run = OptimizationRun(
+                    user_id=initial_params.get('user_id'),
+                    start_date=initial_params['start_date'],
+                    end_date=initial_params['end_date'],
+                    strategies=initial_params.get('strategies'),
+                    initial_params=initial_params,
+                    max_iterations=max_iterations,
+                    min_improvement_threshold=min_improvement_threshold,
+                    ai_provider=ai_provider,
+                    initial_return_pct=initial_return,
+                    best_return_pct=best_return_pct,
+                    total_improvement=total_improvement,
+                    total_iterations=len(iterations_history),
+                    converged=result['converged'],
+                    best_config=best_config,
+                    iterations=iterations_history,
+                    total_time_seconds=total_time
+                )
+                
+                self.db.add(optimization_run)
+                self.db.commit()
+                self.db.refresh(optimization_run)
+                
+                result['optimization_run_id'] = optimization_run.id
+                logger.info(f"💾 Saved optimization run: {optimization_run.id}")
+                
+            except Exception as e:
+                logger.error(f"Failed to save optimization run: {e}")
+                self.db.rollback()
+        
+        return result
         
     async def _run_backtest(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Run a backtest with given parameters."""

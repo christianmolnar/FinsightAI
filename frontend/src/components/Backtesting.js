@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { PlayCircle, Clock, TrendingUp, TrendingDown, DollarSign, Target, Calendar, CheckCircle, Database, Download } from 'lucide-react';
 import CalibrationModal from './CalibrationModal';
+import OptimizationHistoryModal from './OptimizationHistoryModal';
 import { useAuth } from '../context/AuthContext';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -158,6 +159,7 @@ const Backtesting = () => {
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
   const [showCalibrationModal, setShowCalibrationModal] = useState(false);
+  const [showOptimizationHistory, setShowOptimizationHistory] = useState(false);
   
   // PHASE 4: AI Analysis state
   const [aiAnalyzing, setAiAnalyzing] = useState(false);
@@ -611,13 +613,24 @@ const Backtesting = () => {
 
         {/* PHASE 5: Optimization Section */}
         <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg shadow-sm border border-purple-200 p-4 sm:p-6 mb-6">
-          <h2 className="text-lg sm:text-xl font-semibold mb-2 flex items-center gap-2">
-            <span className="text-2xl">🔬</span>
-            AI-Powered Optimization
-          </h2>
-          <p className="text-sm text-gray-600 mb-4">
-            Automatically runs multiple backtests with AI-recommended parameter adjustments to find the optimal configuration (up to 5 iterations)
-          </p>
+          <div className="flex items-start justify-between mb-2">
+            <div>
+              <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2">
+                <span className="text-2xl">🔬</span>
+                AI-Powered Optimization
+              </h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Automatically runs multiple backtests with AI-recommended parameter adjustments to find the optimal configuration (up to 5 iterations)
+              </p>
+            </div>
+            <button
+              onClick={() => setShowOptimizationHistory(true)}
+              className="px-4 py-2 bg-white border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 text-sm font-medium flex items-center gap-2"
+            >
+              <Database className="w-4 h-4" />
+              View History
+            </button>
+          </div>
           <button
             onClick={runOptimization}
             disabled={optimizing || loading}
@@ -1361,6 +1374,13 @@ const Backtesting = () => {
           </div>
         )}
       </div>
+
+      {/* Optimization History Modal */}
+      <OptimizationHistoryModal
+        isOpen={showOptimizationHistory}
+        onClose={() => setShowOptimizationHistory(false)}
+        token={token}
+      />
 
       {/* Calibration Modal */}
       <CalibrationModal

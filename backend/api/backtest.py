@@ -587,7 +587,7 @@ async def _run_optimization_task(
             enable_compounding=request.enable_compounding
         )
         ai_analyzer = BacktestAIAnalyzer()
-        optimizer = BacktestOptimizer(backtester, ai_analyzer)
+        optimizer = BacktestOptimizer(backtester, ai_analyzer, db=db)  # Pass DB session
         
         # Build initial parameters
         initial_params = {
@@ -599,15 +599,17 @@ async def _run_optimization_task(
             'initial_capital': request.initial_capital,
             'position_size': request.position_size,
             'max_hold_days': request.max_hold_days,
-            'enable_compounding': request.enable_compounding
+            'enable_compounding': request.enable_compounding,
+            'user_id': None  # TODO: Get from JWT token
         }
         
-        # Run optimization
+        # Run optimization (saves to DB automatically)
         result = await optimizer.optimize(
             initial_params=initial_params,
             max_iterations=request.max_iterations,
             min_improvement_threshold=request.min_improvement_threshold,
-            ai_provider=request.ai_provider
+            ai_provider=request.ai_provider,
+            save_to_db=True  # Enable database persistence
         )
         
         # Store results
