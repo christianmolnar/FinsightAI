@@ -15,10 +15,10 @@ from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime
 
-from ..database import get_db
-from ..models.optimization_run import OptimizationRun, StrategyConfigSnapshot
-from ..models.database import StrategyConfig
-from ..auth import get_current_user
+from database import get_db
+from models.optimization_run import OptimizationRun, StrategyConfigSnapshot
+from models.database import StrategyConfig
+from auth import get_current_user
 
 router = APIRouter(prefix="/api/optimization", tags=["optimization"])
 
