@@ -158,6 +158,12 @@ const Backtesting = () => {
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
   const [showCalibrationModal, setShowCalibrationModal] = useState(false);
+  
+  // PHASE 4: AI Analysis state
+  const [aiAnalyzing, setAiAnalyzing] = useState(false);
+  const [aiRecommendations, setAiRecommendations] = useState(null);
+  const [aiError, setAiError] = useState(null);
+  const [aiProvider, setAiProvider] = useState('anthropic'); // 'anthropic' or 'openai'
 
   // Form state
   const [startDate, setStartDate] = useState('2025-01-01');
@@ -359,6 +365,79 @@ const Backtesting = () => {
     // TODO: Update strategy config with recommendations
     // This will be implemented in Task 3.4
     alert(`Applied ${recommendations.length} recommendations!\n\nThis will update your Strategy Config in Task 3.4.`);
+  };
+
+  // PHASE 4: AI Analysis Functions
+  const analyzeWithAI = async () => {
+    if (!backtestId) {
+      setAiError('No backtest to analyze');
+      return;
+    }
+
+    setAiAnalyzing(true);
+    setAiError(null);
+    setAiRecommendations(null);
+
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/backtest/analyze`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          backtest_id: backtestId,
+          ai_provider: aiProvider
+        })
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'AI analysis failed');
+      }
+
+      setAiRecommendations(data.recommendations);
+    } catch (err) {
+      setAiError(err.message);
+    } finally {
+      setAiAnalyzing(false);
+    }
+  };
+
+  const applyAIRecommendations = async (selectedRecs) => {
+    if (!backtestId) return;
+
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/backtest/apply-recommendations`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          backtest_id: backtestId,
+          recommendations: selectedRecs
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert('Recommendations applied! Run a new backtest to see results.');
+        // Clear current results to encourage new backtest
+        setResults(null);
+        setAiRecommendations(null);
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (err) {
+      alert(`Failed to apply recommendations: ${err.message}`);
+    }
   };
 
   return (
@@ -915,6 +994,114 @@ const Backtesting = () => {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            )}
+
+            {/* PHASE 4: AI Analysis Section */}
+            {results && (
+              <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 className="text-xl font-semibold mb-4">🤖 AI-Powered Parameter Optimization</h3>
+                
+                <div className="mb-4 flex items-center gap-4">
+                  <select
+                    value={aiProvider}
+                    onChange={(e) => setAiProvider(e.target.value)}
+                    className="border rounded px-3 py-2"
+                  >
+                    <option value="anthropic">Claude (Anthropic)</option>
+                    <option value="openai">GPT-4 (OpenAI)</option>
+                  </select>
+                  
+                  <button
+                    onClick={analyzeWithAI}
+                    disabled={aiAnalyzing}
+                    className="bg-purple-600 text-white px-6 py-2 rounded hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    {aiAnalyzing ? 'Analyzing...' : '✨ Analyze with AI'}
+                  </button>
+                </div>
+
+                {aiError && (
+                  <div className="bg-red-50 border border-red-200 rounded p-4 mb-4">
+                    <p className="text-red-600">❌ {aiError}</p>
+                  </div>
+                )}
+
+                {aiRecommendations && aiRecommendations.length > 0 && (
+                  <div className="space-y-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded p-4">
+                      <p className="text-sm text-blue-800">
+                        ✅ AI analyzed {results.trades.length} trades and found {aiRecommendations.length} optimization opportunities
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      {aiRecommendations.map((rec, idx) => (
+                        <div key={idx} className="border rounded p-4 hover:bg-gray-50">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="font-semibold text-gray-900">{rec.parameter}</span>
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                  rec.confidence === 'high' ? 'bg-green-100 text-green-800' :
+                                  rec.confidence === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {rec.confidence} confidence
+                                </span>
+                                <span className="text-sm text-gray-600">
+                                  Priority {rec.priority}
+                                </span>
+                              </div>
+                              
+                              <div className="text-sm space-y-1">
+                                <div className="flex items-center gap-4">
+                                  <span className="text-gray-600">Current:</span>
+                                  <span className="font-medium">{rec.current_value}</span>
+                                  <span className="text-gray-400">→</span>
+                                  <span className="text-gray-600">Suggested:</span>
+                                  <span className="font-bold text-purple-600">{rec.suggested_value}</span>
+                                </div>
+                                
+                                <p className="text-gray-700 mt-2">{rec.reason}</p>
+                                
+                                {rec.expected_impact && (
+                                  <p className="text-sm text-blue-600 mt-1">
+                                    Expected: {rec.expected_impact}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => applyAIRecommendations([rec])}
+                              className="ml-4 bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700"
+                            >
+                              Apply
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        onClick={() => applyAIRecommendations(aiRecommendations)}
+                        className="bg-purple-600 text-white px-6 py-2 rounded hover:bg-purple-700 font-medium"
+                      >
+                        Apply All {aiRecommendations.length} Recommendations
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {aiRecommendations && aiRecommendations.length === 0 && (
+                  <div className="bg-green-50 border border-green-200 rounded p-4">
+                    <p className="text-green-800">
+                      ✅ No optimization needed - your parameters are well-tuned!
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>

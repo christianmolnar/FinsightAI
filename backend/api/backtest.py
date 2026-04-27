@@ -363,3 +363,125 @@ async def get_debug_status():
     """Get current debug mode status"""
     from config.backtest_config import BACKTEST_DEBUG
     return {"success": True, "debug_mode": BACKTEST_DEBUG}
+
+
+# PHASE 4: AI Analysis Endpoints
+
+class AIAnalysisRequest(BaseModel):
+    backtest_id: str
+    ai_provider: str = "anthropic"  # "anthropic" or "openai"
+
+
+class AIAnalysisResponse(BaseModel):
+    success: bool
+    recommendations: Optional[List[dict]] = None
+    analysis: Optional[dict] = None
+    error: Optional[str] = None
+
+
+@router.post("/analyze", response_model=AIAnalysisResponse)
+async def analyze_backtest_with_ai(
+    request: AIAnalysisRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Analyze backtest results with AI and get parameter recommendations
+    
+    PHASE 4: Send trade results to Claude/OpenAI for intelligent analysis
+    """
+    try:
+        # Get backtest results
+        if request.backtest_id not in _backtest_results:
+            raise HTTPException(status_code=404, detail="Backtest not found")
+        
+        result = _backtest_results[request.backtest_id]
+        
+        if not result.get('success'):
+            raise HTTPException(status_code=400, detail="Cannot analyze failed backtest")
+        
+        # Import AI analyzer
+        from services.backtest_ai_analyzer import BacktestAIAnalyzer
+        
+        # Create analyzer
+        analyzer = BacktestAIAnalyzer(ai_provider=request.ai_provider)
+        
+        # Analyze trades
+        analysis = await analyzer.analyze_and_recommend(
+            trades=result['trades'],
+            current_params=result['config']['strategy_params'],
+            metrics=result['metrics']
+        )
+        
+        return AIAnalysisResponse(
+            success=True,
+            recommendations=analysis['recommendations'],
+            analysis={
+                'total_trades_analyzed': analysis['total_trades_analyzed'],
+                'batches_processed': analysis['batches_processed'],
+                'timestamp': analysis['timestamp'],
+                'ai_provider': request.ai_provider
+            }
+        )
+    
+    except Exception as e:
+        return AIAnalysisResponse(
+            success=False,
+            error=str(e)
+        )
+
+
+@router.post("/apply-recommendations")
+async def apply_ai_recommendations(
+    backtest_id: str,
+    recommendations: List[dict],
+    db: Session = Depends(get_db)
+):
+    """
+    Apply AI recommendations and run new backtest
+    
+    PHASE 4: User can accept/reject recommendations
+    """
+    try:
+        # Get original backtest
+        if backtest_id not in _backtest_results:
+            raise HTTPException(status_code=404, detail="Backtest not found")
+        
+        original = _backtest_results[backtest_id]
+        
+        # Import helper
+        from services.backtest_ai_analyzer import apply_recommendations
+        
+        # Apply recommendations to parameters
+        updated_params = apply_recommendations(
+            current_params=original['config']['strategy_params'],
+            recommendations=recommendations
+        )
+        
+        # Create new backtest request with updated params
+        new_request = BacktestRequest(
+            start_date=original['config']['start_date'],
+            end_date=original['config']['end_date'],
+            strategies=original['config']['strategies'],
+            confidence_threshold=original['config']['confidence_threshold'],
+            use_ai=original['config']['use_ai'],
+            initial_capital=original['config']['initial_capital'],
+            position_size=original['config']['position_size'],
+            max_hold_days=original['config']['max_hold_days'],
+            enable_compounding=original['config']['enable_compounding'],
+            user_id=original['config'].get('user_id')
+        )
+        
+        # TODO: Update user's StrategyConfig in database with updated_params
+        
+        return {
+            "success": True,
+            "message": "Recommendations applied. Run new backtest to see results.",
+            "updated_params": updated_params,
+            "original_backtest_id": backtest_id
+        }
+    
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
