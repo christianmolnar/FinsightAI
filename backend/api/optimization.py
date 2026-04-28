@@ -17,7 +17,7 @@ from datetime import datetime
 
 from database import get_db, StrategyConfig
 from models.optimization_run import OptimizationRun, StrategyConfigSnapshot
-from auth import get_current_user
+from api.auth import get_current_user
 
 router = APIRouter(prefix="/api/optimization", tags=["optimization"])
 
