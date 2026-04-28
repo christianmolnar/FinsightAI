@@ -8,7 +8,7 @@ from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from app.database import Base
+from database import Base
 
 
 class UserPreferences(Base):
