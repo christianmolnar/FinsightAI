@@ -1,3 +1,4 @@
+<!-- Archived docs moved to docs/archive on 2026-05-14 -->
 # f.insight.AI Advanced - Documentation
 
 **Last Updated**: March 7, 2026  
