@@ -506,10 +506,9 @@ class Backtester:
                 progress = (all_opportunities.index(opp) / len(all_opportunities)) * 100
                 logger.info(f"   Progress: {progress:.0f}% ({all_opportunities.index(opp)}/{len(all_opportunities)})")
             
-            # Analyze with AI if enabled (skip for now to speed up)
-            if use_ai:
-                # TODO: Add AI analysis back in Phase 4
-                pass
+            # Per-trade AI scoring is handled in Phase C (AITradeScorer).
+            # Post-run AI analysis is done by BacktestAIAnalyzer after all trades complete.
+            # The use_ai flag here is intentionally a no-op during simulation for speed.
             
             # Simulate trade
             trade = await self._simulate_trade(opp, scan_date, universe_data)

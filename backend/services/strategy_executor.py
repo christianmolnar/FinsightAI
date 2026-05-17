@@ -24,6 +24,7 @@ from services.earnings_data import (
     get_eps_growth_yoy,
     is_near_earnings,
 )
+from services.macro_data import get_macro_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -268,6 +269,113 @@ class StrategyExecutor:
             logger.debug(f"   Error scanning {symbol} seasonality: {e}")
             return None
     
+    def scan_macro_opportunities(
+        self,
+        symbol: str,
+        hist_data: pd.DataFrame,
+        scan_date: datetime,
+        market_data: Dict,
+    ) -> Optional[Dict]:
+        """
+        Scan for macro-favorable conditions using real indicators.
+
+        User Parameters Applied:
+        - maxVix: Max VIX level to allow entry (default 25)
+        - minYieldSpread: Min 10Y-2Y spread to allow entry (default -0.5; blocks deep inversion)
+        - requirePositiveSectorMomentum: Block entry when symbol's sector is negative (default True)
+        - profitTarget / stopLoss / maxPortfolioWeight: exit params
+
+        Macro data is fetched live from yfinance (1-hour cache).
+        When scan_date is historical, data is filtered to that date.
+        """
+        params = self.config.get('macro', {}).get('params', {})
+
+        if not self.config.get('macro', {}).get('enabled', False):
+            return None
+
+        max_vix = params.get('maxVix', {}).get('value', 25.0)
+        min_yield_spread = params.get('minYieldSpread', {}).get('value', -0.5)
+        require_positive_sector = params.get('requirePositiveSectorMomentum', {}).get('value', True)
+
+        try:
+            scan_dt = scan_date if isinstance(scan_date, datetime) else datetime(scan_date.year, scan_date.month, scan_date.day)
+            snapshot = get_macro_snapshot(as_of=scan_dt)
+
+            vix = snapshot.get('vix')
+            yield_spread = snapshot.get('yield_spread')
+            sector_momentum = snapshot.get('sector_momentum', {})
+            top_sector = snapshot.get('top_sector')
+            top_sector_return = snapshot.get('top_sector_return')
+
+            reasons_blocked = []
+
+            # Gate 1: VIX
+            if vix is not None and vix > max_vix:
+                reasons_blocked.append(f"VIX {vix:.1f} > max {max_vix}")
+
+            # Gate 2: Yield curve not deeply inverted
+            if yield_spread is not None and yield_spread < min_yield_spread:
+                reasons_blocked.append(f"Yield spread {yield_spread:.2f} < min {min_yield_spread}")
+
+            # Gate 3: Sector momentum — check if majority of sectors are positive
+            if require_positive_sector and sector_momentum:
+                positive_sectors = sum(1 for v in sector_momentum.values() if v > 0)
+                total_sectors = len(sector_momentum)
+                if positive_sectors < total_sectors * 0.5:
+                    reasons_blocked.append(f"Only {positive_sectors}/{total_sectors} sectors positive")
+
+            if reasons_blocked:
+                return None
+
+            # Score based on macro quality
+            score = 60.0
+            if vix is not None:
+                score += max(0, (max_vix - vix) / max_vix * 20)   # up to +20 for low VIX
+            if yield_spread is not None:
+                score += min(max(yield_spread, 0) * 5, 10)         # up to +10 for steep curve
+            if sector_momentum:
+                positive_sectors = sum(1 for v in sector_momentum.values() if v > 0)
+                score += (positive_sectors / len(sector_momentum)) * 10  # up to +10 breadth
+
+            current_price = float(hist_data['Close'].iloc[-1]) if len(hist_data) > 0 else 0.0
+
+            reason_parts = []
+            if vix is not None:
+                reason_parts.append(f"VIX {vix:.1f}")
+            if yield_spread is not None:
+                reason_parts.append(f"Spread {yield_spread:+.2f}%")
+            if top_sector and top_sector_return is not None:
+                reason_parts.append(f"Top sector {top_sector} +{top_sector_return:.1f}%")
+
+            return {
+                'symbol': symbol,
+                'strategy': 'macro',
+                'score': min(score, 100.0),
+                'price': current_price,
+                'reason': 'Macro: ' + ', '.join(reason_parts),
+                'signal_metadata': {
+                    'vix': vix,
+                    'yield_spread': yield_spread,
+                    'sector_momentum': sector_momentum,
+                    'top_sector': top_sector,
+                    'top_sector_return': top_sector_return,
+                },
+                'params_used': {
+                    'maxVix': max_vix,
+                    'minYieldSpread': min_yield_spread,
+                    'requirePositiveSectorMomentum': require_positive_sector,
+                },
+                'exit_params': {
+                    'profit_target': params.get('profitTarget', {}).get('value', 15),
+                    'stop_loss': params.get('stopLoss', {}).get('value', 7),
+                    'max_portfolio_weight': params.get('maxPortfolioWeight', {}).get('value', 15),
+                }
+            }
+
+        except Exception as e:
+            logger.debug(f"   Error scanning {symbol} macro: {e}")
+            return None
+
     def scan_technical_breakout_opportunities(
         self,
         symbol: str,
@@ -359,11 +467,15 @@ class StrategyExecutor:
         opp = self.scan_seasonality_opportunities(symbol, hist_data, scan_date, market_data)
         if opp:
             opportunities.append(opp)
-        
+
+        opp = self.scan_macro_opportunities(symbol, hist_data, scan_date, market_data)
+        if opp:
+            opportunities.append(opp)
+
         opp = self.scan_technical_breakout_opportunities(symbol, hist_data, scan_date, market_data)
         if opp:
             opportunities.append(opp)
-        
-        # TODO: Add macro and sentiment strategies
-        
+
+        # TODO: Add sentiment strategy (Phase B)
+
         return opportunities

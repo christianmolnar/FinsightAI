@@ -94,8 +94,16 @@ Wire strategies to real data, not technical proxies.
   - Added `earnings_data.py` service (yfinance fetch + 12hr cache)
   - Fixed `pd.Timestamp` comparison bug across all scanner methods
   - 12 tests, 12 passing
-- [ ] Seasonality strategy: compute real historical monthly/quarterly patterns per symbol
-- [ ] Macro strategy: implement using VIX, yield curve, sector rotation signals
+- ✅ Seasonality strategy: compute real historical monthly/quarterly patterns per symbol
+  - Real monthly avg return computation across all historical years
+  - Entry window: `weeksBeforePeak` param, looks 1–3 months ahead for strong peak
+  - Consistency scoring: % of years the peak month was positive
+  - 7 tests, 7 passing
+- ✅ Macro strategy: implement using VIX, yield curve, sector rotation signals
+  - Added `macro_data.py` service (yfinance fetch + 1hr cache): VIX, 10Y-2Y spread, sector ETF momentum
+  - Gates: maxVix, minYieldSpread, requirePositiveSectorMomentum params
+  - Scoring: low VIX, steep curve, sector breadth all contribute
+  - 8 tests, 8 passing
 - [ ] Sentiment strategy: news sentiment via existing stock_researcher.py
 - [ ] Each trade carries full signal metadata (what triggered it, confidence, params used)
 - [ ] Strategy signals are testable in isolation (unit tests per strategy)

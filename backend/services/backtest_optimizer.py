@@ -13,7 +13,10 @@ from sqlalchemy.orm import Session
 
 from .backtester import Backtester
 from .backtest_ai_analyzer import BacktestAIAnalyzer
-from ..models.optimization_run import OptimizationRun
+try:
+    from models.optimization_run import OptimizationRun
+except ImportError:
+    from ..models.optimization_run import OptimizationRun
 
 logger = logging.getLogger(__name__)
 
@@ -120,11 +123,10 @@ class BacktestOptimizer:
             logger.info("Step 2: Getting AI recommendations...")
             
             try:
-                recommendations = await self.ai_analyzer.analyze_trades(
+                recommendations = await self.ai_analyzer.analyze_and_recommend(
                     trades=backtest_result['trades'],
                     current_params=current_params,
-                    backtest_metrics=metrics,
-                    ai_provider=ai_provider
+                    metrics=metrics
                 )
                 
                 iteration_data['recommendations'] = recommendations.get('recommendations', [])
@@ -300,49 +302,129 @@ class BacktestOptimizer:
     def _apply_recommendation(self, current_params: Dict, recommendation: Dict) -> Dict:
         """
         Apply a single AI recommendation to parameters.
-        
-        Handles type conversion and parameter mapping.
+
+        Handles two namespaces:
+        1. Top-level backtest params: confidence_threshold, position_size, max_hold_days,
+           initial_capital, enable_compounding
+        2. Strategy-specific params: earnings.stopLoss, seasonality.profitTarget, etc.
+           These live in strategy_config[strategy]['params'][param]['value']
+
+        The AI surfaces param names like "earnings.stopLoss" or "earnings Stop Loss" —
+        we normalise both dot-notation and space/human formats.
         """
-        updated_params = current_params.copy()
-        param_name = recommendation['parameter']
-        suggested_value = recommendation['suggested_value']
-        
-        # Parameter name mapping (AI uses human names, we use code names)
-        param_map = {
+        import copy
+        updated_params = copy.deepcopy(current_params)
+        param_name = recommendation.get('parameter', '')
+        suggested_value = recommendation.get('suggested_value', recommendation.get('recommended_value', ''))
+
+        def _parse_float(v) -> float:
+            return float(str(v).replace('%', '').replace('$', '').replace(',', '').strip())
+
+        def _parse_bool(v) -> bool:
+            return str(v).lower() in ('true', 'yes', 'enabled', '1')
+
+        # ── Top-level param map (AI label → param key) ─────────────────────
+        TOP_LEVEL = {
             'confidence_threshold': 'confidence_threshold',
-            'position_size': 'position_size',
-            'max_hold_days': 'max_hold_days',
-            'initial_capital': 'initial_capital',
-            'enable_compounding': 'enable_compounding'
+            'position_size':        'position_size',
+            'max_hold_days':        'max_hold_days',
+            'initial_capital':      'initial_capital',
+            'enable_compounding':   'enable_compounding',
         }
-        
-        # Find actual parameter name
-        actual_param = None
-        for ai_name, code_name in param_map.items():
-            if ai_name.lower() in param_name.lower():
-                actual_param = code_name
+
+        # ── Strategy-specific param map ─────────────────────────────────────
+        # Keys: lower-case fragments the AI might use.
+        # Both dot-notation ("earnings.stopLoss") and human labels ("earnings Stop Loss")
+        # are supported. We match on substrings after normalisation.
+        STRATEGY_PARAMS = {
+            # Earnings
+            'earnings.stoploss':           ('earnings', 'stopLoss'),
+            'earnings.stop.loss':          ('earnings', 'stopLoss'),
+            'earnings.profittarget':       ('earnings', 'profitTarget'),
+            'earnings.profit.target':      ('earnings', 'profitTarget'),
+            'earnings.daysbeforeearnings': ('earnings', 'daysBeforeEarnings'),
+            'earnings.days.before':        ('earnings', 'daysBeforeEarnings'),
+            'earnings.minepsgrowth':       ('earnings', 'minEpsGrowth'),
+            'earnings.min.eps':            ('earnings', 'minEpsGrowth'),
+            'earnings.minrevenuegrowth':   ('earnings', 'minRevenueGrowth'),
+            'earnings.min.revenue':        ('earnings', 'minRevenueGrowth'),
+            'earnings.historicalbeatrate': ('earnings', 'historicalBeatRate'),
+            'earnings.historical.beat':    ('earnings', 'historicalBeatRate'),
+            'earnings.maxportfolioweight': ('earnings', 'maxPortfolioWeight'),
+            'earnings.max.portfolio':      ('earnings', 'maxPortfolioWeight'),
+            # Seasonality
+            'seasonality.stoploss':              ('seasonality', 'stopLoss'),
+            'seasonality.stop.loss':             ('seasonality', 'stopLoss'),
+            'seasonality.profittarget':          ('seasonality', 'profitTarget'),
+            'seasonality.profit.target':         ('seasonality', 'profitTarget'),
+            'seasonality.weeksbeforepeak':       ('seasonality', 'weeksBeforePeak'),
+            'seasonality.weeks.before':          ('seasonality', 'weeksBeforePeak'),
+            'seasonality.minhistoricalyears':    ('seasonality', 'minHistoricalYears'),
+            'seasonality.min.historical':        ('seasonality', 'minHistoricalYears'),
+            'seasonality.minseasonalreturn':     ('seasonality', 'minSeasonalReturn'),
+            'seasonality.min.seasonal':          ('seasonality', 'minSeasonalReturn'),
+            'seasonality.maxportfolioweight':    ('seasonality', 'maxPortfolioWeight'),
+            'seasonality.max.portfolio':         ('seasonality', 'maxPortfolioWeight'),
+            # Macro
+            'macro.stoploss':           ('macro', 'stopLoss'),
+            'macro.stop.loss':          ('macro', 'stopLoss'),
+            'macro.profittarget':       ('macro', 'profitTarget'),
+            'macro.profit.target':      ('macro', 'profitTarget'),
+            'macro.maxportfolioweight': ('macro', 'maxPortfolioWeight'),
+            'macro.max.portfolio':      ('macro', 'maxPortfolioWeight'),
+            # Sentiment
+            'sentiment.stoploss':           ('sentiment', 'stopLoss'),
+            'sentiment.stop.loss':          ('sentiment', 'stopLoss'),
+            'sentiment.profittarget':       ('sentiment', 'profitTarget'),
+            'sentiment.profit.target':      ('sentiment', 'profitTarget'),
+            'sentiment.maxportfolioweight': ('sentiment', 'maxPortfolioWeight'),
+            'sentiment.max.portfolio':      ('sentiment', 'maxPortfolioWeight'),
+        }
+
+        # Normalise: "earnings Stop Loss" → "earnings.stop.loss", underscores kept
+        # Then match fragments. We keep underscores so "position_size" stays matchable.
+        norm = param_name.lower().replace(' ', '.').replace('..', '.')
+
+        # ── Try top-level first ──────────────────────────────────────────────
+        matched_top = None
+        for fragment, key in TOP_LEVEL.items():
+            if fragment in norm:
+                matched_top = key
                 break
-                
-        if not actual_param:
-            logger.warning(f"Could not map parameter: {param_name}")
+
+        if matched_top:
+            try:
+                if matched_top == 'enable_compounding':
+                    updated_params[matched_top] = _parse_bool(suggested_value)
+                elif matched_top == 'confidence_threshold':
+                    v = _parse_float(suggested_value)
+                    updated_params[matched_top] = v / 100 if v > 1 else v
+                else:
+                    updated_params[matched_top] = int(_parse_float(suggested_value))
+                logger.info(f"✅ Applied top-level: {matched_top} = {updated_params[matched_top]}")
+            except Exception as e:
+                logger.error(f"Failed applying top-level param {param_name}: {e}")
             return updated_params
-            
-        # Type conversion
-        try:
-            if actual_param == 'enable_compounding':
-                updated_params[actual_param] = suggested_value.lower() in ['true', 'yes', 'enabled', '1']
-            elif actual_param == 'confidence_threshold':
-                # AI might suggest as percentage or decimal
-                value = float(suggested_value.replace('%', ''))
-                updated_params[actual_param] = value / 100 if value > 1 else value
-            else:
-                # Numeric parameters
-                value_str = str(suggested_value).replace('$', '').replace(',', '')
-                updated_params[actual_param] = int(float(value_str))
-                
-            logger.info(f"✅ Applied: {actual_param} = {updated_params[actual_param]}")
-            
-        except Exception as e:
-            logger.error(f"Failed to convert {suggested_value} for {param_name}: {e}")
-            
+
+        # ── Try strategy-specific ────────────────────────────────────────────
+        matched_strategy = None
+        for fragment, (strat, param) in STRATEGY_PARAMS.items():
+            if fragment in norm:
+                matched_strategy = (strat, param)
+                break
+
+        if matched_strategy:
+            strat_key, param_key = matched_strategy
+            try:
+                value = _parse_float(suggested_value)
+                # Ensure nested path exists
+                sc = updated_params.setdefault('strategy_config', {})
+                sc.setdefault(strat_key, {}).setdefault('params', {}).setdefault(param_key, {})
+                sc[strat_key]['params'][param_key]['value'] = value
+                logger.info(f"✅ Applied strategy param: {strat_key}.{param_key} = {value}")
+            except Exception as e:
+                logger.error(f"Failed applying strategy param {param_name}: {e}")
+            return updated_params
+
+        logger.warning(f"⚠️ Could not map parameter: '{param_name}' (normalised: '{norm}')")
         return updated_params
