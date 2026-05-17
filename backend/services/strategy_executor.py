@@ -13,9 +13,17 @@ Key Features:
 
 import logging
 from typing import List, Dict, Optional, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import pandas as pd
 from sqlalchemy.orm import Session
+
+from services.earnings_data import (
+    get_days_until_earnings,
+    get_historical_beat_rate,
+    get_avg_eps_surprise,
+    get_eps_growth_yoy,
+    is_near_earnings,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,67 +77,77 @@ class StrategyExecutor:
         min_eps_growth = params.get('minEpsGrowth', {}).get('value', 15)
         min_revenue_growth = params.get('minRevenueGrowth', {}).get('value', 10)
         beat_rate_required = params.get('historicalBeatRate', {}).get('value', 70)
-        
-        # TODO: Get actual earnings data from database or API
-        # For now, use technical signals as proxy
-        
-        # Check if stock meets technical criteria
+
         try:
             scan_date_only = scan_date.date() if isinstance(scan_date, datetime) else scan_date
-            data = hist_data[hist_data.index <= scan_date_only]
-            
-            if len(data) < 50:
+            data = hist_data[hist_data.index <= pd.Timestamp(scan_date_only)]
+
+            if len(data) < 20:
                 return None
-            
+
             current_price = float(data['Close'].iloc[-1])
-            volume = float(data['Volume'].iloc[-1])
-            avg_volume = float(data['Volume'].tail(20).mean())
-            
-            # Volume spike indicator (earnings attention)
-            volume_ratio = volume / avg_volume if avg_volume > 0 else 0
-            
-            # Strong volume suggests earnings catalyst
-            if volume_ratio < 1.3:
+
+            # ── Real earnings gate: must be within `days_before` days of earnings ──
+            days_until = get_days_until_earnings(symbol, scan_date_only)
+            if days_until is None or days_until < 0 or days_until > days_before:
+                return None  # No upcoming earnings in the window
+
+            # ── Historical beat rate ──
+            beat_rate = get_historical_beat_rate(symbol)
+            if beat_rate is None or beat_rate < beat_rate_required:
                 return None
-            
-            # Calculate momentum (proxy for growth)
-            ma20 = float(data['Close'].tail(20).mean())
-            ma50 = float(data['Close'].tail(50).mean())
-            
-            # Uptrend = growth proxy
-            if current_price < ma20 or ma20 < ma50:
+
+            # ── YoY EPS growth ──
+            eps_growth = get_eps_growth_yoy(symbol, scan_date_only)
+            if eps_growth is not None and eps_growth < min_eps_growth:
                 return None
-            
-            # Price strength (proxy for EPS growth)
-            price_strength = ((current_price - ma50) / ma50) * 100
-            
-            if price_strength < 5:  # Arbitrary threshold
-                return None
-            
-            # PASS: Stock meets earnings criteria
+
+            # ── Average EPS surprise (bonus signal quality check) ──
+            avg_surprise = get_avg_eps_surprise(symbol)
+
+            score = 70.0
+            score += min(beat_rate - beat_rate_required, 20)  # Up to +20 for beat rate
+            if avg_surprise is not None:
+                score += min(avg_surprise, 10)  # Up to +10 for avg surprise
+            if eps_growth is not None:
+                score += min((eps_growth - min_eps_growth) / 10, 5)  # Up to +5 for growth
+
+            reason_parts = [
+                f"Earnings in {days_until}d",
+                f"beat rate {beat_rate:.0f}%",
+            ]
+            if eps_growth is not None:
+                reason_parts.append(f"EPS growth {eps_growth:+.0f}% YoY")
+            if avg_surprise is not None:
+                reason_parts.append(f"avg surprise {avg_surprise:+.1f}%")
+
             return {
                 'symbol': symbol,
                 'strategy': 'earnings',
-                'score': 75.0 + (volume_ratio * 5),  # Higher score for stronger signal
+                'score': min(score, 100.0),
                 'price': current_price,
-                'reason': f'Earnings play: Volume spike {volume_ratio:.1f}x, Price strength +{price_strength:.1f}%',
+                'reason': 'Earnings play: ' + ', '.join(reason_parts),
+                'signal_metadata': {
+                    'days_until_earnings': days_until,
+                    'beat_rate_pct': beat_rate,
+                    'eps_growth_yoy_pct': eps_growth,
+                    'avg_eps_surprise_pct': avg_surprise,
+                },
                 'params_used': {
                     'daysBeforeEarnings': days_before,
                     'minEpsGrowth': min_eps_growth,
                     'minRevenueGrowth': min_revenue_growth,
                     'historicalBeatRate': beat_rate_required,
-                    'volume_ratio': volume_ratio,
-                    'price_strength': price_strength
                 },
                 'exit_params': {
                     'profit_target': params.get('profitTarget', {}).get('value', 12),
                     'stop_loss': params.get('stopLoss', {}).get('value', 5),
-                    'max_portfolio_weight': params.get('maxPortfolioWeight', {}).get('value', 20)
+                    'max_portfolio_weight': params.get('maxPortfolioWeight', {}).get('value', 20),
                 }
             }
-            
+
         except Exception as e:
-            logger.debug(f"   Error scanning {symbol}: {e}")
+            logger.debug(f"   Error scanning {symbol} earnings: {e}")
             return None
     
     def scan_seasonality_opportunities(
@@ -160,7 +178,7 @@ class StrategyExecutor:
         
         try:
             scan_date_only = scan_date.date() if isinstance(scan_date, datetime) else scan_date
-            data = hist_data[hist_data.index <= scan_date_only]
+            data = hist_data[hist_data.index <= pd.Timestamp(scan_date_only)]
             
             if len(data) < 252:  # Need at least 1 year of data
                 return None
@@ -237,7 +255,7 @@ class StrategyExecutor:
         
         try:
             scan_date_only = scan_date.date() if isinstance(scan_date, datetime) else scan_date
-            data = hist_data[hist_data.index <= scan_date_only]
+            data = hist_data[hist_data.index <= pd.Timestamp(scan_date_only)]
             
             if len(data) < 50:
                 return None
