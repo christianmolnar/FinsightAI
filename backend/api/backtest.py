@@ -5,6 +5,7 @@ Endpoints for running backtests and viewing results
 """
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timedelta
@@ -210,7 +211,7 @@ async def get_backtest_status(backtest_id: str):
 
 @router.get("/results/{backtest_id}", response_model=BacktestResponse)
 async def get_backtest_results(backtest_id: str):
-    """Get results of a completed backtest"""
+    """Get results of a completed backtest or optimization run"""
     if backtest_id not in _backtest_results:
         # Check if it's still running
         if backtest_id in _backtest_status:
@@ -229,7 +230,12 @@ async def get_backtest_results(backtest_id: str):
         raise HTTPException(status_code=404, detail="Backtest results not found")
     
     results = _backtest_results[backtest_id]
-    
+    status_info = _backtest_status.get(backtest_id, {})
+
+    # Optimization runs return the optimizer's native format directly
+    if status_info.get('type') == 'optimization':
+        return JSONResponse(content={"success": True, **results})
+
     return BacktestResponse(
         success=True,
         backtest_id=backtest_id,
