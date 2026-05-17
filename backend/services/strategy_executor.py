@@ -179,59 +179,91 @@ class StrategyExecutor:
         try:
             scan_date_only = scan_date.date() if isinstance(scan_date, datetime) else scan_date
             data = hist_data[hist_data.index <= pd.Timestamp(scan_date_only)]
-            
-            if len(data) < 252:  # Need at least 1 year of data
+
+            if len(data) < 252 * min_years:
                 return None
-            
+
             current_price = float(data['Close'].iloc[-1])
-            
-            # Calculate seasonal pattern (same month/quarter historically)
-            current_month = scan_date.month
-            
-            # Group by month and calculate average returns
-            monthly_returns = {}
-            for year in range(scan_date.year - 5, scan_date.year):
-                try:
-                    year_data = data[data.index.year == year]
-                    if len(year_data) > 0:
-                        month_data = year_data[year_data.index.month == current_month]
-                        if len(month_data) > 2:
-                            month_return = ((month_data['Close'].iloc[-1] - month_data['Close'].iloc[0]) / 
-                                          month_data['Close'].iloc[0]) * 100
-                            monthly_returns[year] = month_return
-                except:
-                    continue
-            
-            if len(monthly_returns) < 3:  # Need at least 3 years
+            current_month = scan_date_only.month if isinstance(scan_date_only, date) else scan_date.month
+
+            # Cast index to DatetimeIndex for .year / .month accessors
+            dt_index = pd.DatetimeIndex(data.index)
+
+            # ── Compute per-month average returns across all historical years ──
+            # monthly_avg[month] = average % return for that calendar month
+            monthly_avg: Dict[int, float] = {}
+            for month in range(1, 13):
+                returns = []
+                for yr in dt_index.year.unique():
+                    month_bars = data[(dt_index.year == yr) & (dt_index.month == month)]
+                    if len(month_bars) > 2:
+                        ret = ((month_bars['Close'].iloc[-1] - month_bars['Close'].iloc[0]) /
+                               month_bars['Close'].iloc[0]) * 100
+                        returns.append(ret)
+                if returns:
+                    monthly_avg[month] = sum(returns) / len(returns)
+
+            if len(monthly_avg) < 6:
                 return None
-            
-            avg_seasonal_return = sum(monthly_returns.values()) / len(monthly_returns)
-            
-            # Check if meets minimum seasonal return
-            if avg_seasonal_return < min_seasonal_return:
+
+            # ── Find the best upcoming month within `weeks_before` entry window ──
+            # Look ahead up to 3 months for a strong seasonal peak
+            best_peak_month = None
+            best_peak_return = -999.0
+            for offset in range(1, 4):  # 1–3 months ahead = "upcoming peak"
+                lookahead_month = ((current_month - 1 + offset) % 12) + 1
+                avg_ret = monthly_avg.get(lookahead_month, 0.0)
+                if avg_ret > best_peak_return:
+                    best_peak_return = avg_ret
+                    best_peak_month = lookahead_month
+
+            if best_peak_month is None or best_peak_return < min_seasonal_return:
                 return None
-            
-            # PASS: Strong seasonal pattern detected
+
+            # ── Consistency: how many years did this month beat the threshold? ──
+            consistent_years = sum(
+                1 for yr in dt_index.year.unique()
+                for m_bars in [data[(dt_index.year == yr) & (dt_index.month == best_peak_month)]]
+                if len(m_bars) > 2 and
+                ((m_bars['Close'].iloc[-1] - m_bars['Close'].iloc[0]) / m_bars['Close'].iloc[0]) * 100 > 0
+            )
+            years_of_data = len(dt_index.year.unique())
+            consistency_pct = (consistent_years / years_of_data * 100) if years_of_data > 0 else 0
+
+            score = 65.0
+            score += min(best_peak_return - min_seasonal_return, 20)  # up to +20 for return magnitude
+            score += min(consistency_pct - 50, 15)                    # up to +15 for consistency
+
+            months_abbr = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+            peak_name = months_abbr[best_peak_month - 1]
+
             return {
                 'symbol': symbol,
                 'strategy': 'seasonality',
-                'score': 70.0 + min(avg_seasonal_return, 30),
+                'score': min(score, 100.0),
                 'price': current_price,
-                'reason': f'Seasonal: {current_month}/month avg return +{avg_seasonal_return:.1f}% ({len(monthly_returns)} years)',
+                'reason': (f'Seasonal: {peak_name} avg +{best_peak_return:.1f}% '
+                           f'({consistent_years}/{years_of_data} yrs positive)'),
+                'signal_metadata': {
+                    'peak_month': best_peak_month,
+                    'peak_month_name': peak_name,
+                    'avg_return_pct': round(best_peak_return, 2),
+                    'consistency_pct': round(consistency_pct, 1),
+                    'years_analyzed': years_of_data,
+                    'monthly_avg': {months_abbr[m - 1]: round(v, 2) for m, v in monthly_avg.items()},
+                },
                 'params_used': {
                     'weeksBeforePeak': weeks_before,
                     'minHistoricalYears': min_years,
                     'minSeasonalReturn': min_seasonal_return,
-                    'avg_seasonal_return': avg_seasonal_return,
-                    'years_analyzed': len(monthly_returns)
                 },
                 'exit_params': {
                     'profit_target': params.get('profitTarget', {}).get('value', 15),
                     'stop_loss': params.get('stopLoss', {}).get('value', 7),
-                    'max_portfolio_weight': params.get('maxPortfolioWeight', {}).get('value', 15)
+                    'max_portfolio_weight': params.get('maxPortfolioWeight', {}).get('value', 15),
                 }
             }
-            
+
         except Exception as e:
             logger.debug(f"   Error scanning {symbol} seasonality: {e}")
             return None

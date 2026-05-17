@@ -90,7 +90,10 @@ Get the existing AI infrastructure actually running end-to-end.
 ## Phase B — Real Strategy Signals
 Wire strategies to real data, not technical proxies.
 
-- [ ] Earnings strategy: use yfinance earnings calendar for actual earnings dates + EPS data
+- ✅ Earnings strategy: use yfinance earnings calendar for actual earnings dates + EPS data
+  - Added `earnings_data.py` service (yfinance fetch + 12hr cache)
+  - Fixed `pd.Timestamp` comparison bug across all scanner methods
+  - 12 tests, 12 passing
 - [ ] Seasonality strategy: compute real historical monthly/quarterly patterns per symbol
 - [ ] Macro strategy: implement using VIX, yield curve, sector rotation signals
 - [ ] Sentiment strategy: news sentiment via existing stock_researcher.py
