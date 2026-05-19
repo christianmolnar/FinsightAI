@@ -25,6 +25,7 @@ from services.earnings_data import (
     is_near_earnings,
 )
 from services.macro_data import get_macro_snapshot
+from services.sentiment_data import get_sentiment_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -376,6 +377,101 @@ class StrategyExecutor:
             logger.debug(f"   Error scanning {symbol} macro: {e}")
             return None
 
+    def scan_sentiment_opportunities(
+        self,
+        symbol: str,
+        hist_data: pd.DataFrame,
+        scan_date: datetime,
+        market_data: Dict,
+    ) -> Optional[Dict]:
+        """
+        Scan for positive news-sentiment conditions.
+
+        User Parameters Applied:
+        - minSentimentScore: Minimum normalised score [-1, +1] to trigger (default 0.2)
+        - minPositiveRatio: Minimum fraction of positive headlines (default 0.4)
+        - minArticles: Require at least N headlines; skip if less (default 3)
+        - profitTarget / stopLoss / maxPortfolioWeight: exit params
+
+        Uses yfinance ticker.news (no API key required).
+        Backtests automatically receive a neutral/skipped result to avoid look-ahead bias.
+        """
+        params = self.config.get('sentiment', {}).get('params', {})
+
+        if not self.config.get('sentiment', {}).get('enabled', False):
+            return None
+
+        min_score         = params.get('minSentimentScore', {}).get('value', 0.2)
+        min_pos_ratio     = params.get('minPositiveRatio',  {}).get('value', 0.4)
+        min_articles      = params.get('minArticles',       {}).get('value', 3)
+
+        try:
+            scan_dt = scan_date if isinstance(scan_date, datetime) else datetime(scan_date.year, scan_date.month, scan_date.day)
+            snapshot = get_sentiment_snapshot(symbol, as_of=scan_dt)
+
+            # Skip gracefully in backtest mode
+            if snapshot.get('backtest_placeholder'):
+                return None
+
+            total_articles  = snapshot.get('total_articles', 0)
+            sentiment_score = snapshot.get('sentiment_score', 0.0)
+            positive_ratio  = snapshot.get('positive_ratio', 0.0)
+            pos_count       = snapshot.get('positive', 0)
+            neg_count       = snapshot.get('negative', 0)
+
+            # Gate 1: Need enough articles to form a view
+            if total_articles < min_articles:
+                return None
+
+            # Gate 2: Overall sentiment score
+            if sentiment_score < min_score:
+                return None
+
+            # Gate 3: Positive headline ratio
+            if positive_ratio < min_pos_ratio:
+                return None
+
+            # Score: base 55, up to +25 for score, +10 for ratio, +10 for volume of coverage
+            score = 55.0
+            score += min((sentiment_score - min_score) / (1.0 - min_score + 1e-9) * 25, 25)
+            score += min((positive_ratio - min_pos_ratio) / (1.0 - min_pos_ratio + 1e-9) * 10, 10)
+            score += min(total_articles / 10 * 10, 10)
+
+            current_price = float(hist_data['Close'].iloc[-1]) if len(hist_data) > 0 else 0.0
+
+            return {
+                'symbol': symbol,
+                'strategy': 'sentiment',
+                'score': round(min(score, 100.0), 1),
+                'price': current_price,
+                'reason': (
+                    f"Sentiment: score {sentiment_score:+.2f}, "
+                    f"{pos_count} positive / {neg_count} negative of {total_articles} articles"
+                ),
+                'signal_metadata': {
+                    'sentiment_score': sentiment_score,
+                    'positive_ratio': positive_ratio,
+                    'total_articles': total_articles,
+                    'positive': pos_count,
+                    'negative': neg_count,
+                    'top_headlines': [h['title'] for h in snapshot.get('headlines', [])[:3]],
+                },
+                'params_used': {
+                    'minSentimentScore': min_score,
+                    'minPositiveRatio': min_pos_ratio,
+                    'minArticles': min_articles,
+                },
+                'exit_params': {
+                    'profit_target': params.get('profitTarget', {}).get('value', 15),
+                    'stop_loss': params.get('stopLoss', {}).get('value', 7),
+                    'max_portfolio_weight': params.get('maxPortfolioWeight', {}).get('value', 10),
+                },
+            }
+
+        except Exception as e:
+            logger.debug(f"   Error scanning {symbol} sentiment: {e}")
+            return None
+
     def scan_technical_breakout_opportunities(
         self,
         symbol: str,
@@ -472,10 +568,12 @@ class StrategyExecutor:
         if opp:
             opportunities.append(opp)
 
-        opp = self.scan_technical_breakout_opportunities(symbol, hist_data, scan_date, market_data)
+        opp = self.scan_sentiment_opportunities(symbol, hist_data, scan_date, market_data)
         if opp:
             opportunities.append(opp)
 
-        # TODO: Add sentiment strategy (Phase B)
+        opp = self.scan_technical_breakout_opportunities(symbol, hist_data, scan_date, market_data)
+        if opp:
+            opportunities.append(opp)
 
         return opportunities
