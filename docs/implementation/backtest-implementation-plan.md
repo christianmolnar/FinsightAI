@@ -4,7 +4,7 @@
 learns from results, and can discover and add new strategies on its own.
 
 **Owner**: Christian
-**Last updated**: 2026-05-16
+**Last updated**: 2026-05-17
 
 ---
 
@@ -87,7 +87,7 @@ Get the existing AI infrastructure actually running end-to-end.
 
 ---
 
-## Phase B — Real Strategy Signals
+## Phase B — Real Strategy Signals ✅ COMPLETE
 Wire strategies to real data, not technical proxies.
 
 - ✅ Earnings strategy: use yfinance earnings calendar for actual earnings dates + EPS data
@@ -104,9 +104,11 @@ Wire strategies to real data, not technical proxies.
   - Gates: maxVix, minYieldSpread, requirePositiveSectorMomentum params
   - Scoring: low VIX, steep curve, sector breadth all contribute
   - 8 tests, 8 passing
-- [ ] Sentiment strategy: news sentiment via existing stock_researcher.py
-- [ ] Each trade carries full signal metadata (what triggered it, confidence, params used)
-- [ ] Strategy signals are testable in isolation (unit tests per strategy)
+- ✅ Sentiment strategy: news sentiment via existing stock_researcher.py
+  - 11 tests, 11 passing
+- ✅ Each trade carries full signal_metadata + params_used (persisted to BacktestResult + to_dict)
+- ✅ Macro default config added (enabled: True, full params); sentiment config skeleton added
+- ✅ Strategy signals are testable in isolation (54 total tests, all passing)
 
 ---
 

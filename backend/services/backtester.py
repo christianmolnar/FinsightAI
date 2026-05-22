@@ -45,7 +45,9 @@ class BacktestResult:
         ai_confidence: float,
         ai_reasoning: str,
         portfolio_value: float = 0.0,
-        cash_available: float = 0.0
+        cash_available: float = 0.0,
+        signal_metadata: Optional[Dict] = None,
+        params_used: Optional[Dict] = None
     ):
         self.symbol = symbol
         self.strategy = strategy
@@ -60,6 +62,8 @@ class BacktestResult:
         self.ai_reasoning = ai_reasoning
         self.portfolio_value = portfolio_value
         self.cash_available = cash_available
+        self.signal_metadata = signal_metadata or {}
+        self.params_used = params_used or {}
         
         # Calculate metrics
         self.profit_loss = (exit_price - entry_price) * shares
@@ -86,7 +90,9 @@ class BacktestResult:
             'hold_days': self.hold_days,
             'portfolio_value': round(self.portfolio_value, 2),
             'position_size_pct': round(self.position_size_pct, 2),
-            'cash_available': round(self.cash_available, 2)
+            'cash_available': round(self.cash_available, 2),
+            'signal_metadata': self.signal_metadata,
+            'params_used': self.params_used
         }
 
 
@@ -405,12 +411,26 @@ class Backtester:
                 }
             },
             'macro': {
-                'enabled': False,
-                'params': {}
+                'enabled': True,
+                'params': {
+                    'maxVix': {'value': 25.0},
+                    'minYieldSpread': {'value': -0.5},
+                    'requirePositiveSectorMomentum': {'value': True},
+                    'profitTarget': {'value': 15},
+                    'stopLoss': {'value': 7},
+                    'maxPortfolioWeight': {'value': 15}
+                }
             },
             'sentiment': {
                 'enabled': False,
-                'params': {}
+                'params': {
+                    'minSentimentScore': {'value': 0.2},
+                    'minPositiveRatio': {'value': 0.4},
+                    'minArticles': {'value': 3},
+                    'profitTarget': {'value': 15},
+                    'stopLoss': {'value': 7},
+                    'maxPortfolioWeight': {'value': 10}
+                }
             }
         }
     
@@ -994,7 +1014,9 @@ class Backtester:
                 ai_confidence=opportunity.get('ai_confidence', 0.0),
                 ai_reasoning=opportunity.get('ai_reasoning', opportunity['reason']),
                 portfolio_value=portfolio_value,
-                cash_available=cash_after_trade  # Fixed: Shows actual cash AFTER this trade
+                cash_available=cash_after_trade,
+                signal_metadata=opportunity.get('signal_metadata', {}),
+                params_used=opportunity.get('params_used', {})
             )
             
         except Exception as e:
