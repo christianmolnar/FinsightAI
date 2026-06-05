@@ -1,340 +1,190 @@
 """
 Market Scanner Service
 
-Autonomously scans the market for trading opportunities using multiple strategies:
-1. Earnings Plays - Companies with earnings in next 7 days
-2. Technical Breakouts - Stocks breaking resistance levels
-3. Seasonality Patterns - Historical seasonal winners
+Scans the market for live trading opportunities using StrategyExecutor —
+the same signal engine used by the backtester. This ensures backtest
+results are predictive of live performance.
 
-Filters candidates by volume, liquidity, and spread to ensure tradability.
+All 5 strategies: earnings, seasonality, macro, sentiment, technical_breakout
+All signals are filtered by AITradeScorer before being returned.
 """
 
 import logging
 from typing import List, Dict, Optional
-from datetime import datetime, timedelta, date
+from datetime import datetime, date
 import pandas as pd
 from sqlalchemy.orm import Session
+
 from services.universe_builder import UniverseBuilder
 from app.services.alpaca_service import get_alpaca_service
+from services.strategy_executor import StrategyExecutor
+from services.ai_trade_scorer import get_ai_trade_scorer
+from app.models.strategy import StrategyConfig
 
 logger = logging.getLogger(__name__)
 
 
 class MarketScanner:
     """
-    Autonomous market scanner that finds trading opportunities
+    Live market scanner. Delegates all signal logic to StrategyExecutor
+    (same engine as backtester) and gates every signal through AITradeScorer.
     """
-    
-    # Build universe dynamically from S&P 500, DOW, NASDAQ-100, and extended US universe
-    # Exclude symbols with known data issues
+
     _universe_builder = UniverseBuilder()
     _raw_universe = _universe_builder.build_universe(['SP500', 'DOW', 'NASDAQ100', 'RUSSELL2000'])
     SCAN_UNIVERSE = [s for s in _raw_universe if s not in ('WBA',)]
 
-    # Filtering criteria
-    MIN_VOLUME = 1_000_000   # Minimum daily volume
-    MIN_PRICE = 10.0         # Minimum stock price
-    MAX_SPREAD_PERCENT = 0.5  # Maximum bid-ask spread (0.5%)
+    MIN_VOLUME = 1_000_000
+    MIN_PRICE = 10.0
 
-    def __init__(self, db: Session, historical_data_manager=None):
+    def __init__(self, db: Session):
         self.db = db
         self.alpaca = get_alpaca_service(paper=True)
-        self.historical_data_manager = historical_data_manager  # For backtesting
+        self.strategy_config = self._load_strategy_config()
+        self.executor = StrategyExecutor(self.strategy_config)
+        self.scorer = get_ai_trade_scorer()
         logger.info(f"MarketScanner initialized — universe: {len(self.SCAN_UNIVERSE)} stocks")
-        if historical_data_manager:
-            logger.info("✅ Using database-first historical data for backtesting")
-    
-    def scan_all_strategies(self) -> List[Dict]:
-        """
-        Run all scanning strategies and return combined candidates
-        
-        Returns:
-            List of candidate dicts with:
-            - symbol: Stock symbol
-            - strategy: Which strategy found it
-            - score: Confidence score (0-100)
-            - reason: Why it was selected
-            - current_price: Current market price
-            - volume: Average volume
-        """
-        logger.info("🔍 Starting market scan across all strategies...")
-        
-        all_candidates = []
-        
-        # Strategy 1: Earnings plays
-        earnings_candidates = self._scan_earnings_plays()
-        all_candidates.extend(earnings_candidates)
-        logger.info(f"✅ Earnings strategy found {len(earnings_candidates)} candidates")
-        
-        # Strategy 2: Technical breakouts
-        breakout_candidates = self._scan_technical_breakouts()
-        all_candidates.extend(breakout_candidates)
-        logger.info(f"✅ Breakout strategy found {len(breakout_candidates)} candidates")
-        
-        # Strategy 3: Seasonality patterns
-        seasonal_candidates = self._scan_seasonality()
-        all_candidates.extend(seasonal_candidates)
-        logger.info(f"✅ Seasonal strategy found {len(seasonal_candidates)} candidates")
-        
-        # Remove duplicates (same stock from multiple strategies)
-        unique_candidates = self._deduplicate_candidates(all_candidates)
-        
-        logger.info(f"📊 Total unique candidates: {len(unique_candidates)}")
-        
-        return unique_candidates
-    
-    def _get_bars_batch(self, symbols: List[str], days: int = 252) -> Dict[str, pd.DataFrame]:
-        """Fetch OHLCV bars - uses database-first approach if historical_data_manager available (backtesting)"""
-        end = date.today()
-        start = end - timedelta(days=days + 10)  # buffer for weekends/holidays
+
+    def _load_strategy_config(self) -> Dict:
+        """Load active strategy config from DB, fall back to defaults."""
         try:
-            # Use database-first approach for backtesting (10x faster!)
-            if self.historical_data_manager:
-                return self.historical_data_manager.get_historical_data(
-                    symbols, 
-                    start_date=start, 
-                    end_date=end
-                )
-            # Fall back to Alpaca for live scanning
-            return self.alpaca.get_historical_bars(symbols, start.isoformat(), end.isoformat())
+            from app.models.strategy import StrategyConfig as SC
+            configs = self.db.query(SC).filter(SC.is_active == True).all()
+            if configs:
+                result = {}
+                for cfg in configs:
+                    result[cfg.strategy_name] = {
+                        'enabled': cfg.enabled,
+                        'params': cfg.parameters or {}
+                    }
+                return result
         except Exception as e:
-            logger.error(f"Batch bars failed: {e}")
-            return {}
+            logger.warning(f"Could not load strategy config from DB: {e}")
 
-    def _get_latest_quote(self, symbol: str) -> Dict:
-        """Get latest price and volume from Alpaca."""
-        try:
-            quote = self.alpaca.get_latest_quote(symbol)
-            return quote or {}
-        except Exception:
-            return {}
+        # Import default config from backtester (single source of defaults)
+        from services.backtester import Backtester
+        b = Backtester.__new__(Backtester)
+        return b._get_default_strategy_config()
 
-    def _scan_earnings_plays(self) -> List[Dict]:
+    def scan_all_strategies(
+        self,
+        ai_gated: bool = True,
+        ai_score_threshold: int = 60,
+        strategies: Optional[List[str]] = None,
+    ) -> List[Dict]:
         """
-        Strategy 1: Find stocks with earnings in next 7 days.
-        Uses Alpaca snapshot for price/volume; earnings calendar from Alpaca or fallback.
+        Scan all enabled strategies using StrategyExecutor.
+        Every signal passes AITradeScorer before being returned.
+
+        Args:
+            ai_gated: Gate signals through AITradeScorer (default True for live)
+            ai_score_threshold: Minimum AI score (0–100) to pass gate
+            strategies: Limit to these strategy names, or None for all enabled
+
+        Returns:
+            List of signal dicts (same shape as backtester signals):
+            {symbol, strategy, score, reason, current_price, volume,
+             exit_params, signal_metadata,
+             ai_score, ai_reasoning}   ← added when ai_gated=True
         """
-        logger.info("📊 Scanning for earnings plays...")
+        logger.info("🔍 Starting live market scan via StrategyExecutor...")
+        scan_date = datetime.now()
         candidates = []
 
-        # Fetch all snapshots in one call to minimize API hits
+        # Fetch live prices once for all symbols
         try:
             snapshots = self.alpaca.get_snapshots(self.SCAN_UNIVERSE) or {}
         except Exception as e:
             logger.warning(f"Alpaca snapshots failed: {e}")
             snapshots = {}
 
+        # Fetch historical bars for technical signals (batch)
+        bars_dict = self._get_bars_batch(self.SCAN_UNIVERSE, days=260)
+
         for symbol in self.SCAN_UNIVERSE:
-            try:
-                snap = snapshots.get(symbol)
-                if not snap:
+            snap = snapshots.get(symbol)
+            current_price = float(getattr(getattr(snap, 'latest_trade', None), 'price', 0) or 0)
+            volume = float(getattr(getattr(snap, 'daily_bar', None), 'volume', 0) or 0)
+
+            if current_price < self.MIN_PRICE or volume < self.MIN_VOLUME:
+                continue
+
+            hist = bars_dict.get(symbol)
+            if hist is None or hist.empty:
+                continue
+
+            # Normalise columns
+            hist = hist.copy()
+            hist.columns = [c.title() for c in hist.columns]  # Close, High, Low, Open, Volume
+
+            # Run each strategy through StrategyExecutor
+            strategy_methods = {
+                'earnings':          self.executor.scan_earnings_opportunities,
+                'seasonality':       self.executor.scan_seasonality_opportunities,
+                'macro':             self.executor.scan_macro_opportunities,
+                'sentiment':         self.executor.scan_sentiment_opportunities,
+                'technical_breakout': self.executor.scan_technical_opportunities,
+            }
+
+            for strat_name, method in strategy_methods.items():
+                if strategies and strat_name not in strategies:
                     continue
 
-                current_price = getattr(snap.latest_trade, 'price', None) or 0
-                volume = getattr(snap.daily_bar, 'volume', None) or 0
-
-                if not self._passes_filters(current_price, volume):
+                if not self.strategy_config.get(strat_name, {}).get('enabled', False):
                     continue
 
-                # Alpaca does not expose earnings calendar directly.
-                # Use their asset info; skip if not available.
-                # TODO: integrate earnings calendar API (e.g. Alpaca Events or Polygon)
-                # For now, skip earnings play without a date source.
-
-            except Exception as e:
-                logger.debug(f"  ⨯ {symbol}: earnings check error - {e}")
-
-        return candidates
-
-    def _scan_technical_breakouts(self) -> List[Dict]:
-        """
-        Strategy 2: Find stocks breaking above resistance using Alpaca historical bars.
-        Processes symbols in batches of 100 to respect Alpaca rate limits.
-        """
-        logger.info("📈 Scanning for technical breakouts...")
-        candidates = []
-        batch_size = 100
-
-        for i in range(0, len(self.SCAN_UNIVERSE), batch_size):
-            batch = self.SCAN_UNIVERSE[i:i + batch_size]
-            bars_dict = self._get_bars_batch(batch, days=260)
-
-            for symbol in batch:
                 try:
-                    hist = bars_dict.get(symbol)
-                    if hist is None or hist.empty or len(hist) < 50:
-                        continue
-
-                    # Normalise column names (Alpaca returns lowercase)
-                    hist.columns = [c.lower() for c in hist.columns]
-                    closes = hist['close']
-                    highs = hist['high']
-                    volumes = hist['volume']
-
-                    current_price = float(closes.iloc[-1])
-                    avg_volume = float(volumes.mean())
-
-                    if not self._passes_filters(current_price, avg_volume):
-                        continue
-
-                    high_52w = float(highs.max())
-                    ma_200 = float(closes.rolling(min(200, len(closes))).mean().iloc[-1])
-                    ma_50 = float(closes.rolling(min(50, len(closes))).mean().iloc[-1])
-
-                    breakout_score = 0
-                    reasons = []
-
-                    if current_price >= high_52w * 0.98:
-                        breakout_score += 30
-                        reasons.append("Near 52-week high")
-
-                    if current_price > ma_200:
-                        breakout_score += 20
-                        reasons.append("Above 200-day MA")
-
-                    if ma_50 > ma_200:
-                        breakout_score += 20
-                        reasons.append("Golden cross")
-
-                    if len(closes) >= 6:
-                        momentum = ((current_price - float(closes.iloc[-6])) / float(closes.iloc[-6])) * 100
-                        if momentum > 5:
-                            breakout_score += 30
-                            reasons.append(f"Momentum +{momentum:.1f}%")
-
-                    if breakout_score >= 40:
-                        candidates.append({
-                            'symbol': symbol,
-                            'strategy': 'technical_breakout',
-                            'score': min(breakout_score, 85),
-                            'reason': f"Technical breakout: {', '.join(reasons)}",
-                            'current_price': current_price,
-                            'volume': avg_volume,
-                            'ma_200': round(ma_200, 2),
-                            'ma_50': round(ma_50, 2),
-                        })
-                        logger.info(f"  ✓ {symbol}: breakout score {breakout_score}")
-
+                    signal = method(
+                        symbol=symbol,
+                        hist_data=hist,
+                        scan_date=scan_date,
+                        market_data={'current_price': current_price, 'volume': volume}
+                    )
                 except Exception as e:
-                    logger.debug(f"  ⨯ {symbol}: breakout error - {e}")
+                    logger.debug(f"  ⨯ {symbol}/{strat_name}: {e}")
+                    continue
 
+                if signal is None:
+                    continue
+
+                # Ensure standard live fields
+                signal.setdefault('current_price', current_price)
+                signal.setdefault('volume', volume)
+
+                # AI gate (same scorer as backtester)
+                if ai_gated:
+                    try:
+                        result = self.scorer.score(signal, threshold=ai_score_threshold)
+                        signal['ai_score'] = result['score']
+                        signal['ai_reasoning'] = result['reasoning']
+                        if not result['approved']:
+                            logger.debug(
+                                f"  ✗ {symbol}/{strat_name}: AI score {result['score']} "
+                                f"below threshold {ai_score_threshold}"
+                            )
+                            continue
+                    except Exception as e:
+                        logger.warning(f"AITradeScorer failed for {symbol}: {e}")
+
+                candidates.append(signal)
+                logger.info(
+                    f"  ✓ {symbol}/{strat_name}: score={signal.get('score')}"
+                    + (f" ai={signal.get('ai_score')}" if ai_gated else "")
+                )
+
+        logger.info(f"📊 Live scan complete — {len(candidates)} signals passed")
         return candidates
 
-    def _scan_seasonality(self) -> List[Dict]:
-        """
-        Strategy 3: Stocks with strong seasonal patterns for the current month.
-        Uses Alpaca snapshots for current price/volume.
-        """
-        logger.info("📅 Scanning for seasonal patterns...")
-        candidates = []
-        current_month = datetime.now().month
-        month_name = datetime.now().strftime('%B')
-
-        seasonal_stocks = {
-            1:  ['IWM', 'VBK'],                       # January Effect — small caps
-            2:  [],
-            3:  [],
-            4:  ['BA', 'CAT', 'DE'],                   # Industrials / Construction
-            5:  ['DIS', 'SBUX', 'MAR'],                # Travel / Leisure start
-            6:  ['DIS', 'SBUX', 'UAL', 'DAL'],        # Summer travel
-            7:  ['WMT', 'HD', 'TGT'],                  # Back-to-school prep
-            8:  ['WMT', 'HD', 'TGT', 'COST'],         # Back-to-school
-            9:  [],
-            10: ['AMZN', 'WMT', 'COST'],               # Holiday prep
-            11: ['AMZN', 'WMT', 'NKE', 'ETSY'],       # Black Friday
-            12: ['AMZN', 'WMT', 'NKE', 'AAPL', 'ETSY'],  # Holiday shopping
-        }
-
-        symbols = seasonal_stocks.get(current_month, [])
-        if not symbols:
-            return candidates
-
+    def _get_bars_batch(self, symbols: List[str], days: int = 260) -> Dict[str, pd.DataFrame]:
+        from datetime import timedelta
+        end = date.today()
+        start = end - timedelta(days=days + 10)
         try:
-            snapshots = self.alpaca.get_snapshots(symbols) or {}
+            return self.alpaca.get_historical_bars(symbols, start.isoformat(), end.isoformat())
         except Exception as e:
-            logger.warning(f"Alpaca snapshots failed for seasonality: {e}")
-            snapshots = {}
-
-        for symbol in symbols:
-            try:
-                snap = snapshots.get(symbol)
-                current_price = (getattr(snap.latest_trade, 'price', 0) if snap else 0) or 0
-                volume = (getattr(snap.daily_bar, 'volume', 0) if snap else 0) or 0
-
-                if self._passes_filters(current_price, volume):
-                    candidates.append({
-                        'symbol': symbol,
-                        'strategy': 'seasonality',
-                        'score': 65,
-                        'reason': f"Historical {month_name} outperformance. Seasonal tailwinds.",
-                        'current_price': float(current_price),
-                        'volume': float(volume),
-                        'seasonal_month': month_name,
-                    })
-                    logger.info(f"  ✓ {symbol}: seasonal play for {month_name}")
-
-            except Exception as e:
-                logger.debug(f"  ⨯ {symbol}: seasonality error - {e}")
-
-        return candidates
-    
-    def _passes_filters(self, price: float, volume: int) -> bool:
-        """
-        Check if candidate passes minimum quality filters
-        
-        Args:
-            price: Current stock price
-            volume: Average daily volume
-            
-        Returns:
-            True if passes all filters
-        """
-        if price < self.MIN_PRICE:
-            return False
-        
-        if volume < self.MIN_VOLUME:
-            return False
-        
-        # Could add spread check here if we had bid/ask data
-        
-        return True
-    
-    def _deduplicate_candidates(self, candidates: List[Dict]) -> List[Dict]:
-        """
-        Remove duplicate symbols, keeping the highest-scoring version
-        
-        Args:
-            candidates: List of all candidates from all strategies
-            
-        Returns:
-            Deduplicated list with best version of each symbol
-        """
-        best_candidates = {}
-        
-        for candidate in candidates:
-            symbol = candidate['symbol']
-            
-            if symbol not in best_candidates:
-                best_candidates[symbol] = candidate
-            else:
-                # Keep the one with higher score
-                if candidate['score'] > best_candidates[symbol]['score']:
-                    # But merge the strategies
-                    best_candidates[symbol]['strategy'] = f"{best_candidates[symbol]['strategy']} + {candidate['strategy']}"
-                    best_candidates[symbol]['score'] = candidate['score']
-                    best_candidates[symbol]['reason'] = f"{best_candidates[symbol]['reason']} + {candidate['reason']}"
-        
-        return list(best_candidates.values())
+            logger.error(f"Batch bars failed: {e}")
+            return {}
 
 
 def get_market_scanner(db: Session) -> MarketScanner:
-    """
-    Factory function to create MarketScanner instance
-    
-    Args:
-        db: Database session
-        
-    Returns:
-        MarketScanner instance
-    """
     return MarketScanner(db)

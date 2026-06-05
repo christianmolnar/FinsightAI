@@ -21,6 +21,7 @@ from services.opportunity_analyzer import get_opportunity_analyzer
 from services.historical_data_manager import HistoricalDataManager
 from services.position_sizer import PositionSizer
 from services.strategy_executor import StrategyExecutor
+from services.ai_trade_scorer import get_ai_trade_scorer
 from config.config_loader import config
 from config.backtest_config import BACKTEST_DEBUG, EXIT_RULES, get_config
 from app.models.strategy import StrategyConfig
@@ -440,7 +441,9 @@ class Backtester:
         end_date: datetime,
         strategies: Optional[List[str]] = None,
         confidence_threshold: float = 0.75,
-        use_ai: bool = True
+        use_ai: bool = True,
+        ai_gated: bool = False,
+        ai_score_threshold: int = 60,
     ) -> BacktestMetrics:
         """
         Run backtest over date range
@@ -451,6 +454,13 @@ class Backtester:
             strategies: List of strategies to test (None = all)
             confidence_threshold: Minimum AI confidence for trade
             use_ai: If True, use AI analyzer. If False, use scanner scores only
+            ai_gated: If True, every signal is scored by AITradeScorer before entry (Phase C)
+            ai_score_threshold: Minimum AITradeScorer score (0-100) to allow entry (default 60)
+
+        Note on deprecated params:
+            `use_ai` and `confidence_threshold` are legacy params kept for API compatibility.
+            They were used before StrategyExecutor replaced the old scanner.
+            Use `ai_gated` + `ai_score_threshold` for per-trade AI control instead.
             
         Returns:
             BacktestMetrics with results
@@ -458,6 +468,7 @@ class Backtester:
         logger.info(f"🔄 Starting backtest: {start_date.date()} to {end_date.date()}")
         logger.info(f"   Strategies: {strategies or 'ALL'}")
         logger.info(f"   AI Enabled: {use_ai}, Threshold: {confidence_threshold:.0%}")
+        logger.info(f"   AI Gate: {'ON' if ai_gated else 'OFF'}{f', score>={ai_score_threshold}' if ai_gated else ''}")
         
         if BACKTEST_DEBUG:
             logger.info(f"\n{'='*60}")
@@ -526,9 +537,28 @@ class Backtester:
                 progress = (all_opportunities.index(opp) / len(all_opportunities)) * 100
                 logger.info(f"   Progress: {progress:.0f}% ({all_opportunities.index(opp)}/{len(all_opportunities)})")
             
-            # Per-trade AI scoring is handled in Phase C (AITradeScorer).
-            # Post-run AI analysis is done by BacktestAIAnalyzer after all trades complete.
-            # The use_ai flag here is intentionally a no-op during simulation for speed.
+            # ── Phase C: Per-trade AI scoring gate ──────────────────────────
+            # When ai_gated=True, every signal is scored by AITradeScorer.
+            # Signals that don't meet ai_score_threshold are skipped.
+            # ai_reasoning + ai_confidence are stored on the trade for review.
+            if ai_gated:
+                scorer = get_ai_trade_scorer()
+                score_result = await scorer.score(opp, threshold=ai_score_threshold)
+                if not score_result["approved"]:
+                    logger.debug(
+                        f"   🚫 AI gate rejected {opp['symbol']} ({opp['strategy']}): "
+                        f"score={score_result['score']} < threshold={ai_score_threshold}. "
+                        f"Reason: {score_result['reasoning']}"
+                    )
+                    continue
+                # Attach AI score to opportunity so it lands on BacktestResult
+                opp["ai_confidence"] = score_result["score"] / 100.0
+                opp["ai_reasoning"] = score_result["reasoning"]
+                logger.debug(
+                    f"   ✅ AI gate approved {opp['symbol']} ({opp['strategy']}): "
+                    f"score={score_result['score']}"
+                )
+            # ────────────────────────────────────────────────────────────────
             
             # Simulate trade
             trade = await self._simulate_trade(opp, scan_date, universe_data)
@@ -933,10 +963,14 @@ class Backtester:
             exit_price = None
             exit_reason = None
             
-            # Exit rules from config
-            profit_target = EXIT_RULES["profit_target_pct"]
-            stop_loss = EXIT_RULES["stop_loss_pct"]
-            max_hold = EXIT_RULES["max_hold_days"]
+            # Exit rules: prefer per-signal exit_params (set by StrategyExecutor from
+            # the user's Strategy Config page), fall back to global EXIT_RULES defaults.
+            _exit = opportunity.get('exit_params', {})
+            profit_target = _exit.get('profit_target', EXIT_RULES["profit_target_pct"])
+            # stop_loss stored as positive % in exit_params (e.g. 5 means -5%)
+            _sl_raw = _exit.get('stop_loss', abs(EXIT_RULES["stop_loss_pct"]))
+            stop_loss = -abs(_sl_raw)   # always negative for comparison
+            max_hold = EXIT_RULES["max_hold_days"]  # global only — no per-strategy override yet
             
             if BACKTEST_DEBUG:
                 logger.info(f"\n   📈 SIMULATING TRADE: {symbol}")

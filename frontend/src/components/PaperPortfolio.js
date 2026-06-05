@@ -20,7 +20,12 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronUp,
-  Clock
+  Clock,
+  Bot,
+  Play,
+  CheckCircle,
+  XCircle,
+  Activity
 } from 'lucide-react';
 
 const PaperPortfolio = () => {
@@ -47,6 +52,18 @@ const PaperPortfolio = () => {
   const [pendingOrders, setPendingOrders] = useState([]);
   const [showPendingOrders, setShowPendingOrders] = useState(true);
   const [showHoldings, setShowHoldings] = useState(true);
+
+  // Top-level tab
+  const [activeTab, setActiveTab] = useState('manual');
+
+  // AI Loop state
+  const [loopPositions, setLoopPositions] = useState([]);
+  const [loopHistory, setLoopHistory] = useState([]);
+  const [loopPerformance, setLoopPerformance] = useState(null);
+  const [loopGuardrails, setLoopGuardrails] = useState(null);
+  const [loopLoading, setLoopLoading] = useState(false);
+  const [loopCycleRunning, setLoopCycleRunning] = useState(false);
+  const [loopMessage, setLoopMessage] = useState(null);
   
   // Modal states
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -373,6 +390,52 @@ const PaperPortfolio = () => {
     : [];
   const hasPositions = currentPositions.length > 0;
 
+  // AI Loop functions
+  const fetchLoopData = async () => {
+    setLoopLoading(true);
+    try {
+      const [posRes, histRes, perfRes, grRes] = await Promise.all([
+        apiClient.get('/api/paper-loop/positions'),
+        apiClient.get('/api/paper-loop/history'),
+        apiClient.get('/api/paper-loop/performance'),
+        apiClient.get('/api/paper-loop/guardrails'),
+      ]);
+      setLoopPositions(posRes.data || []);
+      setLoopHistory(histRes.data || []);
+      setLoopPerformance(perfRes.data || null);
+      setLoopGuardrails(grRes.data || null);
+    } catch (e) {
+      setLoopMessage({ type: 'error', text: 'Failed to load AI loop data: ' + (e.response?.data?.detail || e.message) });
+    } finally {
+      setLoopLoading(false);
+    }
+  };
+
+  const runLoopCycle = async () => {
+    setLoopCycleRunning(true);
+    setLoopMessage(null);
+    try {
+      const res = await apiClient.post('/api/paper-loop/cycle');
+      const d = res.data;
+      setLoopMessage({ type: 'success', text: `Cycle complete — ${d.entries_executed} entries, ${d.exits_processed} exits` });
+      await fetchLoopData();
+    } catch (e) {
+      setLoopMessage({ type: 'error', text: 'Cycle failed: ' + (e.response?.data?.detail || e.message) });
+    } finally {
+      setLoopCycleRunning(false);
+    }
+  };
+
+  const closeLoopPosition = async (id) => {
+    try {
+      await apiClient.post(`/api/paper-loop/close/${id}`);
+      setLoopMessage({ type: 'success', text: 'Position closed.' });
+      await fetchLoopData();
+    } catch (e) {
+      setLoopMessage({ type: 'error', text: 'Close failed: ' + (e.response?.data?.detail || e.message) });
+    }
+  };
+
   if (loading && !portfolio) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -412,6 +475,191 @@ const PaperPortfolio = () => {
           </div>
         </div>
       </div>
+
+      {/* Tab Switcher */}
+      <div className="flex space-x-1 bg-gray-100 rounded-lg p-1 w-fit">
+        <button
+          onClick={() => setActiveTab('manual')}
+          className={`flex items-center space-x-2 px-5 py-2 rounded-md text-sm font-medium transition-colors ${
+            activeTab === 'manual' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4" />
+          <span>Manual Trading</span>
+        </button>
+        <button
+          onClick={() => { setActiveTab('ai-loop'); if (!loopPositions.length && !loopLoading) fetchLoopData(); }}
+          className={`flex items-center space-x-2 px-5 py-2 rounded-md text-sm font-medium transition-colors ${
+            activeTab === 'ai-loop' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <Bot className="w-4 h-4" />
+          <span>AI Loop</span>
+        </button>
+      </div>
+
+      {/* AI Loop Panel */}
+      {activeTab === 'ai-loop' && (
+        <div className="space-y-6">
+          {/* Controls */}
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={runLoopCycle}
+              disabled={loopCycleRunning}
+              className="flex items-center space-x-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium"
+            >
+              {loopCycleRunning ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+              <span>{loopCycleRunning ? 'Running...' : 'Run Cycle'}</span>
+            </button>
+            <button
+              onClick={fetchLoopData}
+              disabled={loopLoading}
+              className="flex items-center space-x-2 px-4 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${loopLoading ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </button>
+          </div>
+
+          {loopMessage && (
+            <div className={`p-4 rounded-lg flex items-center space-x-2 ${
+              loopMessage.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'
+            }`}>
+              {loopMessage.type === 'success' ? <CheckCircle className="w-5 h-5 flex-shrink-0" /> : <XCircle className="w-5 h-5 flex-shrink-0" />}
+              <span className="text-sm">{loopMessage.text}</span>
+            </div>
+          )}
+
+          {/* Performance Summary */}
+          {loopPerformance && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { label: 'Total Trades', value: loopPerformance.total_trades, icon: <Activity className="w-6 h-6 text-blue-600" /> },
+                { label: 'Win Rate', value: loopPerformance.win_rate != null ? `${(loopPerformance.win_rate * 100).toFixed(1)}%` : 'N/A', icon: <Target className="w-6 h-6 text-purple-600" /> },
+                { label: 'Total P&L', value: loopPerformance.total_pnl != null ? `$${loopPerformance.total_pnl.toFixed(2)}` : 'N/A', icon: loopPerformance.total_pnl >= 0 ? <TrendingUp className="w-6 h-6 text-green-600" /> : <TrendingDown className="w-6 h-6 text-red-600" />, color: loopPerformance.total_pnl >= 0 ? 'text-green-600' : 'text-red-600' },
+                { label: 'Open Positions', value: loopPerformance.open_positions ?? loopPositions.length, icon: <Eye className="w-6 h-6 text-indigo-600" /> },
+              ].map(({ label, value, icon, color }) => (
+                <div key={label} className="bg-white rounded-lg border border-gray-200 p-4 flex items-center space-x-3">
+                  {icon}
+                  <div>
+                    <p className="text-xs text-gray-500">{label}</p>
+                    <p className={`text-xl font-bold ${color || 'text-gray-900'}`}>{value ?? '—'}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Guardrails */}
+          {loopGuardrails && (
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center space-x-2">
+                <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                <span>Guardrails</span>
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1 text-sm">
+                {Object.entries(loopGuardrails).map(([k, v]) => (
+                  <div key={k} className="flex justify-between text-gray-600">
+                    <span className="capitalize">{k.replace(/_/g, ' ')}</span>
+                    <span className="font-medium text-gray-900">{typeof v === 'number' && v < 1 ? `${(v * 100).toFixed(0)}%` : v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Open Positions */}
+          <div className="bg-white rounded-lg border border-gray-200">
+            <div className="p-4 border-b border-gray-100 flex items-center space-x-2">
+              <Brain className="w-5 h-5 text-indigo-600" />
+              <h3 className="font-semibold text-gray-800">Open AI Positions ({loopPositions.length})</h3>
+            </div>
+            {loopLoading ? (
+              <div className="p-6 text-center text-gray-500 text-sm">Loading...</div>
+            ) : loopPositions.length === 0 ? (
+              <div className="p-6 text-center text-gray-500 text-sm">No open positions. Run a cycle to scan for signals.</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                  <tr>
+                    {['Symbol', 'Strategy', 'Entry', 'Shares', 'AI Score', 'Target', 'Stop', 'Entry Time', 'Action'].map(h => (
+                      <th key={h} className="px-4 py-2 text-left font-medium">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {loopPositions.map(p => (
+                    <tr key={p.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-semibold text-gray-900">{p.symbol}</td>
+                      <td className="px-4 py-3 text-gray-600 capitalize">{p.strategy}</td>
+                      <td className="px-4 py-3">${p.entry_price?.toFixed(2)}</td>
+                      <td className="px-4 py-3">{p.shares}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.ai_score >= 75 ? 'bg-green-100 text-green-700' : p.ai_score >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+                          {p.ai_score}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-green-600">+{p.profit_target_pct?.toFixed(1)}%</td>
+                      <td className="px-4 py-3 text-red-600">-{p.stop_loss_pct?.toFixed(1)}%</td>
+                      <td className="px-4 py-3 text-gray-500">{p.entry_time ? new Date(p.entry_time).toLocaleDateString() : '—'}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => closeLoopPosition(p.id)}
+                          className="text-xs px-2 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded border border-red-200 transition-colors"
+                        >
+                          Close
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Trade History */}
+          <div className="bg-white rounded-lg border border-gray-200">
+            <div className="p-4 border-b border-gray-100 flex items-center space-x-2">
+              <Clock className="w-5 h-5 text-gray-500" />
+              <h3 className="font-semibold text-gray-800">Closed Trades ({loopHistory.length})</h3>
+            </div>
+            {loopHistory.length === 0 ? (
+              <div className="p-6 text-center text-gray-500 text-sm">No closed trades yet.</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                  <tr>
+                    {['Symbol', 'Strategy', 'Entry', 'Exit', 'Return', 'P&L', 'Exit Reason', 'Closed'].map(h => (
+                      <th key={h} className="px-4 py-2 text-left font-medium">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {loopHistory.map(t => (
+                    <tr key={t.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-semibold text-gray-900">{t.symbol}</td>
+                      <td className="px-4 py-3 text-gray-600 capitalize">{t.strategy}</td>
+                      <td className="px-4 py-3">${t.entry_price?.toFixed(2)}</td>
+                      <td className="px-4 py-3">${t.exit_price?.toFixed(2)}</td>
+                      <td className={`px-4 py-3 font-medium ${t.return_pct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {t.return_pct != null ? `${t.return_pct >= 0 ? '+' : ''}${t.return_pct.toFixed(2)}%` : '—'}
+                      </td>
+                      <td className={`px-4 py-3 font-medium ${t.profit_loss_usd >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {t.profit_loss_usd != null ? `${t.profit_loss_usd >= 0 ? '+' : ''}$${t.profit_loss_usd.toFixed(2)}` : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 capitalize">{t.exit_reason?.replace(/_/g, ' ') || '—'}</td>
+                      <td className="px-4 py-3 text-gray-500">{t.exit_time ? new Date(t.exit_time).toLocaleDateString() : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Manual Trading Content */}
+      {activeTab === 'manual' && (<>
 
       {/* Portfolio Summary */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -1028,6 +1276,7 @@ const PaperPortfolio = () => {
         message={notificationConfig.message}
         type={notificationConfig.type}
       />
+      </>)}
     </div>
   );
 };

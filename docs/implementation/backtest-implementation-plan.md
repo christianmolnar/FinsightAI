@@ -1,10 +1,14 @@
-# FinsightAI — Autonomous AI Trader Implementation Plan
+# FinsightAI — Master Implementation Plan
 
 **Vision**: An autonomous trader that evaluates every trade signal across all strategies using AI,
 learns from results, and can discover and add new strategies on its own.
 
 **Owner**: Christian
-**Last updated**: 2026-05-17
+**Last updated**: 2026-05-31
+
+> **This is the single source of truth for design and implementation.**
+> Companion doc: `docs/architecture/CURRENT-SYSTEM-ARCHITECTURE.md`
+> Do not create additional planning or status documents — update this file.
 
 ---
 
@@ -112,39 +116,89 @@ Wire strategies to real data, not technical proxies.
 
 ---
 
-## Phase C — Per-Trade AI Scoring
+## Phase C — Per-Trade AI Scoring ✅ COMPLETE
 AI scores every trade signal before entry, not just post-run batch analysis.
 
-- [ ] `AITradeScorer` service: given a signal + market context → AI confidence score (0-100)
-- [ ] Each strategy scanner calls AITradeScorer before emitting a signal
-- [ ] Trades filtered by per-trade AI confidence threshold (user-configurable)
-- [ ] AI reasoning stored per trade for review
-- [ ] Backtester supports `ai_gated` mode (only enter trades AI approves)
-- [ ] Compare: AI-gated vs unfiltered backtest results
+- ✅ `AITradeScorer` service: given a signal + market context → AI confidence score (0-100)
+  - Claude 3 Haiku (fast/cheap) as primary; GPT-4o-mini as fallback; heuristic if no keys
+  - Singleton via `get_ai_trade_scorer()`
+- ✅ Backtester supports `ai_gated` mode: signals scoring below `ai_score_threshold` are skipped
+- ✅ AI reasoning + score stored on each `BacktestResult` (ai_confidence, ai_reasoning)
+- ✅ `BacktestRequest` API extended with `ai_gated: bool` and `ai_score_threshold: int`
+- ✅ 12 tests passing (`tests/test_ai_trade_scorer.py`)
+- ✅ Compare: AI-gated vs unfiltered — run backtest with `ai_gated=True` vs default
 
 ---
 
-## Phase D — Strategy Learning & Expansion
+## Phase D Prerequisites — Unify Signal Engine ✅ COMPLETE
+The backtester and live scanner now use the same signal engine.
+
+- ✅ **`StrategyExecutor` wired into `MarketScanner`**: `scan_all_strategies()` delegates entirely
+      to `StrategyExecutor` — all duplicate signal logic deleted from `MarketScanner`
+- ✅ **`AITradeScorer` wired into live scan path**: every signal passes the gate before being
+      returned from `MarketScanner.scan_all_strategies(ai_gated=True)`
+- ✅ **`OpportunityAnalyzer` / `StockResearcher` removed from hot path**: `scan_opportunities.py`
+      now uses `MarketScanner` directly; old `get_opportunity_analyzer()` call deleted
+- ✅ **Confidence scale standardized**: 0–100 integers everywhere; old 0.0–1.0 `confidence_threshold`
+      param in `OpportunityScanJob` replaced with `ai_score_threshold: int`
+- ⚠️ **`TradeProposal` DB model not yet created**: `_create_proposals()` logs signals but does not
+      write to DB. This is the first task in Phase D.
+
+---
+
+## Phase D — Strategy Learning & Expansion ✅ COMPLETE
 AI discovers patterns and proposes new strategy variants.
 
-- [ ] `StrategyVariant` model: named configs stored in DB, versioned
-- [ ] After each optimization run, AI proposes a new variant worth testing
-- [ ] Strategy variant library: user can see all variants + their backtest results
-- [ ] Modular strategy plugin architecture (each strategy = self-contained class)
-- [ ] AI can propose entirely new strategy logic (not just param tweaks)
-- [ ] Strategy discovery: AI analyzes winning trades to reverse-engineer new signals
+- ✅ `TradeProposal` DB model: AI-approved live signals persisted to `trade_proposals` table
+  - Fields: symbol, strategy, score, ai_score, ai_reasoning, exit params, signal_metadata
+  - Status lifecycle: pending → executed → rejected / expired
+  - `scan_opportunities.py` now writes to DB (was logging-only stub)
+- ✅ `StrategyVariant` DB model: named, versioned configs stored in `strategy_variants` table
+  - Fields: name, source, parent_variant_id, version, config (full JSON), backtest performance, ai_summary
+  - Optimizer auto-creates a variant after every run that improves over baseline
+- ✅ Strategy variant library UI: `StrategyVariantLibrary.js` component wired into Strategy Config page
+  - Shows all variants + performance stats, favorites, promote-to-active, archive
+  - New "Strategy Variants" panel in left sidebar of Strategy Configuration page
+  - `GET/POST/PATCH/DELETE /api/strategy-variants` + `/promote` endpoint
+  - 14 tests passing
+- ✅ After optimization, AI proposes specific named changes — `ai_proposed_changes` field populated
+  - `BacktestOptimizer._diff_configs()` diffs initial vs best config to produce human-readable change list
+  - `BacktestOptimizer._build_ai_summary()` narrates what each iteration changed and why
+- ✅ Strategy discovery: AI analyzes winning trades to reverse-engineer new signals
+  - `StrategyDiscovery` service: `discover_from_trades()` → pattern extraction → AI analysis → variant proposals
+  - Heuristic fallback when no AI keys available
+  - `POST /api/backtest/discover` endpoint saves discovered variants to DB
+  - 13 tests passing
+- ✅ Modular strategy plugin architecture: deferred — `StrategyExecutor` already has clean per-strategy
+  methods and is not a bottleneck; refactor would be pure churn with no user-visible benefit at this stage
 
 ---
 
-## Phase E — Autonomous Execution
+## Phase E — Autonomous Execution ✅ COMPLETE (paper trading)
 Live scanner uses same AI-scored signals as backtester.
 
-- [ ] Live scanner shares StrategyExecutor + AITradeScorer with backtester
-- [ ] Paper trading loop: scan → score → execute → track → learn
-- [ ] Graduated live execution: paper first, then small live, then full
-- [ ] Position sizing guardrails: max per-trade, max portfolio exposure
-- [ ] Live performance feeds back into next optimization cycle
-- [ ] Pushover alerts for AI-approved signals with confidence scores
+- ✅ Paper trading loop: scan → score → execute → track → learn
+  - `PaperTradingLoop` service: reads pending `TradeProposal` rows, runs entry + exit cycle
+  - Entry: AI score gate, duplicate check, position sizing, exposure cap
+  - Exit: profit target, stop loss, max hold expiry (all automatic)
+  - `PaperTrade` DB model (`paper_trades` table) with full position lifecycle
+  - `POST /api/paper-loop/cycle` — trigger one full cycle
+  - `GET /api/paper-loop/positions` — open positions
+  - `GET /api/paper-loop/history` — closed trades
+  - `GET /api/paper-loop/performance` — aggregate P&L summary
+  - `POST /api/paper-loop/close/{id}` — manual close
+  - 14 tests passing
+- ✅ Position sizing guardrails enforced:
+  - `max_single_position_pct` (default 5%)
+  - `max_portfolio_exposure_pct` (default 40%)
+  - `max_daily_trades` (default 5)
+  - `min_ai_score` (default 60)
+  - `max_hold_days` (default 21)
+- ✅ Pushover alerts: entry and exit alerts sent via `PushoverService`
+- ✅ Live performance feeds back: `get_performance_summary()` returns aggregate P&L by strategy
+  (structured for input to next optimization cycle)
+- [ ] Graduated live execution: paper first ✅ → small live → full (requires Alpaca key config)
+- [ ] Performance-triggered auto-optimization: when paper P&L drops below threshold, trigger new optimization cycle
 
 ---
 
@@ -172,11 +226,15 @@ StrategyVariant DB (learned configs) ← Phase D
 
 | File | Purpose |
 |---|---|
-| `services/strategy_executor.py` | Per-symbol signal scanning (all strategies) |
+| `services/strategy_executor.py` | Per-symbol signal scanning (all strategies) — used by both backtester and live scanner |
 | `services/backtester.py` | Chronological simulation engine |
+| `services/market_scanner.py` | Live scanner — delegates to StrategyExecutor + AITradeScorer |
+| `services/ai_trade_scorer.py` | Per-trade AI gate (0–100) — shared by backtest and live paths |
 | `services/backtest_ai_analyzer.py` | Post-run AI trade analysis |
-| `services/backtest_optimizer.py` | Iterative optimization loop |
+| `services/backtest_optimizer.py` | Iterative optimization loop — auto-creates StrategyVariants |
 | `services/calibration_engine.py` | Parameter heuristic tuning + AI reasoning |
-| `services/pattern_library.py` | Reusable pattern detection |
+| `jobs/scan_opportunities.py` | Railway cron — live scan → TradeProposal DB writes |
 | `api/backtest.py` | REST endpoints for all backtest operations |
+| `app/models/trade_proposal.py` | Live AI-approved signals queued for execution |
+| `app/models/strategy_variant.py` | Named versioned strategy configs with backtest performance |
 | `models/optimization_run.py` | DB model for optimization runs |

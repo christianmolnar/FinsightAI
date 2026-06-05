@@ -31,6 +31,9 @@ from app.models.strategy_parameters import (
 )
 from app.models.agent_config import AgentConfig
 from app.models.historical_price import HistoricalPrice
+from app.models.trade_proposal import TradeProposal
+from app.models.strategy_variant import StrategyVariant
+from app.models.paper_trade import PaperTrade
 
 # Backward compatibility alias - already defined in portfolio module
 # Trade = Transaction
@@ -99,4 +102,6 @@ __all__ = [
     
     # Agent models
     'AgentConfig',
+    'TradeProposal',
+    'StrategyVariant',
 ]

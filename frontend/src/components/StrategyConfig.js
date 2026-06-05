@@ -3,6 +3,7 @@ import axios from 'axios';
 import MarketStatus from './MarketStatus';
 import RiskManagementPanel from './RiskManagementPanel';
 import TechnicalFiltersPanel from './TechnicalFiltersPanel';
+import StrategyVariantLibrary from './StrategyVariantLibrary';
 import { 
   Target, 
   TrendingUp, 
@@ -21,14 +22,15 @@ import {
   Play,
   Pause,
   Download,
-  Upload
+  Upload,
+  GitBranch
 } from 'lucide-react';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const StrategyConfig = () => {
   const [activeStrategy, setActiveStrategy] = useState('earnings');
-  const [activePanel, setActivePanel] = useState('strategies'); // strategies, risk, technical, backtest
+  const [activePanel, setActivePanel] = useState('strategies'); // strategies, risk, technical, variants
   const [strategies, setStrategies] = useState({
     earnings: {
       enabled: true,
@@ -247,6 +249,15 @@ const StrategyConfig = () => {
                   <BarChart3 className="w-4 h-4" />
                   <span>Technical Filters</span>
                 </button>
+                <button 
+                  onClick={() => setActivePanel('variants')}
+                  className={`w-full text-left px-3 py-2 text-sm rounded border flex items-center space-x-2 ${
+                    activePanel === 'variants' ? 'bg-indigo-100 border-indigo-300 text-indigo-800' : 'bg-white hover:bg-gray-100'
+                  }`}
+                >
+                  <GitBranch className="w-4 h-4" />
+                  <span>Strategy Variants</span>
+                </button>
               </div>
             </div>
           </div>
@@ -369,6 +380,17 @@ const StrategyConfig = () => {
               technicalFilters={technicalFilters}
               setTechnicalFilters={setTechnicalFilters}
               onSave={() => console.log('Saving technical filters')}
+            />
+          )}
+
+          {activePanel === 'variants' && (
+            <StrategyVariantLibrary
+              onApplyVariant={(config) => {
+                // When a variant is promoted, merge its config into current strategies
+                if (config.strategies) {
+                  setStrategies(prev => ({ ...prev, ...config.strategies }));
+                }
+              }}
             />
           )}
         </div>

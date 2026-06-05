@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from services.backtester import get_backtester, BacktestMetrics
 from config.backtest_config import enable_debug_mode, disable_debug_mode, BACKTEST_DEBUG
+from services.strategy_discovery import StrategyDiscovery
 
 
 router = APIRouter(prefix="/api/backtest", tags=["backtest"])
@@ -31,6 +32,9 @@ class BacktestRequest(BaseModel):
     max_hold_days: int = 14
     enable_compounding: bool = True  # DEFAULT: Position size grows with portfolio (RECOMMENDED)
     user_id: Optional[str] = None  # PHASE 1: Load user's strategy config
+    # Phase C — Per-trade AI scoring gate
+    ai_gated: bool = False          # Enable per-trade AI scoring
+    ai_score_threshold: int = 60    # Minimum AI score (0-100) to allow entry
 
 
 class BacktestResponse(BaseModel):
@@ -157,7 +161,9 @@ async def _run_backtest_task(
             end_date=end_date,
             strategies=request.strategies,
             confidence_threshold=request.confidence_threshold,
-            use_ai=request.use_ai
+            use_ai=request.use_ai,
+            ai_gated=request.ai_gated,
+            ai_score_threshold=request.ai_score_threshold,
         )
         
         # Store results
@@ -172,7 +178,9 @@ async def _run_backtest_task(
                 'use_ai': request.use_ai,
                 'initial_capital': request.initial_capital,
                 'position_size': request.position_size,
-                'max_hold_days': request.max_hold_days
+                'max_hold_days': request.max_hold_days,
+                'ai_gated': request.ai_gated,
+                'ai_score_threshold': request.ai_score_threshold,
             },
             'completed_at': datetime.now().isoformat()
         }
@@ -632,3 +640,56 @@ async def _run_optimization_task(
             'error': str(e),
             'type': 'optimization'
         }
+
+
+class DiscoverRequest(BaseModel):
+    backtest_id: str
+    save_to_db: bool = True
+    min_winning_trades: int = 5
+    ai_provider: str = "anthropic"
+    user_id: Optional[str] = "default"
+
+
+@router.post("/discover")
+async def discover_strategies(
+    request: DiscoverRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Analyze winning trades from a completed backtest to discover new strategy patterns.
+    Saves discovered variants to the strategy_variants table if save_to_db=True.
+    """
+    result = _backtest_results.get(request.backtest_id)
+    if not result:
+        raise HTTPException(status_code=404, detail=f"Backtest {request.backtest_id} not found. Run a backtest first.")
+
+    trades = result.get("trades", [])
+    metrics = result.get("metrics", {})
+    config = result.get("config", {})
+
+    if not trades:
+        raise HTTPException(status_code=400, detail="No trades found in this backtest result.")
+
+    discovery = StrategyDiscovery(db=db if request.save_to_db else None, ai_provider=request.ai_provider)
+    discovery_result = await discovery.discover_from_trades(
+        trades=trades,
+        current_config=config,
+        backtest_metrics=metrics,
+        min_winning_trades=request.min_winning_trades,
+    )
+
+    saved_ids = []
+    if request.save_to_db and discovery_result.get("variant_proposals"):
+        saved_ids = discovery.save_proposals_to_db(
+            discovery_result["variant_proposals"],
+            user_id=request.user_id or "default",
+        )
+
+    return {
+        "success": True,
+        "analysis_summary": discovery_result.get("analysis_summary", ""),
+        "winning_trades_analyzed": discovery_result.get("winning_trades_analyzed", 0),
+        "patterns_found": len(discovery_result.get("discovered_patterns", [])),
+        "proposals": discovery_result.get("variant_proposals", []),
+        "saved_variant_ids": saved_ids,
+    }

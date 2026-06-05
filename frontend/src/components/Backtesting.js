@@ -167,6 +167,10 @@ const Backtesting = () => {
   const [aiError, setAiError] = useState(null);
   const [aiProvider, setAiProvider] = useState('anthropic'); // 'anthropic' or 'openai'
 
+  // Strategy Discovery state
+  const [discovering, setDiscovering] = useState(false);
+  const [discoverResult, setDiscoverResult] = useState(null);
+
   // PHASE 5: Optimization state
   const [optimizing, setOptimizing] = useState(false);
   const [optimizationId, setOptimizationId] = useState(null);
@@ -181,10 +185,14 @@ const Backtesting = () => {
   const [initialCapital, setInitialCapital] = useState(10000);
   const [positionSize, setPositionSize] = useState(1000);
   const [enableCompounding, setEnableCompounding] = useState(true); // NEW: Compounding control
+  const [aiGated, setAiGated] = useState(false);         // Phase C: per-trade AI gate
+  const [aiScoreThreshold, setAiScoreThreshold] = useState(60); // Phase C: gate threshold 0-100
   const [strategies, setStrategies] = useState({
     technical_breakout: true,
-    earnings: true,  // Fixed: Backend expects 'earnings' not 'earnings_play'
-    seasonality: true
+    earnings: true,
+    seasonality: true,
+    macro: true,
+    sentiment: false  // Off by default — requires live news data
   });
 
   const runBacktest = async () => {
@@ -204,13 +212,15 @@ const Backtesting = () => {
       const backtestConfig = {
         start_date: startDate,
         end_date: endDate,
-        strategies: selectedStrategies.length === 3 ? null : selectedStrategies,
+        strategies: selectedStrategies.length === Object.keys(strategies).length ? null : selectedStrategies,
         confidence_threshold: confidenceThreshold / 100,
         use_ai: useAI,
         initial_capital: initialCapital,
         position_size: positionSize,
         max_hold_days: 14,
-        enable_compounding: enableCompounding
+        enable_compounding: enableCompounding,
+        ai_gated: aiGated,
+        ai_score_threshold: aiScoreThreshold,
       };
 
       console.log('📤 SENDING BACKTEST REQUEST:');
@@ -415,6 +425,27 @@ const Backtesting = () => {
     }
   };
 
+  const discoverStrategies = async () => {
+    if (!backtestId) return;
+    setDiscovering(true);
+    setDiscoverResult(null);
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const response = await fetch(`${API_BASE_URL}/api/backtest/discover`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ backtest_id: backtestId, save_to_db: true, ai_provider: aiProvider })
+      });
+      const data = await response.json();
+      setDiscoverResult(data);
+    } catch (err) {
+      setDiscoverResult({ error: err.message });
+    } finally {
+      setDiscovering(false);
+    }
+  };
+
   const applyAIRecommendations = async (selectedRecs) => {
     if (!backtestId) return;
 
@@ -465,7 +496,7 @@ const Backtesting = () => {
       const optimizationConfig = {
         start_date: startDate,
         end_date: endDate,
-        strategies: selectedStrategies.length === 3 ? null : selectedStrategies,
+        strategies: selectedStrategies.length === Object.keys(strategies).length ? null : selectedStrategies,
         confidence_threshold: confidenceThreshold,
         use_ai: useAI,
         initial_capital: initialCapital,
@@ -474,7 +505,9 @@ const Backtesting = () => {
         enable_compounding: enableCompounding,
         max_iterations: 5,
         min_improvement_threshold: 0.02,
-        ai_provider: aiProvider
+        ai_provider: aiProvider,
+        ai_gated: aiGated,
+        ai_score_threshold: aiScoreThreshold,
       };
 
       console.log('🚀 Starting optimization with config:', optimizationConfig);
@@ -870,21 +903,70 @@ const Backtesting = () => {
           {/* Strategies */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">Strategies to Test</label>
-            <div className="flex gap-4">
-              {Object.keys(strategies).map(strategy => (
-                <label key={strategy} className="flex items-center">
+            <div className="flex flex-wrap gap-4">
+              {[
+                { key: 'earnings',          label: 'Earnings Momentum',    emoji: '📈' },
+                { key: 'seasonality',       label: 'Seasonality',          emoji: '📅' },
+                { key: 'macro',             label: 'Macro & Economic',     emoji: '🌐' },
+                { key: 'sentiment',         label: 'Social Sentiment',     emoji: '💬' },
+                { key: 'technical_breakout',label: 'Technical Breakout',   emoji: '🔺' },
+              ].map(({ key, label, emoji }) => (
+                <label key={key} className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={strategies[strategy]}
-                    onChange={(e) => setStrategies({...strategies, [strategy]: e.target.checked})}
+                    checked={strategies[key]}
+                    onChange={(e) => setStrategies({...strategies, [key]: e.target.checked})}
                     className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   />
-                  <span className="ml-2 text-sm text-gray-700">
-                    {strategy.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                  </span>
+                  <span className="text-sm text-gray-700">{emoji} {label}</span>
                 </label>
               ))}
             </div>
+          </div>
+
+          {/* Phase C: AI Gate */}
+          <div className="mb-6 bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <input
+                type="checkbox"
+                id="aiGated"
+                checked={aiGated}
+                onChange={(e) => setAiGated(e.target.checked)}
+                className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              />
+              <label htmlFor="aiGated" className="text-sm font-semibold text-indigo-900 cursor-pointer">
+                🤖 Enable Per-Trade AI Gate
+              </label>
+              <span className="text-xs text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">Phase C</span>
+            </div>
+            <p className="text-xs text-indigo-700 mb-3">
+              When enabled, every signal is individually scored by Claude AI before entry.
+              Signals below the threshold are rejected. Compares <strong>AI-gated vs unfiltered</strong> performance.
+            </p>
+            {aiGated && (
+              <div>
+                <label className="block text-xs font-medium text-indigo-800 mb-1">
+                  AI Score Threshold: <strong>{aiScoreThreshold}</strong>/100
+                  <span className="ml-2 text-indigo-600">
+                    ({aiScoreThreshold >= 80 ? 'High conviction only' : aiScoreThreshold >= 60 ? 'Moderate+ conviction' : 'All signals'})
+                  </span>
+                </label>
+                <input
+                  type="range"
+                  min="40"
+                  max="90"
+                  step="5"
+                  value={aiScoreThreshold}
+                  onChange={(e) => setAiScoreThreshold(Number(e.target.value))}
+                  className="w-full accent-indigo-600"
+                />
+                <div className="flex justify-between text-xs text-indigo-500 mt-1">
+                  <span>40 (permissive)</span>
+                  <span>65 (recommended)</span>
+                  <span>90 (strict)</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Run Button */}
@@ -1286,7 +1368,23 @@ const Backtesting = () => {
                   >
                     {aiAnalyzing ? 'Analyzing...' : '✨ Analyze with AI'}
                   </button>
+
+                  <button
+                    onClick={discoverStrategies}
+                    disabled={discovering}
+                    className="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {discovering ? '🔍 Discovering...' : '🔍 Discover Strategies'}
+                  </button>
                 </div>
+
+                {discoverResult && (
+                  <div className={`mt-3 p-4 rounded border text-sm ${discoverResult.error ? 'bg-red-50 border-red-200 text-red-700' : 'bg-indigo-50 border-indigo-200 text-indigo-800'}`}>
+                    {discoverResult.error
+                      ? `❌ Discovery failed: ${discoverResult.error}`
+                      : `✅ Discovered ${discoverResult.proposals?.length ?? 0} strategy pattern(s)${discoverResult.saved ? ' — saved to Variant Library' : ''}`}
+                  </div>
+                )}
 
                 {aiError && (
                   <div className="bg-red-50 border border-red-200 rounded p-4 mb-4">

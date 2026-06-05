@@ -21,8 +21,8 @@ from typing import List, Dict
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.database import SessionLocal
-from services.opportunity_analyzer import get_opportunity_analyzer
-from app.models import TradeProposal
+from services.market_scanner import get_market_scanner
+from app.models.trade_proposal import TradeProposal
 from sqlalchemy.exc import SQLAlchemyError
 
 # Configure logging
@@ -40,22 +40,22 @@ class OpportunityScanJob:
     
     def __init__(
         self,
-        confidence_threshold: float = 0.75,
+        ai_score_threshold: int = 60,
         max_opportunities: int = 5,
         auto_create_proposals: bool = True
     ):
         """
         Initialize scan job
-        
+
         Args:
-            confidence_threshold: Minimum AI confidence (0.0-1.0)
-            max_opportunities: Max opportunities to find per scan
+            ai_score_threshold: Minimum AI score 0–100 for a signal to pass
+            max_opportunities: Max signals to act on per scan
             auto_create_proposals: If True, auto-create proposals in DB
         """
-        self.confidence_threshold = confidence_threshold
+        self.ai_score_threshold = ai_score_threshold
         self.max_opportunities = max_opportunities
         self.auto_create_proposals = auto_create_proposals
-        
+
         self.scan_count = 0
         self.total_opportunities_found = 0
         self.total_proposals_created = 0
@@ -80,17 +80,20 @@ class OpportunityScanJob:
         scan_id = self.scan_count
         
         logger.info(f"🔍 Starting opportunity scan #{scan_id}")
-        logger.info(f"   Threshold: {self.confidence_threshold:.0%}, Max: {self.max_opportunities}")
+        logger.info(f"   AI threshold: {self.ai_score_threshold}/100, Max: {self.max_opportunities}")
         
         db = SessionLocal()
         
         try:
-            # Step 1: Find opportunities
-            analyzer = get_opportunity_analyzer(db, self.confidence_threshold)
-            opportunities = await analyzer.find_opportunities(
-                strategies=None,  # All strategies
-                max_opportunities=self.max_opportunities
+            # Step 1: Find opportunities via unified signal engine + AI gate
+            scanner = get_market_scanner(db)
+            opportunities = scanner.scan_all_strategies(
+                ai_gated=True,
+                ai_score_threshold=self.ai_score_threshold,
             )
+            # Sort by score descending, cap at max
+            opportunities = sorted(opportunities, key=lambda x: x.get('score', 0), reverse=True)
+            opportunities = opportunities[:self.max_opportunities]
             
             logger.info(f"📊 Found {len(opportunities)} opportunities")
             self.total_opportunities_found += len(opportunities)
@@ -138,81 +141,47 @@ class OpportunityScanJob:
     
     async def _create_proposals(self, db, opportunities: List[Dict]) -> int:
         """
-        Create trade proposals for opportunities
-        
-        Args:
-            db: Database session
-            opportunities: List of opportunity dicts
-            
-        Returns:
-            Number of proposals created
+        Persist AI-approved signals as TradeProposal rows.
+        Skips symbols that already have a pending proposal.
         """
         created = 0
-        
         for opp in opportunities:
             try:
-                # Check if proposal already exists for this symbol
                 existing = db.query(TradeProposal).filter(
                     TradeProposal.symbol == opp['symbol'],
                     TradeProposal.status == 'pending'
                 ).first()
-                
                 if existing:
-                    logger.debug(f"⏭️ {opp['symbol']}: Proposal already exists")
+                    logger.debug(f"⏭️ {opp['symbol']}: pending proposal already exists")
                     continue
-                
-                # Create new proposal
+
+                exit_params = opp.get('exit_params', {})
                 proposal = TradeProposal(
                     symbol=opp['symbol'],
-                    action='BUY',  # Opportunities are buy recommendations
-                    quantity=self._calculate_quantity(opp),
-                    entry_price=opp.get('entry_price'),
-                    stop_loss=opp.get('stop_loss'),
-                    target_price=opp.get('target_price'),
-                    ai_confidence=opp['ai_confidence'],
-                    ai_reasoning=opp['ai_reasoning'],
-                    scanner_strategy=opp['scanner_strategy'],
-                    final_score=opp['final_score'],
+                    strategy=opp.get('strategy', 'unknown'),
+                    score=opp.get('score', 0),
+                    ai_score=opp.get('ai_score'),
+                    ai_reasoning=opp.get('ai_reasoning'),
+                    entry_price=opp.get('current_price') or opp.get('price'),
+                    profit_target_pct=exit_params.get('profit_target'),
+                    stop_loss_pct=exit_params.get('stop_loss'),
+                    max_portfolio_weight=exit_params.get('max_portfolio_weight'),
+                    signal_metadata=opp.get('signal_metadata'),
+                    params_used=opp.get('params_used'),
                     status='pending',
-                    source='autonomous_scanner'
+                    source='autonomous_scanner',
                 )
-                
                 db.add(proposal)
                 db.commit()
-                
                 created += 1
                 logger.info(
-                    f"📝 Created proposal: {opp['symbol']} @ ${opp.get('entry_price')} "
-                    f"(score: {opp['final_score']})"
+                    f"📝 Proposal created: {opp['symbol']} | {opp.get('strategy')} "
+                    f"| score={opp.get('score')} ai={opp.get('ai_score')}"
                 )
-            
             except SQLAlchemyError as e:
-                logger.error(f"❌ Error creating proposal for {opp['symbol']}: {e}")
+                logger.error(f"❌ DB error creating proposal for {opp['symbol']}: {e}")
                 db.rollback()
-                continue
-        
         return created
-    
-    def _calculate_quantity(self, opportunity: Dict) -> int:
-        """
-        Calculate position size based on opportunity
-        
-        For now, returns fixed quantity.
-        TODO: Implement Kelly Criterion or risk-based position sizing
-        
-        Args:
-            opportunity: Opportunity dict with prices and confidence
-            
-        Returns:
-            Number of shares to buy
-        """
-        # Simple fixed position size for now
-        # In future: calculate based on:
-        # - Account size
-        # - Risk tolerance (stop loss distance)
-        # - AI confidence
-        # - Portfolio diversification
-        return 10  # Fixed 10 shares per position
     
     def get_stats(self) -> Dict:
         """Get job statistics"""
@@ -243,9 +212,9 @@ async def main():
     
     # Create and run job
     job = OpportunityScanJob(
-        confidence_threshold=0.75,  # 75% AI confidence minimum
-        max_opportunities=5,         # Find up to 5 opportunities
-        auto_create_proposals=True   # Auto-create proposals in DB
+        ai_score_threshold=60,       # 60/100 AI score minimum
+        max_opportunities=5,
+        auto_create_proposals=True
     )
     
     result = await job.run()
@@ -263,8 +232,8 @@ async def main():
         logger.info("TOP OPPORTUNITIES:")
         for i, opp in enumerate(result['opportunities'][:3], 1):
             logger.info(
-                f"  {i}. {opp['symbol']}: {opp['ai_recommendation']} "
-                f"({opp['ai_confidence']:.0%} confidence, score: {opp['final_score']})"
+                f"  {i}. {opp['symbol']}: {opp.get('strategy')} "
+                f"(score: {opp.get('score')}, ai: {opp.get('ai_score')})"
             )
     
     logger.info("=" * 60)

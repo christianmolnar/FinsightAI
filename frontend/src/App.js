@@ -6,6 +6,7 @@ import PaperPortfolio from './components/PaperPortfolio';
 import RealPortfolio from './RealPortfolio';
 import TransactionQueue from './components/TransactionQueue';
 import Backtesting from './components/Backtesting';
+import PaperLoop from './components/PaperLoop';
 import Navbar from './components/Navbar';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -39,7 +40,8 @@ function AppContent() {
     { id: 'queue', label: 'Transaction Queue', activeClass: 'bg-orange-50 text-orange-600 border-l-orange-500', borderClass: 'border-orange-500 text-orange-600' },
     { id: 'market', label: 'Market Data', activeClass: 'bg-indigo-50 text-indigo-600 border-l-indigo-500', borderClass: 'border-indigo-500 text-indigo-600' },
     { id: 'config', label: 'Strategy Config', activeClass: 'bg-indigo-50 text-indigo-600 border-l-indigo-500', borderClass: 'border-indigo-500 text-indigo-600' },
-    { id: 'backtest', label: 'Backtesting', activeClass: 'bg-purple-50 text-purple-600 border-l-purple-500', borderClass: 'border-purple-500 text-purple-600' }
+    { id: 'backtest', label: 'Backtesting', activeClass: 'bg-purple-50 text-purple-600 border-l-purple-500', borderClass: 'border-purple-500 text-purple-600' },
+    { id: 'ai-loop', label: 'AI Paper Loop', activeClass: 'bg-indigo-50 text-indigo-600 border-l-indigo-500', borderClass: 'border-indigo-500 text-indigo-600' }
   ];
 
   const handleTabChange = (tabId) => {
