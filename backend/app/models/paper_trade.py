@@ -29,6 +29,9 @@ class PaperTrade(Base):
     # Link to the proposal that triggered this trade
     proposal_id = Column(String, nullable=True, index=True)
 
+    # Which strategy variant was active when this trade was placed (Phase F)
+    strategy_variant_id = Column(String, nullable=True, index=True)
+
     # Trade identity
     symbol = Column(String(10), nullable=False, index=True)
     strategy = Column(String(50), nullable=True)
@@ -66,6 +69,7 @@ class PaperTrade(Base):
             "id": self.id,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "proposal_id": self.proposal_id,
+            "strategy_variant_id": self.strategy_variant_id,
             "symbol": self.symbol,
             "strategy": self.strategy,
             "entry_price": self.entry_price,

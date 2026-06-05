@@ -53,9 +53,23 @@ class StrategyVariant(Base):
     ai_proposed_changes = Column(JSON, nullable=True)      # What the AI changed vs parent
 
     # Lifecycle
-    is_active = Column(Boolean, default=False)             # Is this the live config?
+    is_active = Column(Boolean, default=False)             # Is this the currently-running config?
     is_favorite = Column(Boolean, default=False)           # User starred
     is_archived = Column(Boolean, default=False)
+
+    # --- Phase F: Trader mode + strategy period tracking ---
+    mode = Column(String(10), nullable=True)               # 'paper' | 'live' | None (not yet deployed)
+    activated_at = Column(DateTime(timezone=True), nullable=True)   # When trader started using this variant
+    deactivated_at = Column(DateTime(timezone=True), nullable=True) # When it was replaced/stopped
+
+    # Operator controls — stored per-variant so they survive restarts
+    is_halted = Column(Boolean, default=False)
+    halted_at = Column(DateTime(timezone=True), nullable=True)
+    halted_reason = Column(String(200), nullable=True)
+
+    # Circuit breakers
+    max_daily_loss_pct = Column(Float, default=5.0)        # Auto-halt if daily loss exceeds this %
+    max_total_loss_pct = Column(Float, default=15.0)       # Auto-halt if total loss exceeds this %
 
     def to_dict(self):
         return {
@@ -79,4 +93,13 @@ class StrategyVariant(Base):
             'is_active': self.is_active,
             'is_favorite': self.is_favorite,
             'is_archived': self.is_archived,
+            # Phase F fields
+            'mode': self.mode,
+            'activated_at': self.activated_at.isoformat() if self.activated_at else None,
+            'deactivated_at': self.deactivated_at.isoformat() if self.deactivated_at else None,
+            'is_halted': self.is_halted,
+            'halted_at': self.halted_at.isoformat() if self.halted_at else None,
+            'halted_reason': self.halted_reason,
+            'max_daily_loss_pct': self.max_daily_loss_pct,
+            'max_total_loss_pct': self.max_total_loss_pct,
         }

@@ -152,3 +152,134 @@ def archive_variant(variant_id: str, db: Session = Depends(get_db)):
     variant.is_archived = True
     db.commit()
     return {"success": True, "id": variant_id}
+
+
+# ── Phase F: Strategy Lifecycle Endpoints ─────────────────────────────────────
+
+from datetime import datetime, timezone  # noqa: E402
+
+
+@router.post("/{variant_id}/activate-paper")
+def activate_paper(variant_id: str, db: Session = Depends(get_db)):
+    """
+    Start running this variant in paper mode.
+    Deactivates any currently-active paper variant.
+    Sets activated_at = now and mode = 'paper'.
+    """
+    variant = db.query(StrategyVariant).filter(StrategyVariant.id == variant_id).first()
+    if not variant:
+        raise HTTPException(status_code=404, detail="Variant not found")
+    if variant.is_archived:
+        raise HTTPException(status_code=400, detail="Cannot activate an archived variant")
+
+    now = datetime.now(timezone.utc)
+
+    # Deactivate any currently-active paper variant for this user
+    db.query(StrategyVariant).filter(
+        StrategyVariant.user_id == variant.user_id,
+        StrategyVariant.mode == "paper",
+        StrategyVariant.is_active == True,
+    ).update({"is_active": False, "deactivated_at": now})
+
+    variant.mode = "paper"
+    variant.is_active = True
+    variant.is_halted = False
+    variant.halted_at = None
+    variant.halted_reason = None
+    variant.activated_at = now
+    variant.deactivated_at = None
+    db.commit()
+    db.refresh(variant)
+    logger.info(f"Activated '{variant.name}' v{variant.version} as PAPER trader")
+    return {"success": True, "variant": variant.to_dict()}
+
+
+@router.post("/{variant_id}/promote-to-live")
+def promote_to_live(variant_id: str, db: Session = Depends(get_db)):
+    """
+    Promote a paper-validated variant to live trading.
+    - Deactivates the current live variant (if any)
+    - Creates a new StrategyVariant cloned from this one with mode='live'
+    - The paper variant stays active and continues running in paper mode
+    """
+    variant = db.query(StrategyVariant).filter(StrategyVariant.id == variant_id).first()
+    if not variant:
+        raise HTTPException(status_code=404, detail="Variant not found")
+    if variant.mode != "paper" or not variant.is_active:
+        raise HTTPException(
+            status_code=400,
+            detail="Only an active paper variant can be promoted to live"
+        )
+
+    now = datetime.now(timezone.utc)
+    import uuid as _uuid
+
+    # Deactivate current live variant if one exists
+    db.query(StrategyVariant).filter(
+        StrategyVariant.user_id == variant.user_id,
+        StrategyVariant.mode == "live",
+        StrategyVariant.is_active == True,
+    ).update({"is_active": False, "deactivated_at": now})
+
+    # Count existing live variants with this name for versioning
+    live_version = db.query(StrategyVariant).filter(
+        StrategyVariant.user_id == variant.user_id,
+        StrategyVariant.name == variant.name,
+        StrategyVariant.mode == "live",
+    ).count() + 1
+
+    live_variant = StrategyVariant(
+        id=str(_uuid.uuid4()),
+        name=variant.name,
+        description=variant.description,
+        user_id=variant.user_id,
+        source="promoted_from_paper",
+        source_id=variant.id,
+        parent_variant_id=variant.id,
+        version=live_version,
+        config=variant.config,
+        ai_summary=variant.ai_summary,
+        ai_proposed_changes=variant.ai_proposed_changes,
+        backtest_return_pct=variant.backtest_return_pct,
+        backtest_win_rate=variant.backtest_win_rate,
+        mode="live",
+        is_active=True,
+        activated_at=now,
+        max_daily_loss_pct=variant.max_daily_loss_pct,
+        max_total_loss_pct=variant.max_total_loss_pct,
+    )
+    db.add(live_variant)
+    db.commit()
+    db.refresh(live_variant)
+    logger.info(f"Promoted '{variant.name}' to LIVE v{live_version}")
+    return {"success": True, "live_variant": live_variant.to_dict()}
+
+
+@router.post("/{variant_id}/deactivate")
+def deactivate_variant(variant_id: str, db: Session = Depends(get_db)):
+    """Stop running this variant (paper or live). Sets deactivated_at = now."""
+    variant = db.query(StrategyVariant).filter(StrategyVariant.id == variant_id).first()
+    if not variant:
+        raise HTTPException(status_code=404, detail="Variant not found")
+    variant.is_active = False
+    variant.deactivated_at = datetime.now(timezone.utc)
+    db.commit()
+    return {"success": True, "variant": variant.to_dict()}
+
+
+@router.get("/history/all")
+def get_strategy_history(user_id: str = "default", db: Session = Depends(get_db)):
+    """
+    All strategy variants that have been activated (paper or live), with date ranges.
+    Used by the Reports view.
+    """
+    variants = (
+        db.query(StrategyVariant)
+        .filter(
+            StrategyVariant.user_id == user_id,
+            StrategyVariant.activated_at.isnot(None),
+        )
+        .order_by(StrategyVariant.activated_at.desc())
+        .all()
+    )
+    return [v.to_dict() for v in variants]
