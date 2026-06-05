@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
-import Dashboard from './components/Dashboard';
 import MarketDataDashboard from './components/MarketDataDashboard';
 import StrategyConfig from './components/StrategyConfig';
-import PaperPortfolio from './components/PaperPortfolio';
-import RealPortfolio from './RealPortfolio';
+import PaperTrader from './components/PaperTrader';
+import LiveTrader from './components/LiveTrader';
 import TransactionQueue from './components/TransactionQueue';
 import Backtesting from './components/Backtesting';
-import PaperLoop from './components/PaperLoop';
 import Navbar from './components/Navbar';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -14,7 +12,7 @@ import './index.css';
 
 function AppContent() {
   const { user, loading, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState('live');
+  const [activeTab, setActiveTab] = useState('paper');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Show spinner while restoring session from localStorage
@@ -35,13 +33,12 @@ function AppContent() {
   }
 
   const tabs = [
-    { id: 'live', label: 'Live Portfolio', activeClass: 'bg-indigo-50 text-indigo-600 border-l-indigo-500', borderClass: 'border-indigo-500 text-indigo-600' },
-    { id: 'paper', label: 'Paper Portfolio', activeClass: 'bg-green-50 text-green-600 border-l-green-500', borderClass: 'border-green-500 text-green-600' },
+    { id: 'paper', label: 'Paper Trader', activeClass: 'bg-indigo-50 text-indigo-600 border-l-indigo-500', borderClass: 'border-indigo-500 text-indigo-600' },
+    { id: 'live', label: 'Live Trader', activeClass: 'bg-slate-100 text-slate-700 border-l-slate-500', borderClass: 'border-slate-500 text-slate-700' },
     { id: 'queue', label: 'Transaction Queue', activeClass: 'bg-orange-50 text-orange-600 border-l-orange-500', borderClass: 'border-orange-500 text-orange-600' },
-    { id: 'market', label: 'Market Data', activeClass: 'bg-indigo-50 text-indigo-600 border-l-indigo-500', borderClass: 'border-indigo-500 text-indigo-600' },
-    { id: 'config', label: 'Strategy Config', activeClass: 'bg-indigo-50 text-indigo-600 border-l-indigo-500', borderClass: 'border-indigo-500 text-indigo-600' },
+    { id: 'market', label: 'Market Data', activeClass: 'bg-blue-50 text-blue-600 border-l-blue-500', borderClass: 'border-blue-500 text-blue-600' },
+    { id: 'config', label: 'Strategy Config', activeClass: 'bg-purple-50 text-purple-600 border-l-purple-500', borderClass: 'border-purple-500 text-purple-600' },
     { id: 'backtest', label: 'Backtesting', activeClass: 'bg-purple-50 text-purple-600 border-l-purple-500', borderClass: 'border-purple-500 text-purple-600' },
-    { id: 'ai-loop', label: 'AI Paper Loop', activeClass: 'bg-indigo-50 text-indigo-600 border-l-indigo-500', borderClass: 'border-indigo-500 text-indigo-600' }
   ];
 
   const handleTabChange = (tabId) => {
@@ -118,12 +115,12 @@ function AppContent() {
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'live' && (
-          <RealPortfolio />
-        )}
-        
         {activeTab === 'paper' && (
-          <PaperPortfolio />
+          <PaperTrader />
+        )}
+
+        {activeTab === 'live' && (
+          <LiveTrader />
         )}
         
         {activeTab === 'queue' && (

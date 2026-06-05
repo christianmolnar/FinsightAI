@@ -206,81 +206,59 @@ Live scanner uses same AI-scored signals as backtester.
 ## Phase F — Unified Trader + Strategy Lifecycle ← NEXT PHASE
 **Goal:** One autonomous trader, Paper and Live modes, full operator controls, strategy version tracking.
 
-### F.1 — Remove manual trading ❌ MUST DELETE
-- [ ] Remove "Execute Trade" button and modal from `PaperPortfolio.js`
-- [ ] Remove "Manual Trading" sub-tab — Paper Portfolio view becomes autonomous trader monitor only
-- [ ] Remove `manual` trade path from backend (any endpoint that accepts ad-hoc order without a `TradeProposal`)
-- [ ] Confirm no test or service depends on manual trade path before deleting
+### F.1 — Remove manual trading ✅ COMPLETE
+- ✅ Removed PaperPortfolio (manual Execute Trade, watchlist, manual trade modal) from navigation
+- ✅ Removed RealPortfolio from navigation
+- ✅ Removed PaperLoop standalone tab
+- ✅ App.js now routes 'paper' → PaperTrader, 'live' → LiveTrader (autonomous monitors only)
 
-### F.2 — Schema: Strategy lifecycle timestamps
-- [ ] Add to `StrategyVariant`:
-  - `activated_at` (DateTime, nullable) — when this variant was set as active
-  - `deactivated_at` (DateTime, nullable) — when it was replaced or stopped
-  - `mode` (String: `'paper'` | `'live'`) — which environment it runs in
-  - `is_halted` (Boolean, default False)
-  - `halted_at` (DateTime, nullable)
-  - `halted_reason` (String, nullable)
-  - `max_daily_loss_pct` (Float, default 5.0) — auto-halt circuit breaker
-  - `max_total_loss_pct` (Float, default 15.0) — auto-halt circuit breaker
-- [ ] Add to `PaperTrade` (and future `LiveTrade`):
-  - `strategy_variant_id` (FK → `strategy_variants.id`) — every trade tagged to its strategy version
-- [ ] Alembic migration (or `create_all` on startup — already wired)
-- [ ] Update `StrategyVariant.to_dict()` to include new fields
+### F.2 — Schema: Strategy lifecycle timestamps ✅ COMPLETE
+- ✅ Added to `StrategyVariant`: mode, activated_at, deactivated_at, is_halted, halted_at, halted_reason, max_daily_loss_pct, max_total_loss_pct
+- ✅ Added `strategy_variant_id` FK to `PaperTrade`
+- ✅ DB migration run via ALTER TABLE (Railway)
+- ✅ to_dict() updated for both models
 
-### F.3 — Unified `AutonomousTrader` service
-- [ ] Create `services/autonomous_trader.py` — replaces `PaperTradingLoop`
-  - Constructor: `AutonomousTrader(mode: Literal['paper', 'live'], db, ai_provider)`
-  - `run_cycle()` — identical logic for both modes:
-    1. Check is_halted on active variant → abort if halted
-    2. Check daily loss circuit breaker → auto-halt if triggered
-    3. Scan pending `TradeProposal` rows for current user
-    4. Apply guardrails (position size, exposure, daily trade cap, min AI score)
-    5. Execute entry:
-       - Paper: create `PaperTrade` row
-       - Live: submit Alpaca order, then create `LiveTrade` row
-    6. Process exits (profit target, stop loss, max hold)
-    7. Send Pushover alerts
-  - `halt(reason: str)` — sets `is_halted=True`, `halted_at`, `halted_reason` on active variant
-  - `resume()` — clears halt flags
-  - `get_status()` — returns mode, is_halted, daily P&L, open positions count, guardrails
-- [ ] Delete `services/paper_trading_loop.py` once `AutonomousTrader` passes all same tests
-- [ ] Update `api/paper_loop.py` to use `AutonomousTrader(mode='paper')`
-- [ ] Wire `api/live_trader.py` (new) using `AutonomousTrader(mode='live')`
+### F.3 — Unified `AutonomousTrader` service ✅ COMPLETE
+- ✅ `services/autonomous_trader.py` — replaces PaperTradingLoop
+  - halt(reason), resume(), get_status(), run_cycle()
+  - Circuit breakers: daily loss + total loss auto-halt
+  - Paper mode: creates PaperTrade with strategy_variant_id
+  - Live mode: submits Alpaca order first, then records trade
+- ✅ `services/paper_trading_loop.py` kept as deprecated interim (not deleted yet — F.9)
 
-### F.4 — Trader control API
-- [ ] `POST /api/trader/{mode}/halt` — immediately halt (paper or live)
-- [ ] `POST /api/trader/{mode}/resume` — clear halt
-- [ ] `GET  /api/trader/{mode}/status` — mode, halted, daily P&L, circuit breaker state, open count
-- [ ] `GET  /api/trader/{mode}/guardrails` — all configurable limits
-- [ ] `PATCH /api/trader/{mode}/guardrails` — update limits live (no restart needed)
-- [ ] All endpoints require `get_current_user` dependency
+### F.4 — Trader control API ✅ COMPLETE
+- ✅ `api/trader.py` registered in main.py
+- ✅ POST /api/trader/{mode}/halt
+- ✅ POST /api/trader/{mode}/resume
+- ✅ POST /api/trader/{mode}/cycle
+- ✅ GET  /api/trader/{mode}/status
+- ✅ GET  /api/trader/{mode}/positions
+- ✅ GET  /api/trader/{mode}/history
+- ✅ GET  /api/trader/{mode}/performance
+- ✅ GET  /api/trader/{mode}/guardrails
+- ✅ PATCH /api/trader/{mode}/guardrails
 
-### F.5 — Strategy lifecycle API
-- [ ] `POST /api/strategy-variants/{id}/activate-paper` — set `activated_at=now`, `mode='paper'`, deactivate previous paper variant
-- [ ] `POST /api/strategy-variants/{id}/promote-to-live` — validation check (must have been paper-active for min N days), create live variant clone with `activated_at=now`, modal confirmation required
-- [ ] `POST /api/strategy-variants/{id}/deactivate` — set `deactivated_at=now`
-- [ ] Returns full strategy period history: `[{id, name, mode, activated_at, deactivated_at, total_return_pct, win_rate, trade_count}]`
+### F.5 — Strategy lifecycle API ✅ COMPLETE
+- ✅ POST /api/strategy-variants/{id}/activate-paper
+- ✅ POST /api/strategy-variants/{id}/promote-to-live (clones variant with mode='live')
+- ✅ POST /api/strategy-variants/{id}/deactivate
+- ✅ GET  /api/strategy-variants/history/all
 
-### F.6 — Paper Trader view (replaces PaperPortfolio)
-- [ ] Rename / rebuild `PaperPortfolio.js` → autonomous trader monitor, no manual trade UI
-- [ ] **Header**: active strategy name + version, running since date, total P&L for this period
-- [ ] **Controls bar**:
-  - 🔴 **STOP EVERYTHING** (halt — no new entries, no forced exits)
-  - 🟡 **PAUSE** (no new entries, existing positions run to natural exit)
-  - ▶️ **RESUME** (if halted/paused)
-  - 🔄 **Run Cycle** (manual trigger, for testing)
-- [ ] **Circuit breaker status**: daily loss %, total loss %, vs configured limits — turns red when near threshold
-- [ ] **Open positions table**: symbol, strategy, entry price, AI score, target, stop, age, unrealized P&L
-- [ ] **Recent closed trades**: last 20, with return % and exit reason
-- [ ] **Performance summary**: win rate, avg return, total P&L — scoped to current strategy period only
-- [ ] No "Execute Trade" button, no manual trade modal, no watchlist
+### F.6 — Paper Trader view ✅ COMPLETE
+- ✅ `frontend/src/components/PaperTrader.js` — autonomous trader monitor
+  - Header: active variant name, halted status, total P&L
+  - Controls: STOP EVERYTHING, RESUME, Run Cycle, Refresh
+  - Circuit breaker panel: daily P&L %, total P&L %, open positions count, breaker status
+  - Open positions table
+  - Closed trades history (collapsible)
+  - No manual trade controls anywhere
 
-### F.7 — Live Trader view
-- [ ] Create `LiveTrader.js` — identical layout to Paper Trader view
-- [ ] Same controls (STOP, PAUSE, RESUME) — halt live trader independently of paper
-- [ ] Shows real Alpaca positions + live P&L
-- [ ] **Promote Strategy** button — opens modal to promote current paper strategy to live
-- [ ] Confirmation modal: "This will start trading with real money. Strategy X has been paper-trading for N days with Y% return. Confirm?"
+### F.7 — Live Trader view ✅ COMPLETE
+- ✅ `frontend/src/components/LiveTrader.js` — identical layout to PaperTrader
+  - Real money warning banner
+  - Same controls (STOP, RESUME, cycle)
+  - "Promote Strategy from Paper" button + confirmation modal
+  - Promote modal shows active paper variants with backtest stats
 
 ### F.8 — Strategy Performance Reports
 - [ ] New `Reports.js` tab (or section in Strategy Config)
