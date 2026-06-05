@@ -108,12 +108,14 @@ async def startup_event():
     else:
         logger.warning("⚠ Database connection failed - some features may not work")
     
-    # Import models to register them with SQLAlchemy
+    # Import models to register them with SQLAlchemy, then create any missing tables
     try:
-        from app import models
-        logger.info("✓ Models loaded successfully")
+        from app import models  # noqa: F401 — registers all models with Base
+        from app.database import Base, engine
+        Base.metadata.create_all(bind=engine)
+        logger.info("✓ Models loaded and tables created/verified")
     except Exception as e:
-        logger.error(f"✗ Failed to load models: {e}")
+        logger.error(f"✗ Failed to load models or create tables: {e}")
     
     logger.info("✓ Using Alpaca for trading (paper + live)")
 
