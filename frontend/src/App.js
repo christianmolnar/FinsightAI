@@ -5,6 +5,7 @@ import PaperTrader from './components/PaperTrader';
 import LiveTrader from './components/LiveTrader';
 import TransactionQueue from './components/TransactionQueue';
 import Backtesting from './components/Backtesting';
+import Reports from './components/Reports';
 import Navbar from './components/Navbar';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -39,6 +40,7 @@ function AppContent() {
     { id: 'market', label: 'Market Data', activeClass: 'bg-blue-50 text-blue-600 border-l-blue-500', borderClass: 'border-blue-500 text-blue-600' },
     { id: 'config', label: 'Strategy Config', activeClass: 'bg-purple-50 text-purple-600 border-l-purple-500', borderClass: 'border-purple-500 text-purple-600' },
     { id: 'backtest', label: 'Backtesting', activeClass: 'bg-purple-50 text-purple-600 border-l-purple-500', borderClass: 'border-purple-500 text-purple-600' },
+    { id: 'reports', label: 'Reports', activeClass: 'bg-slate-100 text-slate-700 border-l-slate-500', borderClass: 'border-slate-500 text-slate-700' },
   ];
 
   const handleTabChange = (tabId) => {
@@ -137,6 +139,10 @@ function AppContent() {
         
         {activeTab === 'backtest' && (
           <Backtesting />
+        )}
+
+        {activeTab === 'reports' && (
+          <Reports />
         )}
       </main>
     </div>

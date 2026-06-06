@@ -54,8 +54,8 @@ from api.optimization import router as optimization_router
 from api.user_auth import router as user_auth_router
 from api.alerts import router as alerts_router
 from api.strategy_variants import router as strategy_variants_router
-from api.paper_loop import router as paper_loop_router
 from api.trader import router as trader_router
+from api.reports import router as reports_router
 from middleware.auth_middleware import get_current_user
 # from api.calibration import router as calibration_router  # Incomplete - requires openai module
 from utils.market_hours import get_market_status
@@ -76,8 +76,8 @@ app.include_router(agent_router, dependencies=[Depends(get_current_user)])
 app.include_router(backtest_router, dependencies=[Depends(get_current_user)])
 app.include_router(optimization_router, dependencies=[Depends(get_current_user)])
 app.include_router(strategy_variants_router, dependencies=[Depends(get_current_user)])
-app.include_router(paper_loop_router, dependencies=[Depends(get_current_user)])
 app.include_router(trader_router, dependencies=[Depends(get_current_user)])
+app.include_router(reports_router, dependencies=[Depends(get_current_user)])
 
 # Global exception handler — ensures CORS headers are present even on 500s
 # (without this, browser sees a CORS error instead of the real error)
