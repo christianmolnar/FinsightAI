@@ -224,7 +224,7 @@ Live scanner uses same AI-scored signals as backtester.
   - Circuit breakers: daily loss + total loss auto-halt
   - Paper mode: creates PaperTrade with strategy_variant_id
   - Live mode: submits Alpaca order first, then records trade
-- ✅ `services/paper_trading_loop.py` kept as deprecated interim (not deleted yet — F.9)
+- ✅ `services/paper_trading_loop.py` DELETED (F.9 complete)
 
 ### F.4 — Trader control API ✅ COMPLETE
 - ✅ `api/trader.py` registered in main.py
@@ -260,18 +260,29 @@ Live scanner uses same AI-scored signals as backtester.
   - "Promote Strategy from Paper" button + confirmation modal
   - Promote modal shows active paper variants with backtest stats
 
-### F.8 — Strategy Performance Reports
-- [ ] New `Reports.js` tab (or section in Strategy Config)
-- [ ] **Strategy version timeline**: list all variants, Paper and Live, with date ranges and P&L
-- [ ] **Paper vs Live comparison**: for variants that ran in both modes — did live match paper?
-- [ ] **Strategy ranking**: which config versions performed best, sortable by return/win rate/drawdown
-- [ ] Backend: `GET /api/reports/strategy-history` — all variants with performance computed from trades
+### F.8 — Strategy Performance Reports ✅ COMPLETE
+- ✅ `backend/api/reports.py` — 3 endpoints:
+  - `GET /api/reports/strategy-history` — all activated variants with P&L, win rate, date range per period
+  - `GET /api/reports/paper-vs-live` — side-by-side comparison for strategies run in both modes
+  - `GET /api/reports/summary` — top-line totals, active strategy names
+- ✅ `frontend/src/components/Reports.js` — Reports tab:
+  - Summary cards: trade count, win rate, total P&L, strategy periods, open positions
+  - Strategy timeline: every period a strategy ran, expandable row with full stats
+  - Paper vs Live section: side-by-side stats for strategies promoted to live
+- ✅ App.js: "Reports" tab added (id: `'reports'`)
+- ✅ `backend/tests/test_reports.py` — 11 tests, all passing
+- ✅ Deployed to Railway + Vercel (June 2026)
 
-### F.9 — Cleanup: remove dead code
-- [ ] Delete `frontend/src/components/PaperLoop.js` (standalone component, replaced by rebuilt PaperPortfolio)
-- [ ] Remove or archive `PaperTradingLoop` from `services/paper_trading_loop.py` once F.3 complete
-- [ ] Remove `api/paper_loop.py` once F.4 routes replace it (keep old routes as deprecated aliases if needed for backwards compat)
-- [ ] Audit `docs/implementation/` — mark stale docs in `archive/` subfolder, update this file only
+### F.9 — Cleanup: remove dead code ✅ COMPLETE
+- ✅ Deleted `frontend/src/components/PaperLoop.js`
+- ✅ Deleted `frontend/src/components/PaperPortfolio.js`
+- ✅ Deleted `frontend/src/components/RealPortfolio.js`
+- ✅ Deleted `frontend/src/components/Dashboard.js`
+- ✅ Deleted `backend/services/paper_trading_loop.py`
+- ✅ Deleted `backend/api/paper_loop.py`
+- ✅ Deleted `backend/tests/test_paper_trading_loop.py`
+- ✅ Removed `paper_loop_router` import + registration from `main.py`
+- ✅ Tests: 104 passing (107 − 14 deleted + 11 new)
 
 ---
 
