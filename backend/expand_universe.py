@@ -6,7 +6,7 @@ expand_universe.py — one-time script to add:
 
 Each symbol commits independently. Safe to re-run.
 """
-import sys, os, time, logging
+import sys, os, time, logging, signal
 sys.path.insert(0, os.path.dirname(__file__))
 
 import yfinance as yf
@@ -76,14 +76,26 @@ START_DATE = "2016-01-04"
 
 
 def insert_symbol(db, symbol, start_date):
-    today = datetime.now().strftime("%Y-%m-%d")
-    df = yf.download(symbol, start=start_date, end=today,
-                     auto_adjust=True, progress=False, timeout=20)
+    """
+    Download full history via yf.Ticker().history(period='max').
+    Much faster than using start= date parameter which hangs on old data.
+    """
+    from datetime import date
+
+    start_cutoff = datetime.strptime(start_date, "%Y-%m-%d").date()
+
+    ticker = yf.Ticker(symbol)
+    df = ticker.history(period="max", interval="1d", auto_adjust=True)
+
     if df is None or df.empty:
         return 0
 
-    if hasattr(df.columns, 'levels'):
-        df.columns = df.columns.get_level_values(0)
+    # Filter to our desired start date
+    df.index = df.index.tz_localize(None) if df.index.tzinfo else df.index
+    df = df[df.index.date >= start_cutoff]  # type: ignore
+
+    if df.empty:
+        return 0
 
     rows = []
     for dt, row in df.iterrows():
@@ -101,14 +113,18 @@ def insert_symbol(db, symbol, start_date):
     if not rows:
         return 0
 
-    db.execute(sqlalchemy.text("""
-        INSERT INTO historical_prices (symbol, date, open, high, low, close, volume)
-        VALUES (:symbol, :date, :open, :high, :low, :close, :volume)
-        ON CONFLICT (symbol, date) DO UPDATE SET
-            open=EXCLUDED.open, high=EXCLUDED.high, low=EXCLUDED.low,
-            close=EXCLUDED.close, volume=EXCLUDED.volume
-    """), rows)
-    db.commit()
+    # Insert in batches of 200 rows to avoid long-running transactions over Railway's proxy
+    BATCH = 200
+    for i in range(0, len(rows), BATCH):
+        db.execute(sqlalchemy.text("""
+            INSERT INTO historical_prices (symbol, date, open, high, low, close, volume)
+            VALUES (:symbol, :date, :open, :high, :low, :close, :volume)
+            ON CONFLICT (symbol, date) DO UPDATE SET
+                open=EXCLUDED.open, high=EXCLUDED.high, low=EXCLUDED.low,
+                close=EXCLUDED.close, volume=EXCLUDED.volume
+        """), rows[i:i+BATCH])
+        db.commit()
+
     return len(rows)
 
 

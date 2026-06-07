@@ -57,14 +57,17 @@ def update_symbol(db, symbol, from_date):
     if not rows:
         return 0
 
-    db.execute(sqlalchemy.text("""
-        INSERT INTO historical_prices (symbol, date, open, high, low, close, volume)
-        VALUES (:symbol, :date, :open, :high, :low, :close, :volume)
-        ON CONFLICT (symbol, date) DO UPDATE SET
-            open=EXCLUDED.open, high=EXCLUDED.high, low=EXCLUDED.low,
-            close=EXCLUDED.close, volume=EXCLUDED.volume
-    """), rows)
-    db.commit()
+    # Insert in small batches to keep Railway proxy transactions short
+    BATCH = 200
+    for i in range(0, len(rows), BATCH):
+        db.execute(sqlalchemy.text("""
+            INSERT INTO historical_prices (symbol, date, open, high, low, close, volume)
+            VALUES (:symbol, :date, :open, :high, :low, :close, :volume)
+            ON CONFLICT (symbol, date) DO UPDATE SET
+                open=EXCLUDED.open, high=EXCLUDED.high, low=EXCLUDED.low,
+                close=EXCLUDED.close, volume=EXCLUDED.volume
+        """), rows[i:i+BATCH])
+        db.commit()
     return len(rows)
 
 
