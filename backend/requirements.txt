@@ -17,3 +17,4 @@ alpaca-py==0.43.2
 # AI Analysis
 anthropic==0.25.0
 openai==1.30.0
+apscheduler>=3.10.0

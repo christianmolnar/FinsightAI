@@ -56,6 +56,7 @@ from api.alerts import router as alerts_router
 from api.strategy_variants import router as strategy_variants_router
 from api.trader import router as trader_router
 from api.reports import router as reports_router
+from api.data_management import router as data_router
 from middleware.auth_middleware import get_current_user
 # from api.calibration import router as calibration_router  # Incomplete - requires openai module
 from utils.market_hours import get_market_status
@@ -78,6 +79,7 @@ app.include_router(optimization_router, dependencies=[Depends(get_current_user)]
 app.include_router(strategy_variants_router, dependencies=[Depends(get_current_user)])
 app.include_router(trader_router, dependencies=[Depends(get_current_user)])
 app.include_router(reports_router, dependencies=[Depends(get_current_user)])
+app.include_router(data_router, dependencies=[Depends(get_current_user)])
 
 # Global exception handler — ensures CORS headers are present even on 500s
 # (without this, browser sees a CORS error instead of the real error)
@@ -120,6 +122,33 @@ async def startup_event():
         logger.error(f"✗ Failed to load models or create tables: {e}")
     
     logger.info("✓ Using Alpaca for trading (paper + live)")
+
+    # ── Daily data updater ────────────────────────────────────────────────────
+    # Runs Mon–Fri at 6:30 PM ET (23:30 UTC) — 1h after market close
+    try:
+        from apscheduler.schedulers.asyncio import AsyncIOScheduler
+        from apscheduler.triggers.cron import CronTrigger
+        import sys, os
+        sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
+        async def run_daily_update():
+            logger.info("⏰ Daily data update starting...")
+            try:
+                import importlib
+                import daily_update
+                importlib.reload(daily_update)
+                daily_update.main()
+                logger.info("✅ Daily data update complete")
+            except Exception as e:
+                logger.error(f"❌ Daily data update failed: {e}")
+
+        scheduler = AsyncIOScheduler()
+        # 23:30 UTC = 6:30 PM ET (winter) / 7:30 PM EDT (summer) — safely after 4pm close
+        scheduler.add_job(run_daily_update, CronTrigger(day_of_week="mon-fri", hour=23, minute=30))
+        scheduler.start()
+        logger.info("✓ Daily data scheduler started (Mon-Fri 23:30 UTC)")
+    except Exception as e:
+        logger.warning(f"⚠ Could not start data scheduler: {e}")
 
 
 @app.get("/api/debug")
