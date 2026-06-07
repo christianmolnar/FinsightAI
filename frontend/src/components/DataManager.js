@@ -54,8 +54,7 @@ export default function DataManager() {
       setPollInterval(null);
     }
     return () => { if (pollInterval) clearInterval(pollInterval); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status?.update?.running, expandStatus?.running]);
+  }, [status?.update?.running, expandStatus?.running]);  // fetchStatus is stable via useCallback
 
   const triggerUpdate = async () => {
     setTriggering(true);
