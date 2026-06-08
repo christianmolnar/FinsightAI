@@ -37,8 +37,9 @@ class MarketScanner:
     MIN_VOLUME = 1_000_000
     MIN_PRICE = 10.0
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, historical_data_manager=None):
         self.db = db
+        self.historical_data_manager = historical_data_manager
         self.alpaca = get_alpaca_service(paper=True)
         self.strategy_config = self._load_strategy_config()
         self.executor = StrategyExecutor(self.strategy_config)
