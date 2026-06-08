@@ -14,7 +14,7 @@ import './index.css';
 
 function AppContent() {
   const { user, loading, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState('paper');
+  const [activeTab, setActiveTab] = useState('live');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Show spinner while restoring session from localStorage
@@ -35,8 +35,8 @@ function AppContent() {
   }
 
   const tabs = [
-    { id: 'paper', label: 'Paper Trader', activeClass: 'bg-indigo-50 text-indigo-600 border-l-indigo-500', borderClass: 'border-indigo-500 text-indigo-600' },
     { id: 'live', label: 'Live Trader', activeClass: 'bg-slate-100 text-slate-700 border-l-slate-500', borderClass: 'border-slate-500 text-slate-700' },
+    { id: 'paper', label: 'Paper Trader', activeClass: 'bg-indigo-50 text-indigo-600 border-l-indigo-500', borderClass: 'border-indigo-500 text-indigo-600' },
     { id: 'queue', label: 'Transaction Queue', activeClass: 'bg-orange-50 text-orange-600 border-l-orange-500', borderClass: 'border-orange-500 text-orange-600' },
     { id: 'market', label: 'Market Data', activeClass: 'bg-blue-50 text-blue-600 border-l-blue-500', borderClass: 'border-blue-500 text-blue-600' },
     { id: 'config', label: 'Strategy Config', activeClass: 'bg-purple-50 text-purple-600 border-l-purple-500', borderClass: 'border-purple-500 text-purple-600' },

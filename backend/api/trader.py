@@ -26,6 +26,7 @@ from app.database import get_db
 from app.models.paper_trade import PaperTrade
 from app.models.strategy_variant import StrategyVariant
 from services.autonomous_trader import AutonomousTrader, DEFAULT_GUARDRAILS
+from app.services.alpaca_service import AlpacaService
 
 logger = logging.getLogger(__name__)
 
@@ -200,3 +201,25 @@ def update_guardrails(
     db.commit()
 
     return {"ok": True, "updated": body.dict(exclude_none=True)}
+
+
+# ── Alpaca Account (live mode only) ──────────────────────────────────────────
+
+@router.get("/live/alpaca-account")
+def get_alpaca_account():
+    """Return live Alpaca account info + brokerage positions (real holdings)."""
+    try:
+        svc = AlpacaService(paper=False)
+        account = svc.get_account()
+        positions = svc.get_positions()
+        return {"account": account, "positions": positions}
+    except Exception as e:
+        logger.warning(f"Alpaca live account fetch failed: {e}")
+        # Fall back to paper account if live creds not configured
+        try:
+            svc = AlpacaService(paper=True)
+            account = svc.get_account()
+            positions = svc.get_positions()
+            return {"account": account, "positions": positions, "paper": True}
+        except Exception as e2:
+            raise HTTPException(status_code=503, detail=f"Alpaca unavailable: {e2}")

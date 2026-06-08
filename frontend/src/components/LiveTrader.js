@@ -24,6 +24,7 @@ export default function LiveTrader() {
   const [positions, setPositions] = useState([]);
   const [history, setHistory] = useState([]);
   const [performance, setPerformance] = useState(null);
+  const [alpaca, setAlpaca] = useState(null);
   const [loading, setLoading] = useState(true);
   const [cycleRunning, setCycleRunning] = useState(false);
   const [message, setMessage] = useState(null);
@@ -35,16 +36,18 @@ export default function LiveTrader() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, p, h, perf] = await Promise.all([
+      const [s, p, h, perf, alp] = await Promise.all([
         apiClient.get(`${API}/status`),
         apiClient.get(`${API}/positions`),
         apiClient.get(`${API}/history`),
         apiClient.get(`${API}/performance`),
+        apiClient.get(`${API}/alpaca-account`).catch(() => ({ data: null })),
       ]);
       setStatus(s.data);
       setPositions(p.data || []);
       setHistory(h.data || []);
       setPerformance(perf.data || null);
+      setAlpaca(alp.data || null);
     } catch (e) {
       setMessage({ type: 'error', text: 'Failed to load live trader: ' + (e.response?.data?.detail || e.message) });
     } finally {
@@ -171,6 +174,67 @@ export default function LiveTrader() {
           </div>
         </div>
       </div>
+
+      {/* ── Alpaca Account Holdings ── */}
+      {alpaca && (
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 flex items-center space-x-2">
+            <DollarSign className="w-4 h-4" />
+            <span>Alpaca Account{alpaca.paper ? ' (Paper)' : ' (Live)'}</span>
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div>
+              <p className="text-xs text-gray-500">Portfolio Value</p>
+              <p className="text-xl font-bold text-gray-900">${(alpaca.account?.portfolio_value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Cash</p>
+              <p className="text-xl font-bold text-gray-900">${(alpaca.account?.cash || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Buying Power</p>
+              <p className="text-xl font-bold text-gray-900">${(alpaca.account?.buying_power || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Day P&L</p>
+              {(() => {
+                const pnl = (alpaca.account?.equity || 0) - (alpaca.account?.last_equity || 0);
+                return <p className={`text-xl font-bold ${pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>{pnl >= 0 ? '+' : ''}${pnl.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>;
+              })()}
+            </div>
+          </div>
+          {alpaca.positions && alpaca.positions.length > 0 && (
+            <div className="overflow-x-auto">
+              <p className="text-xs text-gray-500 font-medium uppercase mb-2">Brokerage Holdings ({alpaca.positions.length})</p>
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                  <tr>{['Symbol', 'Shares', 'Avg Cost', 'Current', 'Market Value', 'Unrealized P&L', 'Return'].map(h => <th key={h} className="px-3 py-2 text-left font-medium">{h}</th>)}</tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {alpaca.positions.map(p => (
+                    <tr key={p.symbol} className="hover:bg-gray-50">
+                      <td className="px-3 py-2 font-semibold">{p.symbol}</td>
+                      <td className="px-3 py-2 text-gray-600">{p.qty}</td>
+                      <td className="px-3 py-2">${p.avg_entry_price?.toFixed(2)}</td>
+                      <td className="px-3 py-2">${p.current_price?.toFixed(2)}</td>
+                      <td className="px-3 py-2 font-medium">${p.market_value?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className={`px-3 py-2 font-medium ${(p.unrealized_pl || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {(p.unrealized_pl || 0) >= 0 ? '+' : ''}${p.unrealized_pl?.toFixed(2)}
+                      </td>
+                      <td className={`px-3 py-2 ${(p.unrealized_plpc || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {(p.unrealized_plpc || 0) >= 0 ? '+' : ''}{((p.unrealized_plpc || 0) * 100).toFixed(2)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {alpaca.positions && alpaca.positions.length === 0 && (
+            <p className="text-sm text-gray-400">No open brokerage positions.</p>
+          )}
+        </div>
+      )}
 
       {/* ── Message Banner ── */}
       {message && (
