@@ -185,7 +185,7 @@ const Backtesting = () => {
   const [initialCapital, setInitialCapital] = useState(10000);
   const [positionSize, setPositionSize] = useState(1000);
   const [enableCompounding, setEnableCompounding] = useState(true); // NEW: Compounding control
-  const [aiGated, setAiGated] = useState(false);         // Phase C: per-trade AI gate
+  const [aiGated, setAiGated] = useState(true);          // AI gate on by default — matches live trading behavior
   const [aiScoreThreshold, setAiScoreThreshold] = useState(60); // Phase C: gate threshold 0-100
   const [strategies, setStrategies] = useState({
     technical_breakout: true,
@@ -870,34 +870,6 @@ const Backtesting = () => {
                 </span>
               </label>
             </div>
-
-            {/* AI Settings */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                AI Confidence Threshold ({(confidenceThreshold * 100).toFixed(0)}%)
-              </label>
-              <input
-                type="range"
-                min="0.5"
-                max="0.95"
-                step="0.05"
-                value={confidenceThreshold}
-                onChange={(e) => setConfidenceThreshold(Number(e.target.value))}
-                className="w-full"
-              />
-            </div>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="useAI"
-                checked={useAI}
-                onChange={(e) => setUseAI(e.target.checked)}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <label htmlFor="useAI" className="ml-2 text-sm text-gray-700">
-                Use AI Analysis (if unchecked, uses scanner scores only)
-              </label>
-            </div>
           </div>
 
           {/* Strategies */}
@@ -905,11 +877,11 @@ const Backtesting = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">Strategies to Test</label>
             <div className="flex flex-wrap gap-4">
               {[
-                { key: 'earnings',          label: 'Earnings Momentum',    emoji: '📈' },
-                { key: 'seasonality',       label: 'Seasonality',          emoji: '📅' },
-                { key: 'macro',             label: 'Macro & Economic',     emoji: '🌐' },
-                { key: 'sentiment',         label: 'Social Sentiment',     emoji: '💬' },
-                { key: 'technical_breakout',label: 'Technical Breakout',   emoji: '🔺' },
+                { key: 'earnings',           label: 'Earnings Momentum',  emoji: '📈' },
+                { key: 'seasonality',        label: 'Seasonality',        emoji: '📅' },
+                { key: 'macro',              label: 'Macro & Economic',   emoji: '🌐' },
+                { key: 'sentiment',          label: 'Social Sentiment',   emoji: '💬' },
+                { key: 'technical_breakout', label: 'Technical Breakout', emoji: '🔺' },
               ].map(({ key, label, emoji }) => (
                 <label key={key} className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -924,9 +896,9 @@ const Backtesting = () => {
             </div>
           </div>
 
-          {/* Phase C: AI Gate */}
+          {/* AI Gate */}
           <div className="mb-6 bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-2">
               <input
                 type="checkbox"
                 id="aiGated"
@@ -935,13 +907,13 @@ const Backtesting = () => {
                 className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
               />
               <label htmlFor="aiGated" className="text-sm font-semibold text-indigo-900 cursor-pointer">
-                🤖 Enable Per-Trade AI Gate
+                🤖 AI Gate Per-Trade <span className="text-green-600 font-semibold">(Recommended — matches live trading)</span>
               </label>
-              <span className="text-xs text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">Phase C</span>
             </div>
             <p className="text-xs text-indigo-700 mb-3">
-              When enabled, every signal is individually scored by Claude AI before entry.
-              Signals below the threshold are rejected. Compares <strong>AI-gated vs unfiltered</strong> performance.
+              Every signal is scored by Claude AI before entry — the same gate used in live trading.
+              <strong> Leave on for accurate results.</strong> Turning off tests raw strategy signals only, without AI filtering.
+              ~$0.01/trade (Claude API call).
             </p>
             {aiGated && (
               <div>
