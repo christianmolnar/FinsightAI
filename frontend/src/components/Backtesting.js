@@ -179,14 +179,12 @@ const Backtesting = () => {
 
   // Form state
   const [startDate, setStartDate] = useState('2025-01-01');
-  const [endDate, setEndDate] = useState('2026-03-01');
-  const [confidenceThreshold, setConfidenceThreshold] = useState(0.75);
-  const [useAI, setUseAI] = useState(true);
+  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [initialCapital, setInitialCapital] = useState(10000);
   const [positionSize, setPositionSize] = useState(1000);
-  const [enableCompounding, setEnableCompounding] = useState(true); // NEW: Compounding control
-  const [aiGated, setAiGated] = useState(true);          // AI gate on by default — matches live trading behavior
-  const [aiScoreThreshold, setAiScoreThreshold] = useState(60); // Phase C: gate threshold 0-100
+  const [enableCompounding, setEnableCompounding] = useState(true);
+  const [aiGated, setAiGated] = useState(true);          // ON by default — matches live trading behavior
+  const [aiScoreThreshold, setAiScoreThreshold] = useState(60);
   const [strategies, setStrategies] = useState({
     technical_breakout: true,
     earnings: true,
@@ -213,8 +211,6 @@ const Backtesting = () => {
         start_date: startDate,
         end_date: endDate,
         strategies: selectedStrategies.length === Object.keys(strategies).length ? null : selectedStrategies,
-        confidence_threshold: confidenceThreshold / 100,
-        use_ai: useAI,
         initial_capital: initialCapital,
         position_size: positionSize,
         max_hold_days: 14,
@@ -353,7 +349,7 @@ const Backtesting = () => {
       }
 
       const response = await fetch(
-        `${API_BASE_URL}/api/backtest/quick/${period}?confidence_threshold=${confidenceThreshold / 100}&initial_capital=${initialCapital}&position_size=${positionSize}&enable_compounding=${enableCompounding}`,
+        `${API_BASE_URL}/api/backtest/quick/${period}?initial_capital=${initialCapital}&position_size=${positionSize}&enable_compounding=${enableCompounding}&ai_gated=${aiGated}&ai_score_threshold=${aiScoreThreshold}`,
         { 
           method: 'POST',
           headers
@@ -497,8 +493,6 @@ const Backtesting = () => {
         start_date: startDate,
         end_date: endDate,
         strategies: selectedStrategies.length === Object.keys(strategies).length ? null : selectedStrategies,
-        confidence_threshold: confidenceThreshold,
-        use_ai: useAI,
         initial_capital: initialCapital,
         position_size: positionSize,
         max_hold_days: 14,
