@@ -41,13 +41,13 @@ export default function LiveTrader() {
         apiClient.get(`${API}/positions`),
         apiClient.get(`${API}/history`),
         apiClient.get(`${API}/performance`),
-        apiClient.get(`${API}/alpaca-account`).catch(() => ({ data: null })),
+        apiClient.get(`${API}/alpaca-account`).catch(() => null),
       ]);
-      setStatus(s.data);
-      setPositions(p.data || []);
-      setHistory(h.data || []);
-      setPerformance(perf.data || null);
-      setAlpaca(alp.data || null);
+      setStatus(s);
+      setPositions(Array.isArray(p) ? p : (p?.data || []));
+      setHistory(Array.isArray(h) ? h : (h?.data || []));
+      setPerformance(perf || null);
+      setAlpaca(alp || null);
     } catch (e) {
       setMessage({ type: 'error', text: 'Failed to load live trader: ' + (e.response?.data?.detail || e.message) });
     } finally {
@@ -61,8 +61,7 @@ export default function LiveTrader() {
     setCycleRunning(true);
     setMessage(null);
     try {
-      const res = await apiClient.post(`${API}/cycle`);
-      const d = res.data;
+      const d = await apiClient.post(`${API}/cycle`);
       setMessage({ type: d.halted ? 'warning' : 'success', text: d.halted ? `Halted: ${d.errors?.[0]}` : `Cycle: ${d.entries_executed} entries, ${d.exits_processed} exits` });
       await fetchAll();
     } catch (e) {
@@ -95,7 +94,7 @@ export default function LiveTrader() {
   const openPromoteModal = async () => {
     try {
       const res = await apiClient.get('/api/strategy-variants?mode=paper&is_active=true');
-      setPaperVariants(res.data || []);
+      setPaperVariants(Array.isArray(res) ? res : (res?.data || []));
       setShowPromoteModal(true);
     } catch (e) {
       setMessage({ type: 'error', text: 'Could not load paper variants: ' + e.message });
@@ -106,7 +105,7 @@ export default function LiveTrader() {
     setPromoting(true);
     try {
       const res = await apiClient.post(`/api/strategy-variants/${variantId}/promote-to-live`);
-      setMessage({ type: 'success', text: `✅ Strategy promoted to live: ${res.data.live_variant?.name}` });
+      setMessage({ type: 'success', text: `✅ Strategy promoted to live: ${res?.live_variant?.name || res?.data?.live_variant?.name}` });
       setShowPromoteModal(false);
       await fetchAll();
     } catch (e) {
@@ -131,15 +130,6 @@ export default function LiveTrader() {
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
-
-      {/* ── Real Money Warning Banner ── */}
-      <div className="bg-amber-50 border-2 border-amber-400 rounded-lg p-4 flex items-center space-x-3">
-        <AlertTriangle className="w-6 h-6 text-amber-600 flex-shrink-0" />
-        <div>
-          <p className="font-semibold text-amber-900">Real Money</p>
-          <p className="text-sm text-amber-700">This trader executes with real Alpaca funds. Only promote a strategy after sufficient paper validation.</p>
-        </div>
-      </div>
 
       {/* ── Header ── */}
       <div className={`rounded-lg p-6 text-white ${isHalted ? 'bg-gradient-to-r from-red-700 to-red-900' : 'bg-gradient-to-r from-slate-700 to-slate-900'}`}>
